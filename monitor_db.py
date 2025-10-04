@@ -29,6 +29,8 @@ class StockMonitorDatabase:
                 last_checked TIMESTAMP,
                 check_interval INTEGER DEFAULT 30,  -- 分钟
                 notification_enabled BOOLEAN DEFAULT TRUE,
+                quant_enabled BOOLEAN DEFAULT FALSE,  -- 量化交易开关
+                quant_config TEXT,  -- 量化配置JSON
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -64,16 +66,22 @@ class StockMonitorDatabase:
     def add_monitored_stock(self, symbol: str, name: str, rating: str, 
                            entry_range: Dict, take_profit: float, 
                            stop_loss: float, check_interval: int = 30, 
-                           notification_enabled: bool = True) -> int:
+                           notification_enabled: bool = True,
+                           quant_enabled: bool = False,
+                           quant_config: Dict = None) -> int:
         """添加监测股票"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
+        quant_config_json = json.dumps(quant_config) if quant_config else None
+        
         cursor.execute('''
             INSERT INTO monitored_stocks 
-            (symbol, name, rating, entry_range, take_profit, stop_loss, check_interval, notification_enabled)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (symbol, name, rating, json.dumps(entry_range), take_profit, stop_loss, check_interval, notification_enabled))
+            (symbol, name, rating, entry_range, take_profit, stop_loss, check_interval, 
+             notification_enabled, quant_enabled, quant_config)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (symbol, name, rating, json.dumps(entry_range), take_profit, stop_loss, 
+              check_interval, notification_enabled, quant_enabled, quant_config_json))
         
         stock_id = cursor.lastrowid
         conn.commit()
@@ -89,13 +97,14 @@ class StockMonitorDatabase:
         cursor.execute('''
             SELECT id, symbol, name, rating, entry_range, take_profit, stop_loss, 
                    current_price, last_checked, check_interval, notification_enabled,
-                   created_at, updated_at
+                   quant_enabled, quant_config, created_at, updated_at
             FROM monitored_stocks
             ORDER BY created_at DESC
         ''')
         
         stocks = []
         for row in cursor.fetchall():
+            quant_config = json.loads(row[12]) if row[12] else None
             stocks.append({
                 'id': row[0],
                 'symbol': row[1],
@@ -108,8 +117,10 @@ class StockMonitorDatabase:
                 'last_checked': row[8],
                 'check_interval': row[9],
                 'notification_enabled': bool(row[10]),
-                'created_at': row[11],
-                'updated_at': row[12]
+                'quant_enabled': bool(row[11]),
+                'quant_config': quant_config,
+                'created_at': row[13],
+                'updated_at': row[14]
             })
         
         conn.close()
@@ -235,17 +246,31 @@ class StockMonitorDatabase:
     
     def update_monitored_stock(self, stock_id: int, rating: str, entry_range: Dict, 
                               take_profit: float, stop_loss: float, 
-                              check_interval: int, notification_enabled: bool):
+                              check_interval: int, notification_enabled: bool,
+                              quant_enabled: bool = None,
+                              quant_config: Dict = None):
         """更新监测股票"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        cursor.execute('''
-            UPDATE monitored_stocks 
-            SET rating = ?, entry_range = ?, take_profit = ?, stop_loss = ?, 
-                check_interval = ?, notification_enabled = ?, updated_at = CURRENT_TIMESTAMP
-            WHERE id = ?
-        ''', (rating, json.dumps(entry_range), take_profit, stop_loss, check_interval, notification_enabled, stock_id))
+        if quant_enabled is not None and quant_config is not None:
+            quant_config_json = json.dumps(quant_config) if quant_config else None
+            cursor.execute('''
+                UPDATE monitored_stocks 
+                SET rating = ?, entry_range = ?, take_profit = ?, stop_loss = ?, 
+                    check_interval = ?, notification_enabled = ?, 
+                    quant_enabled = ?, quant_config = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            ''', (rating, json.dumps(entry_range), take_profit, stop_loss, 
+                  check_interval, notification_enabled, quant_enabled, quant_config_json, stock_id))
+        else:
+            cursor.execute('''
+                UPDATE monitored_stocks 
+                SET rating = ?, entry_range = ?, take_profit = ?, stop_loss = ?, 
+                    check_interval = ?, notification_enabled = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            ''', (rating, json.dumps(entry_range), take_profit, stop_loss, check_interval, notification_enabled, stock_id))
         
         conn.commit()
         conn.close()
@@ -275,7 +300,8 @@ class StockMonitorDatabase:
         
         cursor.execute('''
             SELECT id, symbol, name, rating, entry_range, take_profit, stop_loss,
-                   current_price, last_checked, check_interval, notification_enabled
+                   current_price, last_checked, check_interval, notification_enabled,
+                   quant_enabled, quant_config
             FROM monitored_stocks WHERE id = ?
         ''', (stock_id,))
         
@@ -283,6 +309,7 @@ class StockMonitorDatabase:
         conn.close()
         
         if row:
+            quant_config = json.loads(row[12]) if row[12] else None
             return {
                 'id': row[0],
                 'symbol': row[1],
@@ -294,7 +321,9 @@ class StockMonitorDatabase:
                 'current_price': row[7],
                 'last_checked': row[8],
                 'check_interval': row[9],
-                'notification_enabled': bool(row[10])
+                'notification_enabled': bool(row[10]),
+                'quant_enabled': bool(row[11]),
+                'quant_config': quant_config
             }
         return None
 

@@ -43,6 +43,14 @@
 - **多种通知方式**：网页提醒 + 邮件通知
 - **卡片式管理**：直观的股票监测卡片展示
 - **完整功能**：添加、编辑、删除、启停、通知开关
+
+### 🤖 量化交易功能（MiniQMT集成）
+- **自动交易执行**：监测触发后自动下单
+- **智能仓位管理**：灵活配置单股最大仓位比例
+- **多种订单类型**：市价单、限价单、止损单支持
+- **风险控制**：自动止损、止盈功能
+- **持仓监控**：实时查看持仓和盈亏
+- **预留接口**：完整的MiniQMT对接接口，可对接真实交易
 <img width="1910" height="923" alt="image" src="https://github.com/user-attachments/assets/1e93f870-7846-426c-9c22-15fdfaf1f1d0" />
 <img width="1910" height="923" alt="image" src="https://github.com/user-attachments/assets/a85defbf-321a-4fe2-b491-6855f2aa366c" />
 
@@ -99,6 +107,12 @@ SMTP_PORT=587
 EMAIL_FROM=your_email@qq.com
 EMAIL_PASSWORD=your_authorization_code
 EMAIL_TO=receiver@example.com
+
+# MiniQMT量化交易配置（可选）
+MINIQMT_ENABLED=false
+MINIQMT_ACCOUNT_ID=your_account_id
+MINIQMT_HOST=127.0.0.1
+MINIQMT_PORT=58610
 ```
 
 
@@ -257,6 +271,7 @@ AI股票分析系统
 ├── monitor_service.py        # 监测服务后台
 ├── monitor_db.py             # 监测数据库管理
 ├── notification_service.py   # 通知服务（邮件/界面）
+├── miniqmt_interface.py      # MiniQMT量化交易接口 ⭐️
 ├── pdf_generator.py          # PDF报告生成
 ├── database.py               # 分析记录数据库
 ├── config.py                 # 配置文件
@@ -314,6 +329,15 @@ AI股票分析系统
 - 多邮箱支持（QQ/163/Gmail）
 - 通知历史管理
 - 配置测试功能
+
+#### 🤖 量化交易模块 (miniqmt_interface.py) ⭐️ 新增
+- MiniQMT接口对接
+- 自动交易执行
+- 仓位管理
+- 风险控制
+- 订单管理
+- 持仓监控
+- 预留接口实现
 
 #### 📄 PDF生成模块 (pdf_generator.py)
 - 专业分析报告生成
@@ -409,6 +433,20 @@ DEFAULT_INTERVAL = "1d"    # 默认数据间隔
    - 检查网络连接是否稳定
    - 查看终端输出的详细错误信息
    - 尝试重新启动应用
+
+7. **MiniQMT连接失败**
+   - 确认MiniQMT客户端已启动
+   - 检查账户已登录
+   - 验证账户ID配置正确
+   - 确认网络连接正常
+   - 查看 `MINIQMT_INTEGRATION_GUIDE.md` 详细指南
+
+8. **量化交易未执行**
+   - 确认量化功能已启用
+   - 检查MiniQMT连接状态
+   - 验证监测服务是否运行
+   - 查看通知记录中的错误信息
+   - 确认交易时间在交易日内
 
 ### 日志调试
 系统运行时会在控制台输出详细日志，可用于问题诊断。如遇到错误，请查看终端输出。

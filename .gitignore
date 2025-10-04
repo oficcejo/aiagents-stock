@@ -6,7 +6,6 @@
 /test_pe_pb.py
 /venv
 /__pycache__
-/stock_analysis.db
-/stock_monitor.db
+/*.db
 # 环境变量文件
 .env

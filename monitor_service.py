@@ -7,6 +7,7 @@ import streamlit as st
 
 from monitor_db import monitor_db
 from stock_data import StockDataFetcher
+from miniqmt_interface import miniqmt, get_miniqmt_status
 
 class StockMonitorService:
     """股票监测服务"""
@@ -104,16 +105,71 @@ class StockMonitorService:
             if current_price >= entry_range['min'] and current_price <= entry_range['max']:
                 message = f"股票 {stock['symbol']} ({stock['name']}) 价格 {current_price} 进入进场区间 [{entry_range['min']}-{entry_range['max']}]"
                 monitor_db.add_notification(stock['id'], 'entry', message)
+                
+                # 如果启用量化交易，执行自动交易
+                if stock.get('quant_enabled', False):
+                    self._execute_quant_trade(stock, 'entry', current_price)
         
         # 检查止盈
         if take_profit and current_price >= take_profit:
             message = f"股票 {stock['symbol']} ({stock['name']}) 价格 {current_price} 达到止盈位 {take_profit}"
             monitor_db.add_notification(stock['id'], 'take_profit', message)
+            
+            # 如果启用量化交易，执行自动交易
+            if stock.get('quant_enabled', False):
+                self._execute_quant_trade(stock, 'take_profit', current_price)
         
         # 检查止损
         if stop_loss and current_price <= stop_loss:
             message = f"股票 {stock['symbol']} ({stock['name']}) 价格 {current_price} 达到止损位 {stop_loss}"
             monitor_db.add_notification(stock['id'], 'stop_loss', message)
+            
+            # 如果启用量化交易，执行自动交易
+            if stock.get('quant_enabled', False):
+                self._execute_quant_trade(stock, 'stop_loss', current_price)
+    
+    def _execute_quant_trade(self, stock: Dict, signal_type: str, current_price: float):
+        """执行量化交易"""
+        try:
+            # 检查MiniQMT是否连接
+            if not miniqmt.is_connected():
+                print(f"MiniQMT未连接，无法执行 {stock['symbol']} 的量化交易")
+                return
+            
+            # 获取量化配置
+            quant_config = stock.get('quant_config', {})
+            if not quant_config:
+                print(f"股票 {stock['symbol']} 未配置量化参数")
+                return
+            
+            # 执行策略信号
+            signal = {
+                'type': signal_type,
+                'price': current_price,
+                'message': f"{signal_type} signal triggered"
+            }
+            
+            position_size = quant_config.get('max_position_pct', 0.2)
+            success, msg = miniqmt.execute_strategy_signal(
+                stock['id'], 
+                stock['symbol'], 
+                signal, 
+                position_size
+            )
+            
+            if success:
+                print(f"✅ 量化交易成功: {stock['symbol']} - {msg}")
+                # 记录交易通知
+                monitor_db.add_notification(
+                    stock['id'], 
+                    'quant_trade', 
+                    f"量化交易执行: {msg}"
+                )
+            else:
+                print(f"❌ 量化交易失败: {stock['symbol']} - {msg}")
+                
+        except Exception as e:
+            print(f"执行量化交易异常: {stock['symbol']} - {str(e)}")
     
     def get_stocks_needing_update(self) -> List[Dict]:
         """获取需要更新价格的股票"""

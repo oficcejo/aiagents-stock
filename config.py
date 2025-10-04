@@ -14,3 +14,11 @@ TUSHARE_TOKEN = os.getenv("TUSHARE_TOKEN", "")
 # 股票数据源配置
 DEFAULT_PERIOD = "1y"  # 默认获取1年数据
 DEFAULT_INTERVAL = "1d"  # 默认日线数据
+
+# MiniQMT量化交易配置
+MINIQMT_CONFIG = {
+    'enabled': os.getenv("MINIQMT_ENABLED", "false").lower() == "true",
+    'account_id': os.getenv("MINIQMT_ACCOUNT_ID", ""),
+    'host': os.getenv("MINIQMT_HOST", "127.0.0.1"),
+    'port': int(os.getenv("MINIQMT_PORT", "58610")),
+}
