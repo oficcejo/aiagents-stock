@@ -51,8 +51,9 @@
 - **风险控制**：自动止损、止盈功能
 - **持仓监控**：实时查看持仓和盈亏
 - **预留接口**：完整的MiniQMT对接接口，可对接真实交易
-<img width="1910" height="923" alt="image" src="https://github.com/user-attachments/assets/1e93f870-7846-426c-9c22-15fdfaf1f1d0" />
+<img width="1907" height="919" alt="image" src="https://github.com/user-attachments/assets/ea499f1e-5c11-4596-a359-d14de77bff9b" />
 <img width="1910" height="923" alt="image" src="https://github.com/user-attachments/assets/a85defbf-321a-4fe2-b491-6855f2aa366c" />
+<img width="1869" height="906" alt="image" src="https://github.com/user-attachments/assets/d59de299-6300-4669-9902-7754da7407db" />
 
 ### 📧 邮件通知系统
 - **多邮箱支持**：QQ邮箱、163邮箱、Gmail等

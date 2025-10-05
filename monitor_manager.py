@@ -25,6 +25,12 @@ def display_monitor_manager():
     st.markdown("## 📊 股票监测管理")
     st.markdown("---")
     
+    # 检查是否有跳转提示
+    if 'monitor_jump_highlight' in st.session_state:
+        symbol = st.session_state.monitor_jump_highlight
+        st.success(f"✅ {symbol} 已成功加入监测列表！您可以在下方查看。")
+        del st.session_state.monitor_jump_highlight
+    
     # 监测服务状态
     display_monitor_status()
     
