@@ -43,6 +43,11 @@
 - **多种通知方式**：网页提醒 + 邮件通知
 - **卡片式管理**：直观的股票监测卡片展示
 - **完整功能**：添加、编辑、删除、启停、通知开关
+- **一键加入监测**：支持历史记录中一键加入监测功能
+<img width="1910" height="923" alt="image" src="https://github.com/user-attachments/assets/ca39f4c6-5922-4df5-b38f-8a45a3dbdfb9" />
+<img width="1910" height="923" alt="image" src="https://github.com/user-attachments/assets/1463fc59-05aa-4201-a4aa-15e6da373cb7" />
+<img width="1910" height="923" alt="image" src="https://github.com/user-attachments/assets/a283fcf9-5ea9-42e5-876f-82920a74dd33" />
+
 
 ### 🤖 量化交易功能（MiniQMT集成）
 - **自动交易执行**：监测触发后自动下单
