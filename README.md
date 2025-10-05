@@ -4,6 +4,8 @@
 <img width="1910" height="923" alt="image" src="https://github.com/user-attachments/assets/b482a2bf-6349-476c-9ba4-237960cc632a" />
 <img width="1910" height="923" alt="image" src="https://github.com/user-attachments/assets/b2ac735b-5a3a-478c-955d-1a37eb705bb1" />
 
+## ✨ 更新说明
+### 增加股票监测功能，增加历史记录中个股导入到监测板块
 
 ## ✨ 功能特色
 
