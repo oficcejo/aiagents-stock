@@ -15,6 +15,7 @@ from database import db
 from monitor_manager import display_monitor_manager, get_monitor_summary
 from monitor_service import monitor_service
 from notification_service import notification_service
+from config_manager import config_manager
 
 # 页面配置
 st.set_page_config(
@@ -301,6 +302,15 @@ def main():
                 del st.session_state.show_history
             if 'show_monitor' in st.session_state:
                 del st.session_state.show_monitor
+            if 'show_config' in st.session_state:
+                del st.session_state.show_config
+        
+        if st.button("⚙️ 环境配置", use_container_width=True, key="nav_config"):
+            st.session_state.show_config = True
+            if 'show_history' in st.session_state:
+                del st.session_state.show_history
+            if 'show_monitor' in st.session_state:
+                del st.session_state.show_monitor
         
         st.markdown("---")
         
@@ -381,6 +391,11 @@ def main():
     # 检查是否显示监测面板
     if 'show_monitor' in st.session_state and st.session_state.show_monitor:
         display_monitor_manager()
+        return
+    
+    # 检查是否显示环境配置
+    if 'show_config' in st.session_state and st.session_state.show_config:
+        display_config_manager()
         return
     
     # 主界面
@@ -1332,6 +1347,217 @@ def display_record_detail(record_id):
         if 'add_to_monitor_id' in st.session_state:
             del st.session_state.add_to_monitor_id
         st.rerun()
+
+def display_config_manager():
+    """显示环境配置管理界面"""
+    st.subheader("⚙️ 环境配置管理")
+    
+    st.markdown("""
+    <div class="agent-card">
+        <p>在这里可以配置系统的环境变量，包括API密钥、数据源配置、量化交易配置等。</p>
+        <p><strong>注意：</strong>配置修改后需要重启应用才能生效。</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # 获取当前配置
+    config_info = config_manager.get_config_info()
+    
+    # 创建标签页
+    tab1, tab2, tab3 = st.tabs(["📝 基本配置", "📊 数据源配置", "🤖 量化交易配置"])
+    
+    # 使用session_state保存临时配置
+    if 'temp_config' not in st.session_state:
+        st.session_state.temp_config = {key: info["value"] for key, info in config_info.items()}
+    
+    with tab1:
+        st.markdown("### DeepSeek API配置")
+        st.markdown("DeepSeek是系统的核心AI引擎，必须配置才能使用分析功能。")
+        
+        # DeepSeek API Key
+        api_key_info = config_info["DEEPSEEK_API_KEY"]
+        current_api_key = st.session_state.temp_config.get("DEEPSEEK_API_KEY", "")
+        
+        new_api_key = st.text_input(
+            f"🔑 {api_key_info['description']} {'*' if api_key_info['required'] else ''}",
+            value=current_api_key,
+            type="password",
+            help="从 https://platform.deepseek.com 获取API密钥",
+            key="input_deepseek_api_key"
+        )
+        st.session_state.temp_config["DEEPSEEK_API_KEY"] = new_api_key
+        
+        # 显示当前状态
+        if new_api_key:
+            masked_key = new_api_key[:8] + "*" * (len(new_api_key) - 12) + new_api_key[-4:] if len(new_api_key) > 12 else "***"
+            st.success(f"✅ API密钥已设置: {masked_key}")
+        else:
+            st.warning("⚠️ 未设置API密钥，系统无法使用AI分析功能")
+        
+        st.markdown("---")
+        
+        # DeepSeek Base URL
+        base_url_info = config_info["DEEPSEEK_BASE_URL"]
+        current_base_url = st.session_state.temp_config.get("DEEPSEEK_BASE_URL", "")
+        
+        new_base_url = st.text_input(
+            f"🌐 {base_url_info['description']}",
+            value=current_base_url,
+            help="一般无需修改，保持默认即可",
+            key="input_deepseek_base_url"
+        )
+        st.session_state.temp_config["DEEPSEEK_BASE_URL"] = new_base_url
+        
+        st.info("💡 如何获取DeepSeek API密钥？\n\n1. 访问 https://platform.deepseek.com\n2. 注册/登录账号\n3. 进入API密钥管理页面\n4. 创建新的API密钥\n5. 复制密钥并粘贴到上方输入框")
+    
+    with tab2:
+        st.markdown("### Tushare数据接口（可选）")
+        st.markdown("Tushare提供更丰富的A股财务数据，配置后可以获取更详细的财务分析。")
+        
+        tushare_info = config_info["TUSHARE_TOKEN"]
+        current_tushare = st.session_state.temp_config.get("TUSHARE_TOKEN", "")
+        
+        new_tushare = st.text_input(
+            f"🎫 {tushare_info['description']}",
+            value=current_tushare,
+            type="password",
+            help="从 https://tushare.pro 获取Token",
+            key="input_tushare_token"
+        )
+        st.session_state.temp_config["TUSHARE_TOKEN"] = new_tushare
+        
+        if new_tushare:
+            st.success("✅ Tushare Token已设置")
+        else:
+            st.info("ℹ️ 未设置Tushare Token，系统将使用其他数据源")
+        
+        st.info("💡 如何获取Tushare Token？\n\n1. 访问 https://tushare.pro\n2. 注册账号\n3. 进入个人中心\n4. 获取Token\n5. 复制并粘贴到上方输入框")
+    
+    with tab3:
+        st.markdown("### MiniQMT量化交易配置（可选）")
+        st.markdown("配置后可以使用量化交易功能，自动执行交易策略。")
+        
+        # 启用开关
+        miniqmt_enabled_info = config_info["MINIQMT_ENABLED"]
+        current_enabled = st.session_state.temp_config.get("MINIQMT_ENABLED", "false") == "true"
+        
+        new_enabled = st.checkbox(
+            "启用MiniQMT量化交易",
+            value=current_enabled,
+            help="开启后可以使用量化交易功能",
+            key="input_miniqmt_enabled"
+        )
+        st.session_state.temp_config["MINIQMT_ENABLED"] = "true" if new_enabled else "false"
+        
+        # 其他配置
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            account_id_info = config_info["MINIQMT_ACCOUNT_ID"]
+            current_account_id = st.session_state.temp_config.get("MINIQMT_ACCOUNT_ID", "")
+            
+            new_account_id = st.text_input(
+                f"🆔 {account_id_info['description']}",
+                value=current_account_id,
+                disabled=not new_enabled,
+                key="input_miniqmt_account_id"
+            )
+            st.session_state.temp_config["MINIQMT_ACCOUNT_ID"] = new_account_id
+            
+            host_info = config_info["MINIQMT_HOST"]
+            current_host = st.session_state.temp_config.get("MINIQMT_HOST", "")
+            
+            new_host = st.text_input(
+                f"🖥️ {host_info['description']}",
+                value=current_host,
+                disabled=not new_enabled,
+                key="input_miniqmt_host"
+            )
+            st.session_state.temp_config["MINIQMT_HOST"] = new_host
+        
+        with col2:
+            port_info = config_info["MINIQMT_PORT"]
+            current_port = st.session_state.temp_config.get("MINIQMT_PORT", "")
+            
+            new_port = st.text_input(
+                f"🔌 {port_info['description']}",
+                value=current_port,
+                disabled=not new_enabled,
+                key="input_miniqmt_port"
+            )
+            st.session_state.temp_config["MINIQMT_PORT"] = new_port
+        
+        if new_enabled:
+            st.success("✅ MiniQMT已启用")
+        else:
+            st.info("ℹ️ MiniQMT未启用")
+        
+        st.warning("⚠️ 警告：量化交易涉及真实资金操作，请谨慎配置和使用！")
+    
+    # 操作按钮
+    st.markdown("---")
+    col1, col2, col3, col4 = st.columns([1, 1, 1, 2])
+    
+    with col1:
+        if st.button("💾 保存配置", type="primary", use_container_width=True):
+            # 验证配置
+            is_valid, message = config_manager.validate_config(st.session_state.temp_config)
+            
+            if is_valid:
+                # 保存配置
+                if config_manager.write_env(st.session_state.temp_config):
+                    st.success("✅ 配置已保存到 .env 文件")
+                    st.info("ℹ️ 请重启应用使配置生效")
+                    
+                    # 尝试重新加载配置
+                    try:
+                        config_manager.reload_config()
+                        st.success("✅ 配置已重新加载")
+                    except Exception as e:
+                        st.warning(f"⚠️ 配置重新加载失败: {e}")
+                    
+                    time.sleep(2)
+                    st.rerun()
+                else:
+                    st.error("❌ 保存配置失败")
+            else:
+                st.error(f"❌ 配置验证失败: {message}")
+    
+    with col2:
+        if st.button("🔄 重置", use_container_width=True):
+            # 重置为当前文件中的值
+            st.session_state.temp_config = {key: info["value"] for key, info in config_info.items()}
+            st.success("✅ 已重置为当前配置")
+            st.rerun()
+    
+    with col3:
+        if st.button("⬅️ 返回", use_container_width=True):
+            if 'show_config' in st.session_state:
+                del st.session_state.show_config
+            if 'temp_config' in st.session_state:
+                del st.session_state.temp_config
+            st.rerun()
+    
+    # 显示当前.env文件内容
+    st.markdown("---")
+    with st.expander("📄 查看当前 .env 文件内容"):
+        current_config = config_manager.read_env()
+        
+        st.code(f"""# AI股票分析系统环境配置
+# 由系统自动生成和管理
+
+# ========== DeepSeek API配置 ==========
+DEEPSEEK_API_KEY="{current_config.get('DEEPSEEK_API_KEY', '')}"
+DEEPSEEK_BASE_URL="{current_config.get('DEEPSEEK_BASE_URL', '')}"
+
+# ========== Tushare数据接口（可选）==========
+TUSHARE_TOKEN="{current_config.get('TUSHARE_TOKEN', '')}"
+
+# ========== MiniQMT量化交易配置（可选）==========
+MINIQMT_ENABLED="{current_config.get('MINIQMT_ENABLED', 'false')}"
+MINIQMT_ACCOUNT_ID="{current_config.get('MINIQMT_ACCOUNT_ID', '')}"
+MINIQMT_HOST="{current_config.get('MINIQMT_HOST', '127.0.0.1')}"
+MINIQMT_PORT="{current_config.get('MINIQMT_PORT', '58610')}"
+""", language="bash")
 
 if __name__ == "__main__":
     main()
