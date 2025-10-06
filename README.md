@@ -1,5 +1,7 @@
 # 🤖 复合多AI智能体股票团队分析系统
 
+初心：在股市摸爬滚打多年，自学自编各种指标，花冤枉钱学习了各种战法各种策略，也曾入各种小班，总是赚少赔多，逐渐失去在股市玩的信心。自从去年deepseek上市，一直探索用ai辅助分析，且近日受tradingagents项目启发（感谢原作），结合跟踪主力资金玩法（某指每年收费6000rmb），用各种ai辅助编程，拼凑了这么个小程序，根据软件提供的辅助信息，形成了我自己的交易系统，近1一个月来，账户也慢慢在扭亏为盈。开源此软件的目的，就是为了使像我一样的一些小散，不再迷茫，也许这个软件不能让你发财，但是他能给你信心。希望能帮到你！欢迎加微信群讨论
+<img width="300" height="324" alt="image" src="https://www.sd-hn.cn/img/2wm300.png" />
 基于Python + Streamlit + DeepSeek的智能股票分析系统，模拟证券公司分析师团队，提供全方位的股票投资分析和决策建议。
 <img width="1910" height="923" alt="image" src="https://github.com/user-attachments/assets/b482a2bf-6349-476c-9ba4-237960cc632a" />
 <img width="1910" height="923" alt="image" src="https://github.com/user-attachments/assets/b2ac735b-5a3a-478c-955d-1a37eb705bb1" />
