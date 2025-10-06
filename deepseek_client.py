@@ -206,39 +206,110 @@ class DeepSeekClient:
         
         return self.call_api(messages)
     
-    def fund_flow_analysis(self, stock_info: Dict, indicators: Dict) -> str:
+    def fund_flow_analysis(self, stock_info: Dict, indicators: Dict, fund_flow_data: Dict = None) -> str:
         """资金面分析"""
+        
+        # 构建资金流向数据部分 - 直接使用问财原始数据
+        fund_flow_section = ""
+        if fund_flow_data and fund_flow_data.get('query_success'):
+            raw_data = fund_flow_data.get('raw_data', {})
+            
+            if raw_data:
+                fund_flow_section = "\n【问财资金流向完整数据（近20个交易日）】\n"
+                fund_flow_section += f"数据来源：同花顺问财\n"
+                fund_flow_section += f"股票名称：{fund_flow_data.get('stock_name', 'N/A')}\n"
+                fund_flow_section += f"股票代码：{fund_flow_data.get('stock_code', 'N/A')}\n\n"
+                
+                # 将所有问财返回的数据都列出来，让AI自己分析
+                for key, value in raw_data.items():
+                    # 跳过股票代码和名称（已经显示过了）
+                    if key in ['股票代码', '股票简称', 'code', 'name']:
+                        continue
+                    fund_flow_section += f"- {key}: {value}\n"
+                
+                fund_flow_section += "\n以上是问财返回的所有资金流向相关数据，请仔细分析这些数据的含义和相互关系。\n"
+            else:
+                fund_flow_section = "\n【资金流向数据】\n注意：问财返回数据为空。\n"
+        else:
+            fund_flow_section = "\n【资金流向数据】\n注意：未能获取到问财资金流向数据，将基于成交量进行分析。\n"
+        
         prompt = f"""
-你是一名资深的资金面分析师。请基于以下信息进行专业的资金面分析：
+你是一名资深的资金面分析师，擅长从资金流向数据中洞察主力行为和市场趋势。
 
-股票信息：
-- 股票代码：{stock_info.get('symbol', 'N/A')}
-- 股票名称：{stock_info.get('name', 'N/A')}
-- 当前价格：{stock_info.get('current_price', 'N/A')}
-- 市值：{stock_info.get('market_cap', 'N/A')}
+【基本信息】
+股票代码：{stock_info.get('symbol', 'N/A')}
+股票名称：{stock_info.get('name', 'N/A')}
+当前价格：{stock_info.get('current_price', 'N/A')}
+市值：{stock_info.get('market_cap', 'N/A')}
 
-资金相关指标：
+【技术指标】
 - 量比：{indicators.get('volume_ratio', 'N/A')}
 - 当前成交量与5日均量比：{indicators.get('volume_ratio', 'N/A')}
+{fund_flow_section}
 
-请从以下角度进行分析：
-1. 成交量变化分析
-2. 资金流入流出趋势
-3. 大单、中单、小单资金行为
-4. 主力资金动向分析
-5. 市场情绪和资金偏好
-6. 流动性分析
-7. 资金面对股价的支撑或压力
+【分析要求】
 
-请结合当前市场资金环境，给出专业的资金面分析报告。
+请你**仔细阅读上述问财返回的所有数据字段**，自己识别和提取关键信息，然后从以下角度进行深入分析：
+
+1. **数据解读与提取**（重要！）
+   - 识别哪些字段是资金流向相关数据（如：区间资金流向、主力资金、大单、中单、小单等）
+   - 提取关键数值（注意单位：元、亿元、百分比等）
+   - 计算主力资金占比、不同类型资金的比例关系
+   - 识别涨跌幅、换手率等关联指标
+
+2. **资金流向趋势分析**
+   - 近20日总资金流向趋势（净流入/净流出，金额多少）
+   - 资金流向与股价涨跌的关系（是否同向）
+   - 资金流向的强度评估
+
+3. **主力资金行为分析**（核心重点）
+   - 主力资金流向方向和规模
+   - 主力资金占比情况（控盘程度）
+   - 主力操作意图研判（吸筹/派发/洗盘/拉升）
+   - 主力与散户资金的博弈态势
+   - 大单、中单、小单的分布特征
+
+4. **资金结构分析**
+   - 不同类型资金的流向（超大单、大单、中单、小单）
+   - 机构资金与散户资金的对比
+   - 资金集中度分析
+
+5. **量价关系分析**
+   - 资金流向与股价涨跌的配合
+   - 量价背离情况识别
+   - 成交活跃度评估
+
+6. **资金面与技术面结合**
+   - 资金流向对关键技术位的影响
+   - 资金推动与股价趋势的一致性
+   - 资金面对未来走势的指示作用
+
+7. **风险与机会评估**
+   - 资金面的风险信号（如主力出逃、资金外流）
+   - 资金面的机会信号（如主力建仓、资金集中流入）
+   - 未来资金流向预判
+
+8. **投资建议**
+   - 基于资金面的明确操作建议
+   - 买入/持有/卖出的判断依据
+   - 仓位管理建议
+
+【分析原则】
+- 主力资金持续流入 + 股价上涨 → 强势信号，主力看好
+- 主力资金流出 + 股价上涨 → 警惕信号，可能是散户接盘
+- 主力资金流入 + 股价下跌 → 可能是主力低位吸筹
+- 主力资金流出 + 股价下跌 → 弱势信号，主力看空
+- 注意区分短期波动与趋势性变化
+
+请给出专业、详细、有深度的资金面分析报告。记住：要基于问财数据的实际内容进行分析，而不是假设！
 """
         
         messages = [
-            {"role": "system", "content": "你是一名经验丰富的资金面分析师，擅长市场资金流向和主力行为分析。"},
+            {"role": "system", "content": "你是一名经验丰富的资金面分析师，擅长市场资金流向和主力行为分析，能够深入解读资金数据背后的投资逻辑。"},
             {"role": "user", "content": prompt}
         ]
         
-        return self.call_api(messages)
+        return self.call_api(messages, max_tokens=3000)
     
     def comprehensive_discussion(self, technical_report: str, fundamental_report: str, 
                                fund_flow_report: str, stock_info: Dict) -> str:

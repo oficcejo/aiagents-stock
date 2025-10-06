@@ -6,6 +6,7 @@ import ta
 from datetime import datetime, timedelta
 import requests
 import json
+import pywencai
 
 class StockDataFetcher:
     """股票数据获取类"""
@@ -545,3 +546,163 @@ class StockDataFetcher:
         except Exception as e:
             print(f"获取美股财务数据失败: {e}")
             return financial_data
+    
+    def get_fund_flow_data(self, symbol):
+        """使用问财获取资金流向数据
+        
+        Args:
+            symbol: 股票代码（6位数字）
+            
+        Returns:
+            dict: 包含问财原始数据的字典
+        """
+        fund_flow_data = {
+            "symbol": symbol,
+            "query_success": False,
+            "raw_data": None,  # 存储原始数据
+            "data_source": "pywencai"
+        }
+        
+        # 只支持中国股票
+        if not self._is_chinese_stock(symbol):
+            fund_flow_data["error"] = "问财数据仅支持中国A股股票"
+            return fund_flow_data
+        
+        try:
+            # 构建问句，查询近20个交易日的资金流向数据
+            query = f"{symbol}近20个交易日区间资金流向、区间主力资金流向、区间涨跌幅"
+            
+            print(f"正在使用问财查询资金流向数据: {query}")
+            
+            # 使用pywencai查询
+            result = pywencai.get(query=query, loop=True)
+            
+            # 调试：打印result的类型
+            print(f"问财返回的数据类型: {type(result)}")
+            
+            # 处理不同类型的返回结果，统一转换为DataFrame
+            df_result = None
+            
+            if result is None:
+                fund_flow_data["error"] = "问财查询返回None"
+                print(f"问财查询返回None")
+            elif isinstance(result, dict):
+                # 如果返回的是字典，转换为DataFrame
+                print(f"问财返回字典，转换为DataFrame")
+                try:
+                    df_result = pd.DataFrame([result])
+                    print(f"成功转换，形状: {df_result.shape}")
+                except Exception as e:
+                    fund_flow_data["error"] = f"无法转换为DataFrame: {str(e)}"
+                    print(f"转换失败: {e}")
+            elif isinstance(result, pd.DataFrame):
+                # 如果已经是DataFrame
+                df_result = result
+                print(f"问财返回DataFrame，形状: {df_result.shape}")
+            else:
+                fund_flow_data["error"] = f"问财返回了未知类型: {type(result)}"
+                print(f"问财返回未知类型: {type(result)}")
+            
+            # 如果成功获取到DataFrame
+            if df_result is not None and not df_result.empty and len(df_result) > 0:
+                # 打印列名以便调试
+                print(f"问财返回的列名: {df_result.columns.tolist()}")
+                
+                # 检查是否是嵌套结构（tableV1字段包含实际数据）
+                if 'tableV1' in df_result.columns and len(df_result.columns) == 1:
+                    print(f"检测到嵌套结构，提取tableV1中的数据")
+                    table_v1_data = df_result.iloc[0]['tableV1']
+                    
+                    # 检查tableV1的类型
+                    print(f"tableV1的类型: {type(table_v1_data)}")
+                    
+                    if isinstance(table_v1_data, pd.DataFrame):
+                        # 如果是DataFrame，直接使用
+                        df_result = table_v1_data
+                        print(f"提取后的DataFrame形状: {df_result.shape}")
+                        print(f"提取后的列名: {df_result.columns.tolist()}")
+                    elif isinstance(table_v1_data, list) and len(table_v1_data) > 0:
+                        # 如果是列表，转换为DataFrame
+                        df_result = pd.DataFrame(table_v1_data)
+                        print(f"从列表转换的DataFrame形状: {df_result.shape}")
+                        print(f"从列表转换的列名: {df_result.columns.tolist()}")
+                    else:
+                        fund_flow_data["error"] = f"tableV1数据类型不支持: {type(table_v1_data)}"
+                        print(f"tableV1数据类型不支持: {type(table_v1_data)}")
+                        return fund_flow_data
+                
+                # 再次检查是否有数据
+                if df_result is None or df_result.empty or len(df_result) == 0:
+                    fund_flow_data["error"] = "提取后的数据为空"
+                    print(f"提取后的数据为空")
+                    return fund_flow_data
+                
+                # 获取第一条记录
+                data = df_result.iloc[0]
+                
+                # 标记查询成功
+                fund_flow_data["query_success"] = True
+                fund_flow_data["stock_name"] = str(data.get('股票简称', data.get('name', 'N/A')))
+                fund_flow_data["stock_code"] = str(data.get('股票代码', data.get('code', symbol)))
+                
+                # 将所有数据转换为字典格式（方便AI阅读）
+                raw_data_dict = {}
+                for col in df_result.columns:
+                    value = data.get(col)
+                    # 转换为易读的格式
+                    try:
+                        if value is None or (isinstance(value, float) and pd.isna(value)):
+                            raw_data_dict[col] = "N/A"
+                        elif isinstance(value, (int, float)):
+                            # 如果是大数字（可能是金额），转换为亿元
+                            if abs(value) > 100000000:
+                                raw_data_dict[col] = f"{value} ({value/100000000:.2f}亿元)"
+                            else:
+                                raw_data_dict[col] = value
+                        elif isinstance(value, pd.DataFrame):
+                            # 如果值本身是DataFrame，跳过
+                            continue
+                        else:
+                            raw_data_dict[col] = str(value)
+                    except Exception as e:
+                        print(f"处理字段 {col} 时出错: {e}")
+                        raw_data_dict[col] = str(value)
+                
+                fund_flow_data["raw_data"] = raw_data_dict
+                fund_flow_data["columns"] = df_result.columns.tolist()
+                
+                print(f"成功获取 {symbol} 的问财数据，共 {len(raw_data_dict)} 个字段")
+            else:
+                fund_flow_data["error"] = "问财查询返回空数据"
+                print(f"问财查询返回空数据")
+                
+        except Exception as e:
+            fund_flow_data["error"] = f"获取资金流向数据失败: {str(e)}"
+            print(f"获取资金流向数据异常: {e}")
+            import traceback
+            traceback.print_exc()
+        
+        return fund_flow_data
+    
+    def _safe_convert(self, value):
+        """安全地转换数值"""
+        if value is None or value == '' or (isinstance(value, float) and np.isnan(value)):
+            return 'N/A'
+        try:
+            if isinstance(value, str):
+                # 移除百分号和逗号
+                value = value.replace('%', '').replace(',', '')
+                return float(value)
+            return value
+        except:
+            return value
+    
+    def _calculate_main_fund_ratio(self, main_fund, total_fund):
+        """计算主力资金占比"""
+        try:
+            if main_fund != 'N/A' and total_fund != 'N/A' and total_fund != 0:
+                ratio = (main_fund / total_fund) * 100
+                return f"{ratio:.2f}%"
+        except:
+            pass
+        return 'N/A'

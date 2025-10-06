@@ -39,18 +39,26 @@ class StockAnalysisAgents:
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
         }
     
-    def fund_flow_analyst_agent(self, stock_info: Dict, indicators: Dict) -> Dict[str, Any]:
+    def fund_flow_analyst_agent(self, stock_info: Dict, indicators: Dict, fund_flow_data: Dict = None) -> Dict[str, Any]:
         """资金面分析智能体"""
         print("💰 资金面分析师正在分析中...")
+        
+        # 如果有资金流向数据，显示数据来源
+        if fund_flow_data and fund_flow_data.get('query_success'):
+            print("   ✓ 已获取问财资金流向数据")
+        else:
+            print("   ⚠ 未获取到问财资金流向数据，将基于技术指标分析")
+        
         time.sleep(1)
         
-        analysis = self.deepseek_client.fund_flow_analysis(stock_info, indicators)
+        analysis = self.deepseek_client.fund_flow_analysis(stock_info, indicators, fund_flow_data)
         
         return {
             "agent_name": "资金面分析师",
             "agent_role": "负责资金流向分析、主力行为研究、市场情绪判断", 
             "analysis": analysis,
             "focus_areas": ["资金流向", "主力动向", "市场情绪", "流动性"],
+            "fund_flow_data": fund_flow_data,  # 保存资金流向数据以供后续使用
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
         }
     
@@ -145,7 +153,8 @@ class StockAnalysisAgents:
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
         }
     
-    def run_multi_agent_analysis(self, stock_info: Dict, stock_data: Any, indicators: Dict, financial_data: Dict = None) -> Dict[str, Any]:
+    def run_multi_agent_analysis(self, stock_info: Dict, stock_data: Any, indicators: Dict, 
+                                 financial_data: Dict = None, fund_flow_data: Dict = None) -> Dict[str, Any]:
         """运行多智能体分析"""
         print("🚀 启动多智能体股票分析系统...")
         print("=" * 50)
@@ -159,8 +168,8 @@ class StockAnalysisAgents:
         # 基本面分析
         agents_results["fundamental"] = self.fundamental_analyst_agent(stock_info, financial_data)
         
-        # 资金面分析
-        agents_results["fund_flow"] = self.fund_flow_analyst_agent(stock_info, indicators)
+        # 资金面分析（传入资金流向数据）
+        agents_results["fund_flow"] = self.fund_flow_analyst_agent(stock_info, indicators, fund_flow_data)
         
         # 风险管理分析
         agents_results["risk_management"] = self.risk_management_agent(stock_info, indicators)
