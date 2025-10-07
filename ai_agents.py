@@ -111,50 +111,97 @@ class StockAnalysisAgents:
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
         }
     
-    def market_sentiment_agent(self, stock_info: Dict) -> Dict[str, Any]:
+    def market_sentiment_agent(self, stock_info: Dict, sentiment_data: Dict = None) -> Dict[str, Any]:
         """市场情绪分析智能体"""
         print("📈 市场情绪分析师正在分析中...")
+        
+        # 如果有市场情绪数据，显示数据来源
+        if sentiment_data and sentiment_data.get('data_success'):
+            print("   ✓ 已获取市场情绪数据（ARBR、换手率、涨跌停等）")
+        else:
+            print("   ⚠ 未获取到详细情绪数据，将基于基本信息分析")
+        
         time.sleep(1)
         
+        # 构建带有市场情绪数据的prompt
+        sentiment_data_text = ""
+        if sentiment_data and sentiment_data.get('data_success'):
+            # 使用格式化的市场情绪数据
+            from market_sentiment_data import MarketSentimentDataFetcher
+            fetcher = MarketSentimentDataFetcher()
+            sentiment_data_text = f"""
+
+【市场情绪实际数据】
+{fetcher.format_sentiment_data_for_ai(sentiment_data)}
+
+以上是通过akshare获取的实际市场情绪数据，请重点基于这些数据进行分析。
+"""
+        
         sentiment_prompt = f"""
-作为市场情绪分析专家，请基于当前市场环境对以下股票进行情绪分析：
+作为市场情绪分析专家，请基于当前市场环境和实际数据对以下股票进行情绪分析：
 
 股票信息：
 - 股票代码：{stock_info.get('symbol', 'N/A')}
 - 股票名称：{stock_info.get('name', 'N/A')}
 - 行业：{stock_info.get('sector', 'N/A')}
 - 细分行业：{stock_info.get('industry', 'N/A')}
+{sentiment_data_text}
 
-请从以下角度分析市场情绪：
-1. 整体市场情绪（牛市/熊市/震荡市）
-2. 行业板块情绪和热度
-3. 个股关注度和讨论热度
-4. 投资者情绪指标
-5. 市场预期和共识
-6. 消息面和事件驱动因素
-7. 情绪对股价的影响评估
-8. 情绪反转的可能性
+请从以下角度进行深度分析：
 
-结合当前宏观环境和市场热点，给出专业的市场情绪分析。
+1. **ARBR情绪指标分析**
+   - 详细解读AR和BR数值的含义
+   - 分析当前市场人气和投机意愿
+   - 判断是否存在超买超卖情况
+   - 基于ARBR历史统计数据评估当前位置
+
+2. **个股活跃度分析**
+   - 换手率反映的资金活跃程度
+   - 个股关注度和讨论热度
+   - 与历史水平对比
+
+3. **整体市场情绪**
+   - 大盘涨跌情况对个股的影响
+   - 市场涨跌家数反映的整体情绪
+   - 涨跌停数量反映的市场热度
+   - 恐慌贪婪指数的启示
+
+4. **资金情绪**
+   - 融资融券数据反映的看多看空情绪
+   - 主力资金动向
+   - 市场流动性状况
+
+5. **情绪对股价影响**
+   - 当前情绪对股价的支撑或压制作用
+   - 情绪反转的可能性和信号
+   - 短期情绪波动风险
+
+6. **投资建议**
+   - 基于市场情绪的操作建议
+   - 情绪面的机会和风险提示
+
+请确保分析基于实际数据，给出客观专业的市场情绪评估。
 """
         
         messages = [
-            {"role": "system", "content": "你是一名专业的市场情绪分析师，擅长解读市场心理和投资者行为。"},
+            {"role": "system", "content": "你是一名专业的市场情绪分析师，擅长解读市场心理和投资者行为，善于利用ARBR等情绪指标进行分析。"},
             {"role": "user", "content": sentiment_prompt}
         ]
         
-        analysis = self.deepseek_client.call_api(messages)
+        analysis = self.deepseek_client.call_api(messages, max_tokens=4000)
         
         return {
             "agent_name": "市场情绪分析师",
             "agent_role": "负责市场情绪研究、投资者心理分析、热点追踪",
             "analysis": analysis,
-            "focus_areas": ["市场情绪", "投资者心理", "热点板块", "消息面"],
+            "focus_areas": ["ARBR指标", "市场情绪", "投资者心理", "资金活跃度", "恐慌贪婪指数"],
+            "sentiment_data": sentiment_data,  # 保存市场情绪数据以供后续使用
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
         }
     
     def run_multi_agent_analysis(self, stock_info: Dict, stock_data: Any, indicators: Dict, 
-                                 financial_data: Dict = None, fund_flow_data: Dict = None) -> Dict[str, Any]:
+                                 financial_data: Dict = None, fund_flow_data: Dict = None, 
+                                 sentiment_data: Dict = None) -> Dict[str, Any]:
         """运行多智能体分析"""
         print("🚀 启动多智能体股票分析系统...")
         print("=" * 50)
@@ -174,8 +221,8 @@ class StockAnalysisAgents:
         # 风险管理分析
         agents_results["risk_management"] = self.risk_management_agent(stock_info, indicators)
         
-        # 市场情绪分析
-        agents_results["market_sentiment"] = self.market_sentiment_agent(stock_info)
+        # 市场情绪分析（传入市场情绪数据）
+        agents_results["market_sentiment"] = self.market_sentiment_agent(stock_info, sentiment_data)
         
         print("✅ 所有分析师完成分析")
         print("=" * 50)

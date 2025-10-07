@@ -379,8 +379,8 @@ def main():
             **AI分析流程**
             1. 数据获取 → 2. 技术分析
             3. 基本面分析 → 4. 资金分析
-            5. 风险评估 → 6. 情绪分析
-            7. 团队讨论 → 8. 最终决策
+            5. 情绪数据(ARBR) → 6. 风险评估
+            7. 情绪分析 → 8. 团队讨论 → 9. 决策
             """)
     
     # 检查是否显示历史记录
@@ -528,36 +528,55 @@ def run_stock_analysis(symbol, period):
         # 3. 获取资金流向数据（仅A股）
         fund_flow_data = None
         if fetcher._is_chinese_stock(symbol):
-            status_text.text("💰 正在获取资金流向数据（问财）...")
+            status_text.text("💰 正在获取资金流向数据（主力）...")
             try:
                 fund_flow_data = fetcher.get_fund_flow_data(symbol)
                 if fund_flow_data and fund_flow_data.get('query_success'):
-                    st.info("✅ 成功获取问财资金流向数据")
+                    st.info("✅ 成功获取主力资金流向数据")
                 else:
-                    st.warning("⚠️ 未能获取问财资金流向数据，将基于技术指标进行资金面分析")
+                    st.warning("⚠️ 未能获取主力资金流向数据，将基于技术指标进行资金面分析")
             except Exception as e:
                 st.warning(f"⚠️ 获取资金流向数据时出错: {str(e)}")
                 fund_flow_data = None
         else:
-            st.info("ℹ️ 美股暂不支持问财资金流向数据")
+            st.info("ℹ️ 美股暂不支持资金流向数据")
         progress_bar.progress(40)
         
-        # 4. 初始化AI分析系统
+        # 4. 获取市场情绪数据（仅A股）
+        sentiment_data = None
+        if fetcher._is_chinese_stock(symbol):
+            status_text.text("📊 正在获取市场情绪数据（ARBR等指标）...")
+            try:
+                from market_sentiment_data import MarketSentimentDataFetcher
+                sentiment_fetcher = MarketSentimentDataFetcher()
+                sentiment_data = sentiment_fetcher.get_market_sentiment_data(symbol, stock_data)
+                if sentiment_data and sentiment_data.get('data_success'):
+                    st.info("✅ 成功获取市场情绪数据（ARBR、换手率、涨跌停等）")
+                else:
+                    st.warning("⚠️ 未能获取完整的市场情绪数据，将基于基本信息进行分析")
+            except Exception as e:
+                st.warning(f"⚠️ 获取市场情绪数据时出错: {str(e)}")
+                sentiment_data = None
+        else:
+            st.info("ℹ️ 美股暂不支持市场情绪数据（ARBR等指标）")
+        progress_bar.progress(45)
+        
+        # 5. 初始化AI分析系统
         status_text.text("🤖 正在初始化AI分析系统...")
         # 使用选择的模型
         selected_model = st.session_state.get('selected_model', 'deepseek-chat')
         agents = StockAnalysisAgents(model=selected_model)
-        progress_bar.progress(45)
+        progress_bar.progress(50)
         
-        # 5. 运行多智能体分析（传入资金流向数据）
+        # 6. 运行多智能体分析（传入资金流向数据和市场情绪数据）
         status_text.text("🔍 AI分析师团队正在分析...")
-        agents_results = agents.run_multi_agent_analysis(stock_info, stock_data, indicators, financial_data, fund_flow_data)
+        agents_results = agents.run_multi_agent_analysis(stock_info, stock_data, indicators, financial_data, fund_flow_data, sentiment_data)
         progress_bar.progress(70)
         
         # 显示各分析师报告
         display_agents_analysis(agents_results)
         
-        # 6. 团队讨论
+        # 7. 团队讨论
         status_text.text("🤝 分析团队正在讨论...")
         discussion_result = agents.conduct_team_discussion(agents_results, stock_info)
         progress_bar.progress(85)
@@ -565,7 +584,7 @@ def run_stock_analysis(symbol, period):
         # 显示团队讨论
         display_team_discussion(discussion_result)
         
-        # 7. 最终决策
+        # 8. 最终决策
         status_text.text("📋 正在制定最终投资决策...")
         final_decision = agents.make_final_decision(discussion_result, stock_info, indicators)
         progress_bar.progress(100)
