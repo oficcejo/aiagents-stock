@@ -199,32 +199,160 @@ class StockAnalysisAgents:
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
         }
     
+    def news_announcement_analyst_agent(self, stock_info: Dict, news_announcement_data: Dict = None) -> Dict[str, Any]:
+        """新闻公告分析智能体"""
+        print("📰 新闻公告分析师正在分析中...")
+        
+        # 如果有新闻公告数据，显示数据来源
+        if news_announcement_data and news_announcement_data.get('data_success'):
+            news_count = news_announcement_data.get('news_data', {}).get('count', 0) if news_announcement_data.get('news_data') else 0
+            announcement_count = news_announcement_data.get('announcement_data', {}).get('count', 0) if news_announcement_data.get('announcement_data') else 0
+            print(f"   ✓ 已获取 {news_count} 条新闻，{announcement_count} 条公告")
+        else:
+            print("   ⚠ 未获取到新闻公告数据，将基于基本信息分析")
+        
+        time.sleep(1)
+        
+        # 构建带有新闻公告数据的prompt
+        news_announcement_text = ""
+        if news_announcement_data and news_announcement_data.get('data_success'):
+            # 使用格式化的新闻公告数据
+            from news_announcement_data import NewsAnnouncementDataFetcher
+            fetcher = NewsAnnouncementDataFetcher()
+            news_announcement_text = f"""
+
+【最新新闻公告数据】
+{fetcher.format_news_announcements_for_ai(news_announcement_data)}
+
+以上是通过问财获取的实际新闻和公告数据，请重点基于这些数据进行分析。
+"""
+        
+        news_announcement_prompt = f"""
+作为专业的新闻公告分析师，请基于最新的新闻和公告对以下股票进行深度分析：
+
+股票信息：
+- 股票代码：{stock_info.get('symbol', 'N/A')}
+- 股票名称：{stock_info.get('name', 'N/A')}
+- 行业：{stock_info.get('sector', 'N/A')}
+- 细分行业：{stock_info.get('industry', 'N/A')}
+{news_announcement_text}
+
+请从以下角度进行深度分析：
+
+1. **新闻分析**
+   - 梳理最新的重要新闻
+   - 分析新闻的性质（利好/利空/中性）
+   - 评估新闻对股价的短期和长期影响
+   - 识别市场关注的热点和焦点
+   - 分析新闻的可信度和影响力
+
+2. **公告分析**
+   - 梳理最新的重要公告
+   - 分析公告的类型（业绩、重组、增持、减持、分红等）
+   - 评估公告的实质性影响
+   - 识别可能的投资机会或风险
+   - 解读公司的战略意图
+
+3. **重大事件识别**
+   - 识别可能影响股价的重大事件
+   - 评估事件的紧迫性和重要性
+   - 分析事件的发展趋势
+   - 预判后续可能的发展
+
+4. **市场反应分析**
+   - 分析市场对新闻公告的反应
+   - 评估反应是否充分或过度
+   - 判断是否存在预期差
+   - 识别可能的交易机会
+
+5. **风险提示**
+   - 识别新闻公告中的风险信号
+   - 评估潜在的负面影响
+   - 提示需要关注的问题
+
+6. **投资建议**
+   - 基于新闻公告的操作建议
+   - 关键时间节点提示
+   - 需要持续关注的事项
+
+请确保分析客观、专业，重点关注对投资决策有实质性影响的内容。
+如果某些新闻或公告的重要性较低，可以简要提及或略过。
+"""
+        
+        messages = [
+            {"role": "system", "content": "你是一名专业的新闻公告分析师，擅长解读公司公告、新闻事件，评估其对股价的影响。你具有敏锐的洞察力和丰富的市场经验。"},
+            {"role": "user", "content": news_announcement_prompt}
+        ]
+        
+        analysis = self.deepseek_client.call_api(messages, max_tokens=4000)
+        
+        return {
+            "agent_name": "新闻公告分析师",
+            "agent_role": "负责新闻事件分析、公司公告解读、重大事件影响评估",
+            "analysis": analysis,
+            "focus_areas": ["新闻解读", "公告分析", "事件影响", "市场反应", "投资机会"],
+            "news_announcement_data": news_announcement_data,  # 保存新闻公告数据以供后续使用
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
+        }
+    
     def run_multi_agent_analysis(self, stock_info: Dict, stock_data: Any, indicators: Dict, 
                                  financial_data: Dict = None, fund_flow_data: Dict = None, 
-                                 sentiment_data: Dict = None) -> Dict[str, Any]:
-        """运行多智能体分析"""
+                                 sentiment_data: Dict = None, news_announcement_data: Dict = None,
+                                 enabled_analysts: Dict = None) -> Dict[str, Any]:
+        """运行多智能体分析
+        
+        Args:
+            enabled_analysts: 字典，指定哪些分析师参与分析
+                例如: {'technical': True, 'fundamental': True, ...}
+                如果为None，则运行所有分析师
+        """
+        # 如果未指定，默认所有分析师都参与
+        if enabled_analysts is None:
+            enabled_analysts = {
+                'technical': True,
+                'fundamental': True,
+                'fund_flow': True,
+                'risk': True,
+                'sentiment': True,
+                'news': True
+            }
+        
         print("🚀 启动多智能体股票分析系统...")
+        print("=" * 50)
+        
+        # 显示参与分析的分析师
+        active_analysts = [name for name, enabled in enabled_analysts.items() if enabled]
+        print(f"📋 参与分析的分析师: {', '.join(active_analysts)}")
         print("=" * 50)
         
         # 并行运行各个分析师
         agents_results = {}
         
         # 技术面分析
-        agents_results["technical"] = self.technical_analyst_agent(stock_info, stock_data, indicators)
+        if enabled_analysts.get('technical', True):
+            agents_results["technical"] = self.technical_analyst_agent(stock_info, stock_data, indicators)
         
         # 基本面分析
-        agents_results["fundamental"] = self.fundamental_analyst_agent(stock_info, financial_data)
+        if enabled_analysts.get('fundamental', True):
+            agents_results["fundamental"] = self.fundamental_analyst_agent(stock_info, financial_data)
         
         # 资金面分析（传入资金流向数据）
-        agents_results["fund_flow"] = self.fund_flow_analyst_agent(stock_info, indicators, fund_flow_data)
+        if enabled_analysts.get('fund_flow', True):
+            agents_results["fund_flow"] = self.fund_flow_analyst_agent(stock_info, indicators, fund_flow_data)
         
         # 风险管理分析
-        agents_results["risk_management"] = self.risk_management_agent(stock_info, indicators)
+        if enabled_analysts.get('risk', True):
+            agents_results["risk_management"] = self.risk_management_agent(stock_info, indicators)
         
         # 市场情绪分析（传入市场情绪数据）
-        agents_results["market_sentiment"] = self.market_sentiment_agent(stock_info, sentiment_data)
+        if enabled_analysts.get('sentiment', False):
+            agents_results["market_sentiment"] = self.market_sentiment_agent(stock_info, sentiment_data)
         
-        print("✅ 所有分析师完成分析")
+        # 新闻公告分析（传入新闻公告数据）
+        if enabled_analysts.get('news', False):
+            agents_results["news_announcement"] = self.news_announcement_analyst_agent(stock_info, news_announcement_data)
+        
+        print("✅ 所有已选择的分析师完成分析")
         print("=" * 50)
         
         return agents_results
@@ -234,34 +362,45 @@ class StockAnalysisAgents:
         print("🤝 分析团队正在进行综合讨论...")
         time.sleep(2)
         
-        # 提取各分析师的报告
-        technical_report = agents_results.get("technical", {}).get("analysis", "")
-        fundamental_report = agents_results.get("fundamental", {}).get("analysis", "")
-        fund_flow_report = agents_results.get("fund_flow", {}).get("analysis", "")
-        risk_report = agents_results.get("risk_management", {}).get("analysis", "")
-        sentiment_report = agents_results.get("market_sentiment", {}).get("analysis", "")
+        # 收集参与分析的分析师名单和报告
+        participants = []
+        reports = []
+        
+        if "technical" in agents_results:
+            participants.append("技术分析师")
+            reports.append(f"【技术分析师报告】\n{agents_results['technical'].get('analysis', '')}")
+        
+        if "fundamental" in agents_results:
+            participants.append("基本面分析师")
+            reports.append(f"【基本面分析师报告】\n{agents_results['fundamental'].get('analysis', '')}")
+        
+        if "fund_flow" in agents_results:
+            participants.append("资金面分析师")
+            reports.append(f"【资金面分析师报告】\n{agents_results['fund_flow'].get('analysis', '')}")
+        
+        if "risk_management" in agents_results:
+            participants.append("风险管理师")
+            reports.append(f"【风险管理师报告】\n{agents_results['risk_management'].get('analysis', '')}")
+        
+        if "market_sentiment" in agents_results:
+            participants.append("市场情绪分析师")
+            reports.append(f"【市场情绪分析师报告】\n{agents_results['market_sentiment'].get('analysis', '')}")
+        
+        if "news_announcement" in agents_results:
+            participants.append("新闻公告分析师")
+            reports.append(f"【新闻公告分析师报告】\n{agents_results['news_announcement'].get('analysis', '')}")
+        
+        # 组合所有报告
+        all_reports = "\n\n".join(reports)
         
         discussion_prompt = f"""
-现在进行投资决策团队会议，参会人员包括：技术分析师、基本面分析师、资金面分析师、风险管理师、市场情绪分析师。
+现在进行投资决策团队会议，参会人员包括：{', '.join(participants)}。
 
 股票：{stock_info.get('name', 'N/A')} ({stock_info.get('symbol', 'N/A')})
 
 各分析师报告：
 
-【技术分析师报告】
-{technical_report}
-
-【基本面分析师报告】 
-{fundamental_report}
-
-【资金面分析师报告】
-{fund_flow_report}
-
-【风险管理师报告】
-{risk_report}
-
-【市场情绪分析师报告】
-{sentiment_report}
+{all_reports}
 
 请模拟一场真实的投资决策会议讨论：
 1. 各分析师观点的一致性和分歧
@@ -272,6 +411,7 @@ class StockAnalysisAgents:
 6. 达成初步共识
 
 请以对话形式展现讨论过程，体现专业团队的思辨过程。
+注意：只讨论参与分析的分析师的观点。
 """
         
         messages = [
