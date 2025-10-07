@@ -8,7 +8,7 @@
 <img width="1910" height="923" alt="image" src="https://github.com/user-attachments/assets/b482a2bf-6349-476c-9ba4-237960cc632a" />
 <img width="1910" height="923" alt="image" src="https://github.com/user-attachments/assets/b2ac735b-5a3a-478c-955d-1a37eb705bb1" />
 
-# 注意！！！右侧官方测试网站，请在环境配置中设置deepseek临时apikey，测试结束后请尽快删除或禁用！！否则会有泄露风险
+
 
 ## ✨ 更新说明
 ### 1006增加跟踪主力资金mcp，增加环境配置功能
@@ -89,7 +89,8 @@
 ## 🚀 快速开始
 
 ### 1. 环境要求
-- Python 3.8+
+- Python 3.8+(微软store或官网，推荐3.12)
+- Node.js 16+ (微软store或官网)
 - 稳定的网络连接
 - DeepSeek API Key
 
