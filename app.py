@@ -399,22 +399,68 @@ def main():
         return
     
     # 主界面
-    col1, col2, col3 = st.columns([2, 1, 1])
-    
-    with col1:
-        stock_input = st.text_input(
-            "🔍 请输入股票代码或名称", 
-            placeholder="例如: AAPL, 000001, 600036",
-            help="支持美股代码(如AAPL)和A股代码(如000001)"
+    # 添加单个/批量分析切换
+    col_mode1, col_mode2 = st.columns([1, 3])
+    with col_mode1:
+        analysis_mode = st.radio(
+            "分析模式",
+            ["单个分析", "批量分析"],
+            horizontal=True,
+            help="单个分析：分析单只股票；批量分析：同时分析多只股票"
         )
     
-    with col2:
-        analyze_button = st.button("🚀 开始分析", type="primary", use_container_width=True)
+    with col_mode2:
+        if analysis_mode == "批量分析":
+            batch_mode = st.radio(
+                "批量模式",
+                ["顺序分析", "多线程并行"],
+                horizontal=True,
+                help="顺序分析：按次序分析，稳定但较慢；多线程并行：同时分析多只，快速但消耗资源"
+            )
+            st.session_state.batch_mode = batch_mode
     
-    with col3:
-        if st.button("🔄 清除缓存", use_container_width=True):
-            st.cache_data.clear()
-            st.success("缓存已清除")
+    st.markdown("---")
+    
+    if analysis_mode == "单个分析":
+        # 单个股票分析界面
+        col1, col2, col3 = st.columns([2, 1, 1])
+        
+        with col1:
+            stock_input = st.text_input(
+                "🔍 请输入股票代码或名称", 
+                placeholder="例如: AAPL, 000001, 600036",
+                help="支持美股代码(如AAPL)和A股代码(如000001)"
+            )
+        
+        with col2:
+            analyze_button = st.button("🚀 开始分析", type="primary", use_container_width=True)
+        
+        with col3:
+            if st.button("🔄 清除缓存", use_container_width=True):
+                st.cache_data.clear()
+                st.success("缓存已清除")
+    
+    else:
+        # 批量股票分析界面
+        stock_input = st.text_area(
+            "🔍 请输入多个股票代码（每行一个或用逗号分隔）", 
+            placeholder="例如:\n000001\n600036\n600519\n\n或者: 000001, 600036, 600519",
+            height=120,
+            help="支持多种格式：每行一个代码或用逗号分隔"
+        )
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            analyze_button = st.button("🚀 开始批量分析", type="primary", use_container_width=True)
+        with col2:
+            if st.button("🔄 清除缓存", use_container_width=True):
+                st.cache_data.clear()
+                st.success("缓存已清除")
+        with col3:
+            if st.button("🗑️ 清除结果", use_container_width=True):
+                if 'batch_analysis_results' in st.session_state:
+                    del st.session_state.batch_analysis_results
+                st.success("已清除批量分析结果")
     
     # 分析师团队选择
     st.markdown("---")
@@ -480,21 +526,47 @@ def main():
             st.error("❌ 请至少选择一位分析师参与分析")
             return
         
-        # 清除之前的分析结果
-        if 'analysis_completed' in st.session_state:
-            del st.session_state.analysis_completed
-        if 'stock_info' in st.session_state:
-            del st.session_state.stock_info
-        if 'agents_results' in st.session_state:
-            del st.session_state.agents_results
-        if 'discussion_result' in st.session_state:
-            del st.session_state.discussion_result
-        if 'final_decision' in st.session_state:
-            del st.session_state.final_decision
+        if analysis_mode == "单个分析":
+            # 单个股票分析
+            # 清除之前的分析结果
+            if 'analysis_completed' in st.session_state:
+                del st.session_state.analysis_completed
+            if 'stock_info' in st.session_state:
+                del st.session_state.stock_info
+            if 'agents_results' in st.session_state:
+                del st.session_state.agents_results
+            if 'discussion_result' in st.session_state:
+                del st.session_state.discussion_result
+            if 'final_decision' in st.session_state:
+                del st.session_state.final_decision
+                
+            run_stock_analysis(stock_input, period)
+        
+        else:
+            # 批量股票分析
+            # 解析股票代码列表
+            stock_list = parse_stock_list(stock_input)
             
-        run_stock_analysis(stock_input, period)
+            if not stock_list:
+                st.error("❌ 请输入有效的股票代码")
+                return
+            
+            if len(stock_list) > 20:
+                st.warning(f"⚠️ 检测到 {len(stock_list)} 只股票，建议一次分析不超过20只")
+            
+            st.info(f"📊 准备分析 {len(stock_list)} 只股票: {', '.join(stock_list)}")
+            
+            # 清除之前的批量分析结果
+            if 'batch_analysis_results' in st.session_state:
+                del st.session_state.batch_analysis_results
+            
+            # 获取批量模式
+            batch_mode = st.session_state.get('batch_mode', '顺序分析')
+            
+            # 运行批量分析
+            run_batch_analysis(stock_list, period, batch_mode)
     
-    # 检查是否有已完成的分析结果
+    # 检查是否有已完成的单个分析结果
     if 'analysis_completed' in st.session_state and st.session_state.analysis_completed:
         # 重新显示分析结果
         stock_info = st.session_state.stock_info
@@ -520,6 +592,10 @@ def main():
         
         # 显示最终决策
         display_final_decision(final_decision, stock_info, agents_results, discussion_result)
+    
+    # 检查是否有已完成的批量分析结果
+    elif 'batch_analysis_results' in st.session_state and st.session_state.batch_analysis_results:
+        display_batch_analysis_results(st.session_state.batch_analysis_results, period)
     
     # 示例和说明
     elif not stock_input:
@@ -547,6 +623,287 @@ def get_stock_data(symbol, period):
     indicators = fetcher.get_latest_indicators(stock_data_with_indicators)
     
     return stock_info, stock_data_with_indicators, indicators
+
+def parse_stock_list(stock_input):
+    """解析股票代码列表
+    
+    支持的格式：
+    - 每行一个代码
+    - 逗号分隔
+    - 空格分隔
+    """
+    if not stock_input or not stock_input.strip():
+        return []
+    
+    # 先按换行符分割
+    lines = stock_input.strip().split('\n')
+    
+    # 处理每一行
+    stock_list = []
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        
+        # 检查是否包含逗号
+        if ',' in line:
+            codes = [code.strip() for code in line.split(',')]
+            stock_list.extend([code for code in codes if code])
+        # 检查是否包含空格
+        elif ' ' in line:
+            codes = [code.strip() for code in line.split()]
+            stock_list.extend([code for code in codes if code])
+        else:
+            stock_list.append(line)
+    
+    # 去重并保持顺序
+    seen = set()
+    unique_list = []
+    for code in stock_list:
+        if code not in seen:
+            seen.add(code)
+            unique_list.append(code)
+    
+    return unique_list
+
+def analyze_single_stock_for_batch(symbol, period, enabled_analysts_config=None, selected_model='deepseek-chat'):
+    """单个股票分析（用于批量分析）
+    
+    Args:
+        symbol: 股票代码
+        period: 数据周期
+        enabled_analysts_config: 分析师配置字典
+        selected_model: 选择的AI模型
+    
+    返回分析结果或错误信息
+    """
+    try:
+        # 使用默认配置
+        if enabled_analysts_config is None:
+            enabled_analysts_config = {
+                'technical': True,
+                'fundamental': True,
+                'fund_flow': True,
+                'risk': True,
+                'sentiment': False,
+                'news': False
+            }
+        
+        # 1. 获取股票数据
+        stock_info, stock_data, indicators = get_stock_data(symbol, period)
+        
+        if "error" in stock_info:
+            return {"symbol": symbol, "error": stock_info['error'], "success": False}
+        
+        if stock_data is None:
+            return {"symbol": symbol, "error": "无法获取股票历史数据", "success": False}
+        
+        # 2. 获取财务数据
+        fetcher = StockDataFetcher()
+        financial_data = fetcher.get_financial_data(symbol)
+        
+        # 获取分析师选择状态（从参数而不是session_state）
+        enable_fund_flow = enabled_analysts_config.get('fund_flow', True)
+        enable_sentiment = enabled_analysts_config.get('sentiment', False)
+        enable_news = enabled_analysts_config.get('news', False)
+        
+        # 3. 获取资金流向数据（可选）
+        fund_flow_data = None
+        if enable_fund_flow and fetcher._is_chinese_stock(symbol):
+            try:
+                fund_flow_data = fetcher.get_fund_flow_data(symbol)
+            except:
+                pass
+        
+        # 4. 获取市场情绪数据（可选）
+        sentiment_data = None
+        if enable_sentiment and fetcher._is_chinese_stock(symbol):
+            try:
+                from market_sentiment_data import MarketSentimentDataFetcher
+                sentiment_fetcher = MarketSentimentDataFetcher()
+                sentiment_data = sentiment_fetcher.get_market_sentiment_data(symbol, stock_data)
+            except:
+                pass
+        
+        # 5. 获取新闻公告数据（可选）
+        news_announcement_data = None
+        if enable_news and fetcher._is_chinese_stock(symbol):
+            try:
+                from news_announcement_data import NewsAnnouncementDataFetcher
+                news_fetcher = NewsAnnouncementDataFetcher()
+                news_announcement_data = news_fetcher.get_news_and_announcements(symbol)
+            except:
+                pass
+        
+        # 6. 初始化AI分析系统
+        agents = StockAnalysisAgents(model=selected_model)
+        
+        # 使用传入的分析师配置
+        enabled_analysts = enabled_analysts_config
+        
+        # 7. 运行多智能体分析
+        agents_results = agents.run_multi_agent_analysis(
+            stock_info, stock_data, indicators, financial_data, 
+            fund_flow_data, sentiment_data, news_announcement_data,
+            enabled_analysts=enabled_analysts
+        )
+        
+        # 8. 团队讨论
+        discussion_result = agents.conduct_team_discussion(agents_results, stock_info)
+        
+        # 9. 最终决策
+        final_decision = agents.make_final_decision(discussion_result, stock_info, indicators)
+        
+        # 保存到数据库
+        try:
+            db.save_analysis(
+                symbol=stock_info.get('symbol', ''),
+                stock_name=stock_info.get('name', ''),
+                period=period,
+                stock_info=stock_info,
+                agents_results=agents_results,
+                discussion_result=discussion_result,
+                final_decision=final_decision
+            )
+        except Exception as e:
+            print(f"保存到数据库时出现错误: {str(e)}")
+        
+        return {
+            "symbol": symbol,
+            "success": True,
+            "stock_info": stock_info,
+            "indicators": indicators,
+            "agents_results": agents_results,
+            "discussion_result": discussion_result,
+            "final_decision": final_decision
+        }
+        
+    except Exception as e:
+        return {"symbol": symbol, "error": str(e), "success": False}
+
+def run_batch_analysis(stock_list, period, batch_mode="顺序分析"):
+    """运行批量股票分析"""
+    import concurrent.futures
+    import threading
+    
+    # 在开始分析前获取配置（从session_state）
+    enabled_analysts_config = {
+        'technical': st.session_state.get('enable_technical', True),
+        'fundamental': st.session_state.get('enable_fundamental', True),
+        'fund_flow': st.session_state.get('enable_fund_flow', True),
+        'risk': st.session_state.get('enable_risk', True),
+        'sentiment': st.session_state.get('enable_sentiment', False),
+        'news': st.session_state.get('enable_news', False)
+    }
+    selected_model = st.session_state.get('selected_model', 'deepseek-chat')
+    
+    # 创建进度显示
+    st.subheader(f"📊 批量分析进行中 ({batch_mode})")
+    
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    
+    # 存储结果
+    results = []
+    total = len(stock_list)
+    
+    if batch_mode == "多线程并行":
+        # 多线程并行分析
+        status_text.text(f"🚀 使用多线程并行分析 {total} 只股票...")
+        
+        # 创建线程锁用于更新进度
+        lock = threading.Lock()
+        completed = [0]  # 使用列表以便在闭包中修改
+        progress_status = [{}]  # 存储进度状态
+        
+        def analyze_with_progress(symbol):
+            """包装分析函数，不在线程中访问Streamlit上下文"""
+            try:
+                result = analyze_single_stock_for_batch(symbol, period, enabled_analysts_config, selected_model)
+                with lock:
+                    completed[0] += 1
+                    progress_status[0][symbol] = result
+                return result
+            except Exception as e:
+                with lock:
+                    completed[0] += 1
+                    error_result = {"symbol": symbol, "error": str(e), "success": False}
+                    progress_status[0][symbol] = error_result
+                return error_result
+        
+        # 使用线程池执行，限制最大并发数为3以避免API限流
+        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+            future_to_symbol = {executor.submit(analyze_with_progress, symbol): symbol 
+                              for symbol in stock_list}
+            
+            for future in concurrent.futures.as_completed(future_to_symbol):
+                symbol = future_to_symbol[future]
+                try:
+                    result = future.result(timeout=300)  # 5分钟超时
+                    results.append(result)
+                    
+                    # 在主线程中更新UI
+                    progress = len(results) / total
+                    progress_bar.progress(progress)
+                    
+                    if result['success']:
+                        status_text.text(f"✅ [{len(results)}/{total}] {symbol} 分析完成")
+                    else:
+                        status_text.text(f"❌ [{len(results)}/{total}] {symbol} 分析失败: {result.get('error', '未知错误')}")
+                        
+                except concurrent.futures.TimeoutError:
+                    results.append({"symbol": symbol, "error": "分析超时（5分钟）", "success": False})
+                    progress_bar.progress(len(results) / total)
+                    status_text.text(f"⏱️ [{len(results)}/{total}] {symbol} 分析超时")
+                except Exception as e:
+                    results.append({"symbol": symbol, "error": str(e), "success": False})
+                    progress_bar.progress(len(results) / total)
+                    status_text.text(f"❌ [{len(results)}/{total}] {symbol} 出现错误")
+    
+    else:
+        # 顺序分析
+        status_text.text(f"📝 按顺序分析 {total} 只股票...")
+        
+        for i, symbol in enumerate(stock_list, 1):
+            status_text.text(f"🔍 [{i}/{total}] 正在分析 {symbol}...")
+            
+            try:
+                result = analyze_single_stock_for_batch(symbol, period, enabled_analysts_config, selected_model)
+            except Exception as e:
+                result = {"symbol": symbol, "error": str(e), "success": False}
+            
+            results.append(result)
+            
+            # 更新进度
+            progress = i / total
+            progress_bar.progress(progress)
+            
+            if result['success']:
+                status_text.text(f"✅ [{i}/{total}] {symbol} 分析完成")
+            else:
+                status_text.text(f"❌ [{i}/{total}] {symbol} 分析失败: {result.get('error', '未知错误')}")
+    
+    # 完成
+    progress_bar.progress(1.0)
+    
+    # 统计结果
+    success_count = sum(1 for r in results if r['success'])
+    failed_count = total - success_count
+    
+    if success_count > 0:
+        status_text.success(f"✅ 批量分析完成！成功 {success_count} 只，失败 {failed_count} 只")
+    else:
+        status_text.error(f"❌ 批量分析完成，但所有股票都分析失败")
+    
+    # 保存结果到session_state
+    st.session_state.batch_analysis_results = results
+    st.session_state.batch_analysis_mode = batch_mode
+    
+    time.sleep(2)
+    progress_bar.empty()
+    
+    # 自动显示结果
+    st.rerun()
 
 def run_stock_analysis(symbol, period):
     """运行股票分析"""
@@ -1681,6 +2038,191 @@ MINIQMT_ACCOUNT_ID="{current_config.get('MINIQMT_ACCOUNT_ID', '')}"
 MINIQMT_HOST="{current_config.get('MINIQMT_HOST', '127.0.0.1')}"
 MINIQMT_PORT="{current_config.get('MINIQMT_PORT', '58610')}"
 """, language="bash")
+
+def display_batch_analysis_results(results, period):
+    """显示批量分析结果（对比视图）"""
+    
+    st.subheader("📊 批量分析结果对比")
+    
+    # 统计信息
+    total = len(results)
+    success_results = [r for r in results if r['success']]
+    failed_results = [r for r in results if not r['success']]
+    
+    # 显示统计
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("总数", total)
+    with col2:
+        st.metric("成功", len(success_results), delta=None, delta_color="normal")
+    with col3:
+        st.metric("失败", len(failed_results), delta=None, delta_color="inverse")
+    
+    st.markdown("---")
+    
+    # 失败的股票列表
+    if failed_results:
+        with st.expander(f"❌ 查看失败的 {len(failed_results)} 只股票", expanded=False):
+            for result in failed_results:
+                st.error(f"**{result['symbol']}**: {result.get('error', '未知错误')}")
+    
+    # 成功的股票分析结果
+    if not success_results:
+        st.warning("⚠️ 没有成功分析的股票")
+        return
+    
+    # 创建对比视图选项
+    view_mode = st.radio(
+        "显示模式",
+        ["对比表格", "详细卡片"],
+        horizontal=True,
+        help="对比表格：横向对比多只股票；详细卡片：逐个查看详细分析"
+    )
+    
+    if view_mode == "对比表格":
+        # 表格对比视图
+        display_comparison_table(success_results)
+    else:
+        # 详细卡片视图
+        display_detailed_cards(success_results, period)
+
+def display_comparison_table(results):
+    """显示对比表格"""
+    import pandas as pd
+    
+    st.subheader("📋 股票对比表格")
+    
+    # 构建对比数据
+    comparison_data = []
+    for result in results:
+        stock_info = result['stock_info']
+        indicators = result.get('indicators', {})
+        final_decision = result['final_decision']
+        
+        # 解析评级
+        if isinstance(final_decision, dict):
+            rating = final_decision.get('rating', 'N/A')
+            confidence = final_decision.get('confidence_level', 'N/A')
+            target_price = final_decision.get('target_price', 'N/A')
+        else:
+            rating = 'N/A'
+            confidence = 'N/A'
+            target_price = 'N/A'
+        
+        row = {
+            '股票代码': stock_info.get('symbol', 'N/A'),
+            '股票名称': stock_info.get('name', 'N/A'),
+            '当前价格': stock_info.get('current_price', 'N/A'),
+            '涨跌幅(%)': stock_info.get('change_percent', 'N/A'),
+            '市盈率': stock_info.get('pe_ratio', 'N/A'),
+            '市净率': stock_info.get('pb_ratio', 'N/A'),
+            'RSI': indicators.get('rsi', 'N/A'),
+            'MACD': indicators.get('macd', 'N/A'),
+            '投资评级': rating,
+            '信心度': confidence,
+            '目标价格': target_price
+        }
+        comparison_data.append(row)
+    
+    # 创建DataFrame
+    df = pd.DataFrame(comparison_data)
+    
+    # 应用样式
+    def highlight_rating(val):
+        if val == '买入' or val == '强烈买入':
+            return 'background-color: #c8e6c9; color: #2e7d32;'
+        elif val == '持有':
+            return 'background-color: #fff9c4; color: #f57f17;'
+        elif val == '卖出' or val == '强烈卖出':
+            return 'background-color: #ffcdd2; color: #c62828;'
+        return ''
+    
+    # 显示表格
+    st.dataframe(
+        df.style.applymap(highlight_rating, subset=['投资评级']),
+        use_container_width=True,
+        height=400
+    )
+    
+    # 添加筛选功能
+    st.markdown("---")
+    st.subheader("🔍 快速筛选")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        rating_filter = st.multiselect(
+            "按评级筛选",
+            options=df['投资评级'].unique().tolist(),
+            default=df['投资评级'].unique().tolist()
+        )
+    
+    with col2:
+        # 按涨跌幅排序
+        sort_by = st.selectbox(
+            "排序方式",
+            ["默认", "涨跌幅降序", "涨跌幅升序", "信心度降序", "RSI降序"]
+        )
+    
+    # 应用筛选
+    filtered_df = df[df['投资评级'].isin(rating_filter)]
+    
+    # 应用排序
+    if sort_by == "涨跌幅降序":
+        filtered_df = filtered_df.sort_values('涨跌幅(%)', ascending=False)
+    elif sort_by == "涨跌幅升序":
+        filtered_df = filtered_df.sort_values('涨跌幅(%)', ascending=True)
+    elif sort_by == "信心度降序":
+        filtered_df = filtered_df.sort_values('信心度', ascending=False)
+    elif sort_by == "RSI降序":
+        filtered_df = filtered_df.sort_values('RSI', ascending=False)
+    
+    if not filtered_df.empty:
+        st.dataframe(filtered_df, use_container_width=True)
+    else:
+        st.info("没有符合条件的股票")
+
+def display_detailed_cards(results, period):
+    """显示详细卡片视图"""
+    
+    st.subheader("📇 详细分析卡片")
+    
+    # 选择要查看的股票
+    stock_options = [f"{r['stock_info']['symbol']} - {r['stock_info']['name']}" for r in results]
+    selected_stock = st.selectbox("选择股票", options=stock_options)
+    
+    # 找到对应的结果
+    selected_index = stock_options.index(selected_stock)
+    result = results[selected_index]
+    
+    # 显示详细分析
+    stock_info = result['stock_info']
+    indicators = result['indicators']
+    agents_results = result['agents_results']
+    discussion_result = result['discussion_result']
+    final_decision = result['final_decision']
+    
+    # 获取股票数据用于显示图表
+    try:
+        stock_info_current, stock_data, _ = get_stock_data(stock_info['symbol'], period)
+        
+        # 显示股票基本信息
+        display_stock_info(stock_info, indicators)
+        
+        # 显示股票图表
+        if stock_data is not None:
+            display_stock_chart(stock_data, stock_info)
+        
+        # 显示各分析师报告
+        display_agents_analysis(agents_results)
+        
+        # 显示团队讨论
+        display_team_discussion(discussion_result)
+        
+        # 显示最终决策
+        display_final_decision(final_decision, stock_info, agents_results, discussion_result)
+        
+    except Exception as e:
+        st.error(f"显示详细信息时出错: {str(e)}")
 
 if __name__ == "__main__":
     main()
