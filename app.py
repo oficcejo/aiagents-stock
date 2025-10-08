@@ -755,8 +755,10 @@ def analyze_single_stock_for_batch(symbol, period, enabled_analysts_config=None,
         final_decision = agents.make_final_decision(discussion_result, stock_info, indicators)
         
         # 保存到数据库
+        saved_to_db = False
+        db_error = None
         try:
-            db.save_analysis(
+            record_id = db.save_analysis(
                 symbol=stock_info.get('symbol', ''),
                 stock_name=stock_info.get('name', ''),
                 period=period,
@@ -765,8 +767,11 @@ def analyze_single_stock_for_batch(symbol, period, enabled_analysts_config=None,
                 discussion_result=discussion_result,
                 final_decision=final_decision
             )
+            saved_to_db = True
+            print(f"✅ {symbol} 成功保存到数据库，记录ID: {record_id}")
         except Exception as e:
-            print(f"保存到数据库时出现错误: {str(e)}")
+            db_error = str(e)
+            print(f"❌ {symbol} 保存到数据库失败: {db_error}")
         
         return {
             "symbol": symbol,
@@ -775,7 +780,9 @@ def analyze_single_stock_for_batch(symbol, period, enabled_analysts_config=None,
             "indicators": indicators,
             "agents_results": agents_results,
             "discussion_result": discussion_result,
-            "final_decision": final_decision
+            "final_decision": final_decision,
+            "saved_to_db": saved_to_db,
+            "db_error": db_error
         }
         
     except Exception as e:
@@ -889,9 +896,16 @@ def run_batch_analysis(stock_list, period, batch_mode="顺序分析"):
     # 统计结果
     success_count = sum(1 for r in results if r['success'])
     failed_count = total - success_count
+    saved_count = sum(1 for r in results if r.get('saved_to_db', False))
     
+    # 显示完成信息
     if success_count > 0:
-        status_text.success(f"✅ 批量分析完成！成功 {success_count} 只，失败 {failed_count} 只")
+        status_text.success(f"✅ 批量分析完成！成功 {success_count} 只，失败 {failed_count} 只，已保存 {saved_count} 只到历史记录")
+        
+        # 显示保存失败的股票
+        save_failed = [r['symbol'] for r in results if r.get('success') and not r.get('saved_to_db', False)]
+        if save_failed:
+            st.warning(f"⚠️ 以下股票分析成功但保存失败: {', '.join(save_failed)}")
     else:
         status_text.error(f"❌ 批量分析完成，但所有股票都分析失败")
     
@@ -899,7 +913,7 @@ def run_batch_analysis(stock_list, period, batch_mode="顺序分析"):
     st.session_state.batch_analysis_results = results
     st.session_state.batch_analysis_mode = batch_mode
     
-    time.sleep(2)
+    time.sleep(1)
     progress_bar.empty()
     
     # 自动显示结果
@@ -2048,15 +2062,22 @@ def display_batch_analysis_results(results, period):
     total = len(results)
     success_results = [r for r in results if r['success']]
     failed_results = [r for r in results if not r['success']]
+    saved_count = sum(1 for r in results if r.get('saved_to_db', False))
     
     # 显示统计
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.metric("总数", total)
     with col2:
         st.metric("成功", len(success_results), delta=None, delta_color="normal")
     with col3:
         st.metric("失败", len(failed_results), delta=None, delta_color="inverse")
+    with col4:
+        st.metric("已保存", saved_count, delta=None, delta_color="normal")
+    
+    # 提示信息
+    if saved_count > 0:
+        st.info(f"💾 已有 {saved_count} 只股票的分析结果保存到历史记录，可在侧边栏点击「📖 历史记录」查看")
     
     st.markdown("---")
     
@@ -2065,6 +2086,14 @@ def display_batch_analysis_results(results, period):
         with st.expander(f"❌ 查看失败的 {len(failed_results)} 只股票", expanded=False):
             for result in failed_results:
                 st.error(f"**{result['symbol']}**: {result.get('error', '未知错误')}")
+    
+    # 保存失败的股票列表
+    save_failed_results = [r for r in success_results if not r.get('saved_to_db', False)]
+    if save_failed_results:
+        with st.expander(f"⚠️ 查看分析成功但保存失败的 {len(save_failed_results)} 只股票", expanded=False):
+            for result in save_failed_results:
+                db_error = result.get('db_error', '未知错误')
+                st.warning(f"**{result['symbol']} - {result['stock_info'].get('name', 'N/A')}**: {db_error}")
     
     # 成功的股票分析结果
     if not success_results:
