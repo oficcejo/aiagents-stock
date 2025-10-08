@@ -5,12 +5,11 @@
 <img width="300" height="324" alt="image" src="https://www.sd-hn.cn/img/2wm.png" />
 
 ### 基于Python + Streamlit + DeepSeek的智能股票分析系统，模拟证券公司分析师团队，提供全方位的股票投资分析和决策建议。
-<img width="1910" height="923" alt="image" src="https://github.com/user-attachments/assets/b482a2bf-6349-476c-9ba4-237960cc632a" />
-<img width="1910" height="923" alt="image" src="https://github.com/user-attachments/assets/b2ac735b-5a3a-478c-955d-1a37eb705bb1" />
+<img width="1910" height="923" alt="image" src="https://github.com/user-attachments/assets/f929f751-3726-48e6-bc18-919f6a599629" />
+<img width="1910" height="923" alt="01" src="https://github.com/user-attachments/assets/7dcd4b2c-8b4b-428b-8a17-4d843e98a626" />
+<img width="1910" height="923" alt="02" src="https://github.com/user-attachments/assets/02018fff-4e6b-4354-b258-a5da25537c38" />
 
-
-
-## ✨ 更新说明
+## ✨1008 更新说明
 ### 最新更新：增加批量分析功能 ⭐️
 - **批量输入**：支持同时输入多个股票代码（每行一个或逗号分隔）
 - **双模式分析**：
@@ -19,7 +18,6 @@
 - **对比视图**：横向对比多只股票的关键指标和投资评级
 - **详细卡片**：逐个查看每只股票的完整分析报告
 - **智能筛选**：按评级、涨跌幅、信心度等条件快速筛选
-- **自动保存**：所有分析结果自动保存到历史记录
 
 ### 1006增加跟踪主力资金mcp，增加环境配置功能
 ### 1005增加股票监测功能，增加历史记录中个股导入到监测板块
