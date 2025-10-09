@@ -1,6 +1,6 @@
 # 🤖 复合多AI智能体股票团队分析系统
 
-- 初心：在股市摸爬滚打多年，自学自编各种指标，花冤枉钱学习了各种战法各种策略，也曾入各种小班，总是赚少赔多，逐渐失去在股市玩的信心。自从去年deepseek上市，一直探索用ai辅助分析，且近日受tradingagents项目启发（感谢原作），多agent结合跟踪主力资金战法（某指每年收费6000rmb），用各种ai辅助编程，拼凑了这么个小程序，根据软件提供的辅助信息，实盘测试盈率还是挺高的，并且逐步形成了自己的交易系统，近一个月来，账户也慢慢在扭亏为盈。开源此软件的目的，就是为了使像我一样的小散，不再迷茫。也许这个软件不能让你发大财，但是他能给你足够的信心。最后重点关注：股市有风险，入市需谨慎！
+- 初心：在股市摸爬滚打多年，自学自编各种指标，花冤枉钱学习了各种战法各种策略，也曾入各种小班，总是赚少赔多，逐渐失去在股市玩的信心。自从去年deepseek上市，一直探索用ai辅助分析，且近日受tradingagents项目启发（感谢原作），多agent结合跟踪主力资金战法（某指每年收费6000rmb），用各种ai辅助编程，拼凑了这么个小程序，根据软件提供的辅助信息，实盘测试盈率还是挺高的，并且逐步形成了自己的交易系统，近一个月来，账户也慢慢在扭亏为盈。开源此软件的目的，就是为了使像我一样的小散，不再迷茫。也许这个软件不能让你发大财，但是他能给你足够的信心。最后提醒：股市有风险，入市需谨慎！
 - 希望能帮到你！欢迎加微信群讨论
 <img width="300" height="324" alt="image" src="https://www.sd-hn.cn/img/2wm.png" />
 
@@ -109,14 +109,94 @@
 
 ## 🚀 快速开始
 
+### 部署方式选择
+
+本系统支持两种部署方式：
+- **🐳 Docker部署（推荐）**：一键启动，环境隔离，适合所有用户
+- **💻 本地部署**：传统方式，适合开发者
+
+---
+
+## 🐳 方式一：Docker 部署（推荐）⭐️
+
+### 优势
+- ✅ 无需配置Python和Node.js环境
+- ✅ 一键启动，开箱即用
+- ✅ 环境隔离，不影响系统
+- ✅ 跨平台支持（Windows/macOS/Linux）
+- ✅ 自动重启，稳定可靠
+
+### 前置要求
+- Docker 20.10+
+- Docker Compose 2.0+（推荐）
+- DeepSeek API Key
+
+### 快速开始
+
+#### 1. 安装 Docker
+- **Windows/macOS**: 下载安装 [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+- **Linux**: 
+```bash
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+```
+
+#### 2. 配置环境变量
+```bash
+# Windows (PowerShell)
+Copy-Item .env.example .env
+
+# Linux/macOS
+cp .env.example .env
+```
+
+编辑 `.env` 文件，填入您的 DeepSeek API Key：
+```env
+DEEPSEEK_API_KEY=sk-your-actual-api-key-here
+```
+
+#### 3. 启动服务
+```bash
+# 使用 Docker Compose（推荐）
+docker-compose up -d
+
+# 或使用 Docker 命令
+docker build -t agentsstock1 .
+docker run -d -p 8503:8501 -v $(pwd)/.env:/app/.env --name agentsstock1 agentsstock1
+```
+
+#### 4. 访问系统（为避免端口冲突，已将运行端口改为8503）
+打开浏览器访问：http://localhost:8503
+
+#### 5. 常用命令
+```bash
+# 查看日志
+docker-compose logs -f
+
+# 停止服务
+docker-compose down
+
+# 重启服务
+docker-compose restart
+```
+
+**📖 详细文档**：查看 [DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md) 获取完整的Docker部署指南和故障排除。
+
+---
+
+## 💻 方式二：本地部署
+
 ### 1. 环境要求
 - Python 3.8+(微软store或官网，推荐3.12)
-- Node.js 16+ (微软store或官网)
+- Node.js 16+ (微软store或官网，pywencai需要)
 - 稳定的网络连接（大陆网络请关闭vpn）
 - DeepSeek API Key
 
 ### 2. 安装依赖
+创建激活虚拟环境（powershell）并安装依赖
 ```bash
+python -m venv venv
+.\venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
 
@@ -152,7 +232,6 @@ MINIQMT_HOST=127.0.0.1
 MINIQMT_PORT=58610
 ```
 
-
 #### 方法二：设置系统环境变量
 您也可以直接在系统环境变量中设置：
 - 变量名：`DEEPSEEK_API_KEY`
@@ -162,15 +241,19 @@ MINIQMT_PORT=58610
 
 ### 4. 启动系统
 ```bash
+.\venv\Scripts\Activate.ps1
 python run.py
 ```
 或者直接运行：
 ```bash
+.\venv\Scripts\Activate.ps1
 streamlit run app.py
 ```
 
 ### 5. 访问系统
 打开浏览器访问：http://localhost:8501
+
+---
 
 ## 📊 使用指南
 
@@ -371,7 +454,11 @@ AI股票分析系统
 ├── database.py               # 分析记录数据库
 ├── config.py                 # 配置文件
 ├── requirements.txt          # 依赖包列表
-└── run.py                    # 启动脚本
+├── run.py                    # 启动脚本
+├── Dockerfile                # Docker镜像构建文件 🐳
+├── docker-compose.yml        # Docker编排配置文件 🐳
+├── .dockerignore             # Docker构建忽略文件 🐳
+└── DOCKER_DEPLOYMENT.md      # Docker部署详细文档 🐳
 ```
 
 ### 核心模块说明
@@ -543,8 +630,35 @@ DEFAULT_INTERVAL = "1d"    # 默认数据间隔
    - 查看通知记录中的错误信息
    - 确认交易时间在交易日内
 
+9. **Docker部署问题** 🐳
+   - **容器启动失败**：
+     - 检查Docker是否正常运行：`docker ps`
+     - 查看容器日志：`docker-compose logs -f`
+     - 确认.env文件已正确配置
+   - **端口被占用**：
+     - 修改docker-compose.yml中的端口映射（如改为8502:8501）
+   - **无法访问网页**：
+     - 确认容器正在运行：`docker ps`
+     - 检查防火墙设置
+     - 尝试访问：http://localhost:8501
+   - **数据库权限问题**（Linux/macOS）：
+     - 修改数据库文件权限：`chmod 666 *.db`
+   - **Node.js相关错误**：
+     - 容器内已集成Node.js环境，无需额外配置
+     - 进入容器检查：`docker exec -it agentsstock1 bash`
+   - **详细文档**：查看 `DOCKER_DEPLOYMENT.md` 获取完整的故障排除指南
+
 ### 日志调试
 系统运行时会在控制台输出详细日志，可用于问题诊断。如遇到错误，请查看终端输出。
+
+**Docker部署日志查看**：
+```bash
+# 实时查看日志
+docker-compose logs -f
+
+# 或查看特定容器日志
+docker logs -f agentsstock1
+```
 
 ### 错误报告
 如发现bug，请查看 `BUGFIX.md` 文件了解已知问题和解决方案。

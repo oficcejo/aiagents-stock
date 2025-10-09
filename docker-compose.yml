@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  agentsstock:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agentsstock1
+    ports:
+      - "8503:8501"
+    volumes:
+      # 数据和数据库持久化 - 使用目录挂载而不是文件挂载
+      - ./data:/app/data
+      # 环境变量配置文件
+      - ./.env:/app/.env
+    environment:
+      # 可以在这里设置环境变量，或者使用.env文件
+      - TZ=Asia/Shanghai
+    restart: unless-stopped
+    networks:
+      - agentsstock-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  agentsstock-network:
+    driver: bridge
+

@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# 虚拟环境
+venv/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 数据库文件（如果需要持久化，应该使用volumes）
+*.db
+
+# 环境变量文件（应该在运行时挂载）
+.env
+
+# Git
+.git/
+.gitignore
+
+# 日志文件
+*.log
+
+# 操作系统
+.DS_Store
+Thumbs.db
+
+# 压缩文件
+*.rar
+*.zip
+*.tar.gz
+
+# 文档和说明（这些会被COPY进去，这里只是示例）
+# README.md
+# *.md
+
+# 缓存
+.pytest_cache/
+.coverage
+htmlcov/
+
