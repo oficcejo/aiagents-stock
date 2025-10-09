@@ -152,6 +152,36 @@ class StockMonitorDatabase:
         conn.commit()
         conn.close()
     
+    def update_last_checked(self, stock_id: int):
+        """仅更新最后检查时间（用于获取失败的情况）"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            UPDATE monitored_stocks 
+            SET last_checked = CURRENT_TIMESTAMP
+            WHERE id = ?
+        ''', (stock_id,))
+        
+        conn.commit()
+        conn.close()
+    
+    def has_recent_notification(self, stock_id: int, notification_type: str, minutes: int = 60) -> bool:
+        """检查是否在最近X分钟内已有相同类型的通知"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT COUNT(*) FROM notifications
+            WHERE stock_id = ? AND type = ?
+            AND datetime(triggered_at) > datetime('now', '-' || ? || ' minutes')
+        ''', (stock_id, notification_type, minutes))
+        
+        count = cursor.fetchone()[0]
+        conn.close()
+        
+        return count > 0
+    
     def add_notification(self, stock_id: int, notification_type: str, message: str):
         """添加提醒记录"""
         conn = sqlite3.connect(self.db_path)
@@ -188,6 +218,35 @@ class StockMonitorDatabase:
                 'type': row[4],
                 'message': row[5],
                 'triggered_at': row[6]
+            })
+        
+        conn.close()
+        return notifications
+    
+    def get_all_recent_notifications(self, limit: int = 10) -> List[Dict]:
+        """获取最近的所有通知（包括已发送和未发送的）"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT n.id, n.stock_id, s.symbol, s.name, n.type, n.message, n.triggered_at, n.sent
+            FROM notifications n
+            JOIN monitored_stocks s ON n.stock_id = s.id
+            ORDER BY n.triggered_at DESC
+            LIMIT ?
+        ''', (limit,))
+        
+        notifications = []
+        for row in cursor.fetchall():
+            notifications.append({
+                'id': row[0],
+                'stock_id': row[1],
+                'symbol': row[2],
+                'name': row[3],
+                'type': row[4],
+                'message': row[5],
+                'triggered_at': row[6],
+                'sent': bool(row[7])
             })
         
         conn.close()

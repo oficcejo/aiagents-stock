@@ -577,21 +577,31 @@ def display_notification_management():
     with col2:
         st.subheader("📱 通知历史")
         
-        notifications = monitor_db.get_pending_notifications()
+        # 显示所有通知（包括已发送和未发送的）
+        all_notifications = monitor_db.get_all_recent_notifications(limit=10)
         
-        if notifications:
+        if all_notifications:
             # 显示通知列表
-            for notification in notifications[-10:]:  # 显示最近10条
+            for notification in all_notifications:
                 notification_type = notification['type']
                 color_map = {
                     'entry': '🟢',
                     'take_profit': '🟡',
-                    'stop_loss': '🔴'
+                    'stop_loss': '🔴',
+                    'quant_trade': '🤖'
                 }
                 icon = color_map.get(notification_type, '🔵')
                 
+                # 显示已发送状态
+                sent_status = "✅ 已发送" if notification.get('sent') else "⏳ 待发送"
+                
                 # 显示通知信息
-                st.info(f"{icon} **{notification['symbol']}** - {notification['message']}\n\n_{notification['triggered_at']}_")
+                st.info(f"{icon} **{notification['symbol']}** - {notification['message']}\n\n_{notification['triggered_at']}_ | {sent_status}")
+            
+            # 显示待发送通知数量
+            pending_count = len([n for n in all_notifications if not n.get('sent')])
+            if pending_count > 0:
+                st.warning(f"⚠️ 有 {pending_count} 条待发送通知")
             
             # 清空通知按钮
             col_a, col_b = st.columns(2)

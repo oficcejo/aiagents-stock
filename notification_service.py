@@ -50,15 +50,28 @@ class NotificationService:
         """发送所有待发送的通知"""
         notifications = monitor_db.get_pending_notifications()
         
+        if not notifications:
+            print("没有待发送的通知")
+            return
+        
+        print(f"\n{'='*50}")
+        print(f"开始发送通知，共 {len(notifications)} 条")
+        print(f"{'='*50}")
+        
         for notification in notifications:
             try:
+                print(f"\n处理通知: {notification['symbol']} - {notification['type']}")
                 if self.send_notification(notification):
                     monitor_db.mark_notification_sent(notification['id'])
-                    print(f"✅ 通知已发送: {notification['message']}")
+                    print(f"✅ 通知已成功发送并标记: {notification['message']}")
                 else:
                     print(f"❌ 通知发送失败: {notification['message']}")
             except Exception as e:
                 print(f"❌ 发送通知时出错: {e}")
+                import traceback
+                traceback.print_exc()
+        
+        print(f"{'='*50}\n")
     
     def send_notification(self, notification: Dict) -> bool:
         """发送单个通知"""
@@ -76,7 +89,11 @@ class NotificationService:
             # 检查邮件配置是否完整
             if not all([self.config['smtp_server'], self.config['email_from'], 
                        self.config['email_password'], self.config['email_to']]):
-                print("邮件配置不完整，使用界面通知")
+                print("⚠️ 邮件配置不完整，使用界面通知")
+                print(f"  - SMTP服务器: {self.config['smtp_server'] or '未配置'}")
+                print(f"  - 发件人: {self.config['email_from'] or '未配置'}")
+                print(f"  - 收件人: {self.config['email_to'] or '未配置'}")
+                print(f"  - 密码: {'已配置' if self.config['email_password'] else '未配置'}")
                 self._show_streamlit_notification(notification)
                 return True
             
@@ -100,17 +117,25 @@ class NotificationService:
             
             msg.attach(MIMEText(body, 'html'))
             
+            print(f"📧 正在发送邮件...")
+            print(f"  - 收件人: {self.config['email_to']}")
+            print(f"  - 主题: 股票监测提醒 - {notification['symbol']}")
+            
             # 根据端口选择连接方式
             if self.config['smtp_port'] == 465:
+                print(f"  - 使用 SMTP_SSL 连接 {self.config['smtp_server']}:{self.config['smtp_port']}")
                 server = smtplib.SMTP_SSL(self.config['smtp_server'], self.config['smtp_port'], timeout=15)
             else:
+                print(f"  - 使用 SMTP+TLS 连接 {self.config['smtp_server']}:{self.config['smtp_port']}")
                 server = smtplib.SMTP(self.config['smtp_server'], self.config['smtp_port'], timeout=15)
                 server.starttls()
             
+            print(f"  - 正在登录...")
             server.login(self.config['email_from'], self.config['email_password'])
+            print(f"  - 正在发送...")
             server.send_message(msg)
             server.quit()
-            print(f"邮件发送成功: {notification['symbol']}")
+            print(f"✅ 邮件发送成功: {notification['symbol']}")
             return True
             
         except Exception as e:
