@@ -463,26 +463,89 @@ class StockDataFetcher:
             except Exception as e:
                 print(f"获取财务指标失败: {e}")
             
-            # 5. 获取季度业绩（尝试不同API）
+            # 5. 获取季度业绩（使用问财）
             try:
-                # 尝试获取业绩预告
-                quarter_data = ak.stock_profit_forecast_em(symbol=symbol)
-                if quarter_data is not None and not quarter_data.empty:
-                    financial_data["quarter_data"] = quarter_data.head(4).to_dict('records')
-            except:
-                try:
-                    # 备用方案：获取季度财报
-                    quarter_data = ak.stock_financial_report_sina(stock=symbol, symbol="季报")
-                    if quarter_data is not None and not quarter_data.empty:
-                        financial_data["quarter_data"] = quarter_data.head(4).to_dict('records')
-                except Exception as e:
-                    print(f"获取季度数据失败: {e}")
+                # 使用pywencai获取季报数据
+                quarter_data = self._get_quarter_data_from_wencai(symbol)
+                if quarter_data:
+                    financial_data["quarter_data"] = quarter_data
+            except Exception as e:
+                print(f"获取季度数据失败: {e}")
             
             return financial_data
             
         except Exception as e:
             print(f"获取中国股票财务数据失败: {e}")
             return financial_data
+    
+    def _get_quarter_data_from_wencai(self, symbol):
+        """使用问财获取季报数据 - 直接返回原始数据给AI分析"""
+        try:
+            # 构建查询语句 - 获取最近4个季度的数据
+            query = f"{symbol}最近4个季度的营业收入、净利润、每股收益、净资产收益率、营业收入同比增长率、净利润同比增长率"
+            
+            # 使用pywencai查询
+            print(f"正在使用问财获取 {symbol} 的季报数据...")
+            result = pywencai.get(question=query, perpage=10)
+            
+            # 检查返回类型
+            if result is None:
+                print(f"问财未返回 {symbol} 的季报数据")
+                return None
+            
+            # 处理不同返回类型
+            quarter_data = None
+            
+            # 如果返回的是DataFrame
+            if isinstance(result, pd.DataFrame):
+                if result.empty:
+                    print(f"问财返回的DataFrame为空")
+                    return None
+                
+                print(f"  问财返回DataFrame，共 {len(result)} 行数据")
+                print(f"  列名: {list(result.columns)}")
+                
+                # 将DataFrame转为字典列表，保留所有原始数据
+                quarter_data = {
+                    'data_type': 'dataframe',
+                    'columns': list(result.columns),
+                    'records': result.head(10).to_dict('records'),  # 最多取10条
+                    'row_count': len(result),
+                    'summary': f"获取到{len(result)}条季报相关数据"
+                }
+                
+            # 如果返回的是字典
+            elif isinstance(result, dict):
+                print(f"  问财返回字典数据")
+                print(f"  字典键: {list(result.keys())}")
+                
+                quarter_data = {
+                    'data_type': 'dict',
+                    'raw_data': result,
+                    'summary': f"获取到季报字典数据，包含 {len(result)} 个字段"
+                }
+            
+            # 其他类型
+            else:
+                print(f"  问财返回未知类型: {type(result)}")
+                quarter_data = {
+                    'data_type': 'unknown',
+                    'raw_data': str(result),
+                    'summary': f"获取到季报数据，类型: {type(result).__name__}"
+                }
+            
+            if quarter_data:
+                print(f"✅ 成功获取季报数据，将原始数据交由AI分析师处理")
+                return quarter_data
+            else:
+                print(f"⚠️ 未能获取有效的季报数据")
+                return None
+                
+        except Exception as e:
+            print(f"使用问财获取季报数据失败: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
     
     def _get_us_financial_data(self, symbol):
         """获取美股财务数据"""

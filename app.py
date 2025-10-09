@@ -16,6 +16,7 @@ from monitor_manager import display_monitor_manager, get_monitor_summary
 from monitor_service import monitor_service
 from notification_service import notification_service
 from config_manager import config_manager
+from main_force_ui import display_main_force_selector
 
 # 页面配置
 st.set_page_config(
@@ -296,6 +297,17 @@ def main():
             st.session_state.show_monitor = True
             if 'show_history' in st.session_state:
                 del st.session_state.show_history
+            if 'show_main_force' in st.session_state:
+                del st.session_state.show_main_force
+        
+        if st.button("🎯 主力选股", use_container_width=True, key="nav_main_force"):
+            st.session_state.show_main_force = True
+            if 'show_history' in st.session_state:
+                del st.session_state.show_history
+            if 'show_monitor' in st.session_state:
+                del st.session_state.show_monitor
+            if 'show_config' in st.session_state:
+                del st.session_state.show_config
         
         if st.button("🏠 返回首页", use_container_width=True, key="nav_home"):
             if 'show_history' in st.session_state:
@@ -304,6 +316,8 @@ def main():
                 del st.session_state.show_monitor
             if 'show_config' in st.session_state:
                 del st.session_state.show_config
+            if 'show_main_force' in st.session_state:
+                del st.session_state.show_main_force
         
         if st.button("⚙️ 环境配置", use_container_width=True, key="nav_config"):
             st.session_state.show_config = True
@@ -373,6 +387,7 @@ def main():
             
             **功能说明**
             - **智能分析**：AI团队深度分析
+            - **主力选股**：主力资金精选标的
             - **实时监测**：价格监控与提醒
             - **历史记录**：查看分析历史
             
@@ -391,6 +406,11 @@ def main():
     # 检查是否显示监测面板
     if 'show_monitor' in st.session_state and st.session_state.show_monitor:
         display_monitor_manager()
+        return
+    
+    # 检查是否显示主力选股
+    if 'show_main_force' in st.session_state and st.session_state.show_main_force:
+        display_main_force_selector()
         return
     
     # 检查是否显示环境配置
@@ -539,6 +559,8 @@ def main():
                 del st.session_state.discussion_result
             if 'final_decision' in st.session_state:
                 del st.session_state.final_decision
+            if 'just_completed' in st.session_state:
+                del st.session_state.just_completed
                 
             run_stock_analysis(stock_input, period)
         
@@ -566,32 +588,36 @@ def main():
             # 运行批量分析
             run_batch_analysis(stock_list, period, batch_mode)
     
-    # 检查是否有已完成的单个分析结果
+    # 检查是否有已完成的单个分析结果（但不是刚刚完成的，避免重复显示）
     if 'analysis_completed' in st.session_state and st.session_state.analysis_completed:
-        # 重新显示分析结果
-        stock_info = st.session_state.stock_info
-        agents_results = st.session_state.agents_results
-        discussion_result = st.session_state.discussion_result
-        final_decision = st.session_state.final_decision
-        
-        # 重新获取股票数据用于显示图表
-        stock_info_current, stock_data, indicators = get_stock_data(stock_info['symbol'], period)
-        
-        # 显示股票基本信息
-        display_stock_info(stock_info, indicators)
-        
-        # 显示股票图表
-        if stock_data is not None:
-            display_stock_chart(stock_data, stock_info)
-        
-        # 显示各分析师报告
-        display_agents_analysis(agents_results)
-        
-        # 显示团队讨论
-        display_team_discussion(discussion_result)
-        
-        # 显示最终决策
-        display_final_decision(final_decision, stock_info, agents_results, discussion_result)
+        # 如果是刚刚完成的分析，清除标志，避免重复显示
+        if st.session_state.get('just_completed', False):
+            st.session_state.just_completed = False
+        else:
+            # 重新显示之前的分析结果（页面刷新后）
+            stock_info = st.session_state.stock_info
+            agents_results = st.session_state.agents_results
+            discussion_result = st.session_state.discussion_result
+            final_decision = st.session_state.final_decision
+            
+            # 重新获取股票数据用于显示图表
+            stock_info_current, stock_data, indicators = get_stock_data(stock_info['symbol'], period)
+            
+            # 显示股票基本信息
+            display_stock_info(stock_info, indicators)
+            
+            # 显示股票图表
+            if stock_data is not None:
+                display_stock_chart(stock_data, stock_info)
+            
+            # 显示各分析师报告
+            display_agents_analysis(agents_results)
+            
+            # 显示团队讨论
+            display_team_discussion(discussion_result)
+            
+            # 显示最终决策
+            display_final_decision(final_decision, stock_info, agents_results, discussion_result)
     
     # 检查是否有已完成的批量分析结果
     elif 'batch_analysis_results' in st.session_state and st.session_state.batch_analysis_results:
@@ -1064,12 +1090,16 @@ def run_stock_analysis(symbol, period):
         final_decision = agents.make_final_decision(discussion_result, stock_info, indicators)
         progress_bar.progress(100)
         
-        # 保存分析结果到session_state
+        # 显示最终决策
+        display_final_decision(final_decision, stock_info, agents_results, discussion_result)
+        
+        # 保存分析结果到session_state（用于页面刷新后显示）
         st.session_state.analysis_completed = True
         st.session_state.stock_info = stock_info
         st.session_state.agents_results = agents_results
         st.session_state.discussion_result = discussion_result
         st.session_state.final_decision = final_decision
+        st.session_state.just_completed = True  # 标记刚刚完成分析
         
         # 保存到数据库
         try:
@@ -1085,9 +1115,6 @@ def run_stock_analysis(symbol, period):
             st.success("✅ 分析记录已保存到数据库")
         except Exception as e:
             st.warning(f"⚠️ 保存到数据库时出现错误: {str(e)}")
-        
-        # 显示最终决策
-        display_final_decision(final_decision, stock_info, agents_results, discussion_result)
         
         status_text.text("✅ 分析完成！")
         time.sleep(1)
