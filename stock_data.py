@@ -19,9 +19,13 @@ class StockDataFetcher:
     def get_stock_info(self, symbol):
         """获取股票基本信息"""
         try:
-            # 处理中国股票代码
+            # 处理中国A股
             if self._is_chinese_stock(symbol):
                 return self._get_chinese_stock_info(symbol)
+            # 处理港股
+            elif self._is_hk_stock(symbol):
+                return self._get_hk_stock_info(symbol)
+            # 处理美股
             else:
                 return self._get_us_stock_info(symbol)
         except Exception as e:
@@ -32,15 +36,35 @@ class StockDataFetcher:
         try:
             if self._is_chinese_stock(symbol):
                 return self._get_chinese_stock_data(symbol, period)
+            elif self._is_hk_stock(symbol):
+                return self._get_hk_stock_data(symbol, period)
             else:
                 return self._get_us_stock_data(symbol, period, interval)
         except Exception as e:
             return {"error": f"获取股票数据失败: {str(e)}"}
     
     def _is_chinese_stock(self, symbol):
-        """判断是否为中国股票"""
-        # 简单判断：包含数字且长度为6位的认为是中国股票
+        """判断是否为中国A股"""
+        # 简单判断：包含数字且长度为6位的认为是中国A股
         return symbol.isdigit() and len(symbol) == 6
+    
+    def _is_hk_stock(self, symbol):
+        """判断是否为港股"""
+        # 港股代码通常是1-5位数字，或者前面带HK/hk前缀
+        if symbol.upper().startswith('HK'):
+            return True
+        # 纯数字且长度在1-5位之间，认为可能是港股
+        if symbol.isdigit() and 1 <= len(symbol) <= 5:
+            return True
+        return False
+    
+    def _normalize_hk_code(self, symbol):
+        """规范化港股代码为5位格式（如700 -> 00700）"""
+        # 移除HK前缀
+        if symbol.upper().startswith('HK'):
+            symbol = symbol[2:]
+        # 补齐到5位
+        return symbol.zfill(5)
     
     def _get_chinese_stock_info(self, symbol):
         """获取中国股票基本信息"""
@@ -187,6 +211,92 @@ class StockDataFetcher:
                 "exchange": "上海/深圳证券交易所"
             }
     
+    def _get_hk_stock_info(self, symbol):
+        """获取港股基本信息"""
+        try:
+            # 规范化港股代码
+            hk_code = self._normalize_hk_code(symbol)
+            
+            # 初始化基本信息
+            info = {
+                "symbol": hk_code,
+                "name": "未知",
+                "current_price": "N/A",
+                "change_percent": "N/A",
+                "pe_ratio": "N/A",
+                "pb_ratio": "N/A",
+                "market_cap": "N/A",
+                "market": "香港股市",
+                "exchange": "香港交易所"
+            }
+            
+            # 方法1: 获取港股实时行情
+            try:
+                # 使用akshare获取港股实时数据
+                realtime_df = ak.stock_hk_spot_em()
+                if realtime_df is not None and not realtime_df.empty:
+                    # 查找对应股票
+                    stock_data = realtime_df[realtime_df['代码'] == hk_code]
+                    if not stock_data.empty:
+                        row = stock_data.iloc[0]
+                        info['name'] = row.get('名称', '未知')
+                        info['current_price'] = row.get('最新价', 'N/A')
+                        info['change_percent'] = row.get('涨跌幅', 'N/A')
+                        
+                        # 市值（港元）
+                        market_cap = row.get('总市值', 'N/A')
+                        if market_cap != 'N/A':
+                            try:
+                                info['market_cap'] = float(market_cap)
+                            except:
+                                pass
+                        
+                        # 市盈率
+                        pe = row.get('市盈率', 'N/A')
+                        if pe != 'N/A' and pe != '-':
+                            try:
+                                pe_val = float(pe)
+                                if 0 < pe_val <= 1000:
+                                    info['pe_ratio'] = pe_val
+                            except:
+                                pass
+            except Exception as e:
+                print(f"获取港股实时数据失败: {e}")
+            
+            # 方法2: 尝试使用历史数据获取价格信息
+            if info['current_price'] == 'N/A':
+                try:
+                    hist_df = ak.stock_hk_hist(symbol=hk_code, period="daily", 
+                                              start_date=(datetime.now() - timedelta(days=5)).strftime('%Y%m%d'),
+                                              end_date=datetime.now().strftime('%Y%m%d'), adjust="qfq")
+                    if hist_df is not None and not hist_df.empty:
+                        latest = hist_df.iloc[-1]
+                        info['current_price'] = latest['收盘']
+                        # 计算涨跌幅
+                        if len(hist_df) > 1:
+                            prev_close = hist_df.iloc[-2]['收盘']
+                            change_pct = ((latest['收盘'] - prev_close) / prev_close) * 100
+                            info['change_percent'] = round(change_pct, 2)
+                except Exception as e:
+                    print(f"获取港股历史数据失败: {e}")
+            
+            return info
+            
+        except Exception as e:
+            print(f"获取港股信息完全失败: {e}")
+            # 返回基本信息
+            return {
+                "symbol": symbol,
+                "name": f"港股{symbol}",
+                "current_price": "N/A",
+                "change_percent": "N/A",
+                "pe_ratio": "N/A",
+                "pb_ratio": "N/A",
+                "market_cap": "N/A",
+                "market": "香港股市",
+                "exchange": "香港交易所"
+            }
+    
     def _get_us_stock_info(self, symbol):
         """获取美股基本信息"""
         import time
@@ -315,6 +425,48 @@ class StockDataFetcher:
         except Exception as e:
             return {"error": f"获取中国股票数据失败: {str(e)}"}
     
+    def _get_hk_stock_data(self, symbol, period="1y"):
+        """获取港股历史数据"""
+        try:
+            # 规范化港股代码
+            hk_code = self._normalize_hk_code(symbol)
+            
+            # 计算日期范围
+            end_date = datetime.now().strftime('%Y%m%d')
+            if period == "1y":
+                start_date = (datetime.now() - timedelta(days=365)).strftime('%Y%m%d')
+            elif period == "6mo":
+                start_date = (datetime.now() - timedelta(days=180)).strftime('%Y%m%d')
+            elif period == "3mo":
+                start_date = (datetime.now() - timedelta(days=90)).strftime('%Y%m%d')
+            elif period == "1mo":
+                start_date = (datetime.now() - timedelta(days=30)).strftime('%Y%m%d')
+            else:
+                start_date = (datetime.now() - timedelta(days=365)).strftime('%Y%m%d')
+            
+            # 获取港股历史数据
+            df = ak.stock_hk_hist(symbol=hk_code, period="daily", 
+                                start_date=start_date, end_date=end_date, adjust="qfq")
+            
+            if df is not None and not df.empty:
+                # 重命名列以匹配标准格式
+                df = df.rename(columns={
+                    '日期': 'Date',
+                    '开盘': 'Open',
+                    '收盘': 'Close',
+                    '最高': 'High',
+                    '最低': 'Low',
+                    '成交量': 'Volume'
+                })
+                df['Date'] = pd.to_datetime(df['Date'])
+                df.set_index('Date', inplace=True)
+                return df
+            else:
+                return {"error": "无法获取港股历史数据"}
+                
+        except Exception as e:
+            return {"error": f"获取港股数据失败: {str(e)}"}
+    
     def _get_us_stock_data(self, symbol, period="1y", interval="1d"):
         """获取美股历史数据"""
         try:
@@ -398,6 +550,8 @@ class StockDataFetcher:
         try:
             if self._is_chinese_stock(symbol):
                 return self._get_chinese_financial_data(symbol)
+            elif self._is_hk_stock(symbol):
+                return self._get_hk_financial_data(symbol)
             else:
                 return self._get_us_financial_data(symbol)
         except Exception as e:
@@ -546,6 +700,74 @@ class StockDataFetcher:
             import traceback
             traceback.print_exc()
             return None
+    
+    def _get_hk_financial_data(self, symbol):
+        """获取港股财务数据"""
+        hk_code = self._normalize_hk_code(symbol)
+        
+        financial_data = {
+            "symbol": hk_code,
+            "balance_sheet": None,
+            "income_statement": None,
+            "cash_flow": None,
+            "financial_ratios": {},
+            "quarter_data": None,
+            "data_source": "eastmoney",
+            "note": "港股财务数据来自东方财富"
+        }
+        
+        try:
+            # 使用akshare获取港股财务指标（东方财富数据源）
+            print(f"正在获取港股 {hk_code} 的财务指标...")
+            try:
+                financial_indicator = ak.stock_hk_financial_indicator_em(symbol=hk_code)
+                
+                if financial_indicator is not None and not financial_indicator.empty:
+                    # 将财务指标数据转换为字典
+                    indicator_dict = financial_indicator.iloc[0].to_dict()
+                    
+                    # 整理财务比率数据
+                    financial_data["financial_ratios"] = {
+                        "基本每股收益": self._safe_convert(indicator_dict.get('基本每股收益(元)', 'N/A')),
+                        "每股净资产": self._safe_convert(indicator_dict.get('每股净资产(元)', 'N/A')),
+                        "每股股息TTM": self._safe_convert(indicator_dict.get('每股股息TTM(港元)', 'N/A')),
+                        "派息比率": self._safe_convert(indicator_dict.get('派息比率(%)', 'N/A')),
+                        "每股经营现金流": self._safe_convert(indicator_dict.get('每股经营现金流(元)', 'N/A')),
+                        "股息率TTM": self._safe_convert(indicator_dict.get('股息率TTM(%)', 'N/A')),
+                        "总市值": self._safe_convert(indicator_dict.get('总市值(港元)', 'N/A')),
+                        "港股市值": self._safe_convert(indicator_dict.get('港股市值(港元)', 'N/A')),
+                        "营业总收入": self._safe_convert(indicator_dict.get('营业总收入', 'N/A')),
+                        "营业收入环比增长": self._safe_convert(indicator_dict.get('营业总收入滚动环比增长(%)', 'N/A')),
+                        "销售净利率": self._safe_convert(indicator_dict.get('销售净利率(%)', 'N/A')),
+                        "净利润": self._safe_convert(indicator_dict.get('净利润', 'N/A')),
+                        "净利润环比增长": self._safe_convert(indicator_dict.get('净利润滚动环比增长(%)', 'N/A')),
+                        "ROE股东权益回报率": self._safe_convert(indicator_dict.get('股东权益回报率(%)', 'N/A')),
+                        "市盈率": self._safe_convert(indicator_dict.get('市盈率', 'N/A')),
+                        "市净率": self._safe_convert(indicator_dict.get('市净率', 'N/A')),
+                        "ROA总资产回报率": self._safe_convert(indicator_dict.get('总资产回报率(%)', 'N/A')),
+                        "法定股本": self._safe_convert(indicator_dict.get('法定股本(股)', 'N/A')),
+                        "已发行股本": self._safe_convert(indicator_dict.get('已发行股本(股)', 'N/A')),
+                        "每手股": self._safe_convert(indicator_dict.get('每手股', 'N/A')),
+                    }
+                    
+                    print(f"✅ 成功获取港股 {hk_code} 的财务指标")
+                    print(f"   ROE: {financial_data['financial_ratios']['ROE股东权益回报率']}")
+                    print(f"   市盈率: {financial_data['financial_ratios']['市盈率']}")
+                    print(f"   市净率: {financial_data['financial_ratios']['市净率']}")
+                else:
+                    print(f"⚠️ 未获取到港股 {hk_code} 的财务指标数据")
+                    financial_data["note"] = "未获取到财务数据"
+                    
+            except Exception as e:
+                print(f"⚠️ 获取港股财务指标失败: {e}")
+                financial_data["note"] = f"获取财务数据失败: {str(e)}"
+            
+            return financial_data
+            
+        except Exception as e:
+            print(f"获取港股财务数据异常: {e}")
+            financial_data["note"] = f"获取失败: {str(e)}"
+            return financial_data
     
     def _get_us_financial_data(self, symbol):
         """获取美股财务数据"""

@@ -4,12 +4,17 @@ FROM python:3.12-slim
 # 设置工作目录
 WORKDIR /app
 
-# 安装Node.js (pywencai需要)
+# 安装Node.js (pywencai需要) 和中文字体 (PDF生成需要)
 RUN apt-get update && apt-get install -y \
     curl \
     gnupg \
+    fonts-noto-cjk \
+    fonts-wqy-zenhei \
+    fonts-wqy-microhei \
+    fontconfig \
     && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
     && apt-get install -y nodejs \
+    && fc-cache -fv \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 

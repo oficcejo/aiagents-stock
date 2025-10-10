@@ -21,30 +21,49 @@ import tempfile
 import os
 
 def register_chinese_fonts():
-    """注册中文字体"""
+    """注册中文字体 - 支持Windows和Linux系统"""
     try:
         # 检查是否已经注册过
         if 'ChineseFont' in pdfmetrics.getRegisteredFontNames():
             return 'ChineseFont'
         
-        # 尝试注册系统中文字体
-        font_paths = [
+        # Windows系统字体路径
+        windows_font_paths = [
             'C:/Windows/Fonts/simsun.ttc',  # 宋体
             'C:/Windows/Fonts/simhei.ttf',  # 黑体
             'C:/Windows/Fonts/msyh.ttc',    # 微软雅黑
+            'C:/Windows/Fonts/msyh.ttf',    # 微软雅黑（TTF格式）
         ]
         
-        for font_path in font_paths:
+        # Linux系统字体路径（Docker环境）
+        linux_font_paths = [
+            '/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc',  # 文泉驿正黑
+            '/usr/share/fonts/truetype/wqy/wqy-microhei.ttc',  # 文泉驿微米黑
+            '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',  # Noto Sans CJK
+            '/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc',  # Noto Serif CJK
+            '/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf',  # Droid字体
+        ]
+        
+        # 合并所有可能的字体路径
+        all_font_paths = windows_font_paths + linux_font_paths
+        
+        # 尝试注册字体
+        for font_path in all_font_paths:
             if os.path.exists(font_path):
                 try:
                     pdfmetrics.registerFont(TTFont('ChineseFont', font_path))
+                    print(f"✅ 成功注册中文字体: {font_path}")
                     return 'ChineseFont'
-                except:
+                except Exception as e:
+                    print(f"⚠️ 尝试注册字体 {font_path} 失败: {e}")
                     continue
         
-        # 如果没有找到中文字体，使用默认字体
+        # 如果没有找到中文字体，打印警告并使用默认字体
+        print("⚠️ 警告：未找到中文字体，PDF中文可能显示为方框")
+        print("建议：在Docker中安装中文字体包")
         return 'Helvetica'
-    except:
+    except Exception as e:
+        print(f"❌ 注册中文字体时出错: {e}")
         return 'Helvetica'
 
 def create_pdf_report(stock_info, agents_results, discussion_result, final_decision):
