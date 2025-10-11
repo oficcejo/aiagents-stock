@@ -9,6 +9,8 @@
 <img width="1910" height="923" alt="01" src="https://github.com/user-attachments/assets/7dcd4b2c-8b4b-428b-8a17-4d843e98a626" />
 <img width="1910" height="923" alt="02" src="https://github.com/user-attachments/assets/02018fff-4e6b-4354-b258-a5da25537c38" />
 
+## ✨1011 更新优化数据获取
+
 ## ✨1010 更新说明（最新）
 ### 🇭🇰 新增港股分析支持 ⭐️
 - **市场扩展**：现已支持A股、港股、美股三大市场

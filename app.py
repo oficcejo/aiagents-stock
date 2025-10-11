@@ -395,7 +395,7 @@ def main():
             **AI分析流程**
             1. 数据获取 → 2. 技术分析
             3. 基本面分析 → 4. 资金分析
-            5. 情绪数据(ARBR) → 6. 新闻公告
+            5. 情绪数据(ARBR) → 6. 新闻(qstock)
             7. AI团队分析 → 8. 团队讨论 → 9. 决策
             """)
     
@@ -504,8 +504,8 @@ def main():
     with col3:
         enable_sentiment = st.checkbox("📈 市场情绪分析师", value=False,
                                       help="负责市场情绪研究、ARBR指标分析（仅A股）")
-        enable_news = st.checkbox("📰 新闻公告分析师", value=False,
-                                 help="负责新闻事件分析、公司公告解读（仅A股）")
+        enable_news = st.checkbox("📰 新闻分析师", value=False,
+                                 help="负责新闻事件分析、舆情研究（仅A股，qstock数据源）")
     
     # 显示已选择的分析师
     selected_analysts = []
@@ -520,7 +520,7 @@ def main():
     if enable_sentiment:
         selected_analysts.append("市场情绪分析师")
     if enable_news:
-        selected_analysts.append("新闻公告分析师")
+        selected_analysts.append("新闻分析师")
     
     if selected_analysts:
         st.info(f"✅ 已选择 {len(selected_analysts)} 位分析师: {', '.join(selected_analysts)}")
@@ -729,16 +729,29 @@ def analyze_single_stock_for_batch(symbol, period, enabled_analysts_config=None,
         fetcher = StockDataFetcher()
         financial_data = fetcher.get_financial_data(symbol)
         
+        # 2.5 获取季报数据（仅A股）
+        quarterly_data = None
+        enable_fundamental = enabled_analysts_config.get('fundamental', True)
+        if enable_fundamental and fetcher._is_chinese_stock(symbol):
+            try:
+                from quarterly_report_data import QuarterlyReportDataFetcher
+                quarterly_fetcher = QuarterlyReportDataFetcher()
+                quarterly_data = quarterly_fetcher.get_quarterly_reports(symbol)
+            except:
+                pass
+        
         # 获取分析师选择状态（从参数而不是session_state）
         enable_fund_flow = enabled_analysts_config.get('fund_flow', True)
         enable_sentiment = enabled_analysts_config.get('sentiment', False)
         enable_news = enabled_analysts_config.get('news', False)
         
-        # 3. 获取资金流向数据（可选）
+        # 3. 获取资金流向数据（akshare数据源，可选）
         fund_flow_data = None
         if enable_fund_flow and fetcher._is_chinese_stock(symbol):
             try:
-                fund_flow_data = fetcher.get_fund_flow_data(symbol)
+                from fund_flow_akshare import FundFlowAkshareDataFetcher
+                fund_flow_fetcher = FundFlowAkshareDataFetcher()
+                fund_flow_data = fund_flow_fetcher.get_fund_flow_data(symbol)
             except:
                 pass
         
@@ -752,13 +765,13 @@ def analyze_single_stock_for_batch(symbol, period, enabled_analysts_config=None,
             except:
                 pass
         
-        # 5. 获取新闻公告数据（可选）
-        news_announcement_data = None
+        # 5. 获取新闻数据（qstock数据源，可选）
+        news_data = None
         if enable_news and fetcher._is_chinese_stock(symbol):
             try:
-                from news_announcement_data import NewsAnnouncementDataFetcher
-                news_fetcher = NewsAnnouncementDataFetcher()
-                news_announcement_data = news_fetcher.get_news_and_announcements(symbol)
+                from qstock_news_data import QStockNewsDataFetcher
+                news_fetcher = QStockNewsDataFetcher()
+                news_data = news_fetcher.get_stock_news(symbol)
             except:
                 pass
         
@@ -771,8 +784,8 @@ def analyze_single_stock_for_batch(symbol, period, enabled_analysts_config=None,
         # 7. 运行多智能体分析
         agents_results = agents.run_multi_agent_analysis(
             stock_info, stock_data, indicators, financial_data, 
-            fund_flow_data, sentiment_data, news_announcement_data,
-            enabled_analysts=enabled_analysts
+            fund_flow_data, sentiment_data, news_data, quarterly_data,
+            enabled_analysts=enabled_analysts_config
         )
         
         # 8. 团队讨论
@@ -982,21 +995,47 @@ def run_stock_analysis(symbol, period):
         financial_data = fetcher.get_financial_data(symbol)
         progress_bar.progress(35)
         
+        # 2.5 获取季报数据（仅在选择了基本面分析师且为A股时）
+        enable_fundamental = st.session_state.get('enable_fundamental', True)
+        quarterly_data = None
+        if enable_fundamental and fetcher._is_chinese_stock(symbol):
+            status_text.text("📊 正在获取季报数据（akshare数据源）...")
+            try:
+                from quarterly_report_data import QuarterlyReportDataFetcher
+                quarterly_fetcher = QuarterlyReportDataFetcher()
+                quarterly_data = quarterly_fetcher.get_quarterly_reports(symbol)
+                if quarterly_data and quarterly_data.get('data_success'):
+                    income_count = quarterly_data.get('income_statement', {}).get('periods', 0) if quarterly_data.get('income_statement') else 0
+                    balance_count = quarterly_data.get('balance_sheet', {}).get('periods', 0) if quarterly_data.get('balance_sheet') else 0
+                    cash_flow_count = quarterly_data.get('cash_flow', {}).get('periods', 0) if quarterly_data.get('cash_flow') else 0
+                    st.info(f"✅ 成功获取季报数据：利润表{income_count}期，资产负债表{balance_count}期，现金流量表{cash_flow_count}期")
+                else:
+                    st.warning("⚠️ 未能获取季报数据，将基于基本财务数据分析")
+            except Exception as e:
+                st.warning(f"⚠️ 获取季报数据时出错: {str(e)}")
+                quarterly_data = None
+        elif enable_fundamental and not fetcher._is_chinese_stock(symbol):
+            st.info("ℹ️ 美股暂不支持季报数据")
+        progress_bar.progress(37)
+        
         # 获取分析师选择状态
         enable_fund_flow = st.session_state.get('enable_fund_flow', True)
         enable_sentiment = st.session_state.get('enable_sentiment', False)
         enable_news = st.session_state.get('enable_news', False)
         
-        # 3. 获取资金流向数据（仅在选择了资金面分析师时）
+        # 3. 获取资金流向数据（仅在选择了资金面分析师时，使用akshare数据源）
         fund_flow_data = None
         if enable_fund_flow and fetcher._is_chinese_stock(symbol):
-            status_text.text("💰 正在获取资金流向数据（主力）...")
+            status_text.text("💰 正在获取资金流向数据（akshare数据源）...")
             try:
-                fund_flow_data = fetcher.get_fund_flow_data(symbol)
-                if fund_flow_data and fund_flow_data.get('query_success'):
-                    st.info("✅ 成功获取主力资金流向数据")
+                from fund_flow_akshare import FundFlowAkshareDataFetcher
+                fund_flow_fetcher = FundFlowAkshareDataFetcher()
+                fund_flow_data = fund_flow_fetcher.get_fund_flow_data(symbol)
+                if fund_flow_data and fund_flow_data.get('data_success'):
+                    days = fund_flow_data.get('fund_flow_data', {}).get('days', 0) if fund_flow_data.get('fund_flow_data') else 0
+                    st.info(f"✅ 成功获取 {days} 个交易日的资金流向数据")
                 else:
-                    st.warning("⚠️ 未能获取主力资金流向数据，将基于技术指标进行资金面分析")
+                    st.warning("⚠️ 未能获取资金流向数据，将基于技术指标进行资金面分析")
             except Exception as e:
                 st.warning(f"⚠️ 获取资金流向数据时出错: {str(e)}")
                 fund_flow_data = None
@@ -1023,25 +1062,24 @@ def run_stock_analysis(symbol, period):
             st.info("ℹ️ 美股暂不支持市场情绪数据（ARBR等指标）")
         progress_bar.progress(45)
         
-        # 5. 获取新闻公告数据（仅在选择了新闻公告分析师时）
-        news_announcement_data = None
+        # 5. 获取新闻数据（仅在选择了新闻分析师时，使用qstock数据源）
+        news_data = None
         if enable_news and fetcher._is_chinese_stock(symbol):
-            status_text.text("📰 正在获取新闻公告数据（问财）...")
+            status_text.text("📰 正在获取新闻数据...")
             try:
-                from news_announcement_data import NewsAnnouncementDataFetcher
-                news_fetcher = NewsAnnouncementDataFetcher()
-                news_announcement_data = news_fetcher.get_news_and_announcements(symbol)
-                if news_announcement_data and news_announcement_data.get('data_success'):
-                    news_count = news_announcement_data.get('news_data', {}).get('count', 0) if news_announcement_data.get('news_data') else 0
-                    announcement_count = news_announcement_data.get('announcement_data', {}).get('count', 0) if news_announcement_data.get('announcement_data') else 0
-                    st.info(f"✅ 成功获取 {news_count} 条新闻，{announcement_count} 条公告")
+                from qstock_news_data import QStockNewsDataFetcher
+                news_fetcher = QStockNewsDataFetcher()
+                news_data = news_fetcher.get_stock_news(symbol)
+                if news_data and news_data.get('data_success'):
+                    news_count = news_data.get('news_data', {}).get('count', 0) if news_data.get('news_data') else 0
+                    st.info(f"✅ 成功从东方财富获取个股 {news_count} 条新闻")
                 else:
-                    st.warning("⚠️ 未能获取新闻公告数据，将基于基本信息进行分析")
+                    st.warning("⚠️ 未能获取新闻数据，将基于基本信息进行分析")
             except Exception as e:
-                st.warning(f"⚠️ 获取新闻公告数据时出错: {str(e)}")
-                news_announcement_data = None
+                st.warning(f"⚠️ 获取新闻数据时出错: {str(e)}")
+                news_data = None
         elif enable_news and not fetcher._is_chinese_stock(symbol):
-            st.info("ℹ️ 美股暂不支持新闻公告数据")
+            st.info("ℹ️ 美股暂不支持新闻数据")
         progress_bar.progress(50)
         
         # 6. 初始化AI分析系统
@@ -1070,7 +1108,7 @@ def run_stock_analysis(symbol, period):
         status_text.text("🔍 AI分析师团队正在分析,请耐心等待几分钟...")
         agents_results = agents.run_multi_agent_analysis(
             stock_info, stock_data, indicators, financial_data, 
-            fund_flow_data, sentiment_data, news_announcement_data,
+            fund_flow_data, sentiment_data, news_data, quarterly_data,
             enabled_analysts=enabled_analysts
         )
         progress_bar.progress(75)
@@ -1453,7 +1491,7 @@ def show_example_interface():
     st.markdown("---")
     st.markdown("""
     ### 🌏 市场支持说明
-    - **A股**：完整支持（技术分析、财务数据、资金流向、市场情绪、新闻公告）
+    - **A股**：完整支持（技术分析、财务数据、资金流向、市场情绪、新闻数据qstock）
     - **港股**：部分支持（技术分析、21项财务指标）⭐️ 
     - **美股**：完整支持（技术分析、财务数据）
     

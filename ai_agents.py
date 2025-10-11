@@ -24,18 +24,29 @@ class StockAnalysisAgents:
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
         }
     
-    def fundamental_analyst_agent(self, stock_info: Dict, financial_data: Dict = None) -> Dict[str, Any]:
+    def fundamental_analyst_agent(self, stock_info: Dict, financial_data: Dict = None, quarterly_data: Dict = None) -> Dict[str, Any]:
         """基本面分析智能体"""
         print("📊 基本面分析师正在分析中...")
+        
+        # 如果有季报数据，显示数据来源
+        if quarterly_data and quarterly_data.get('data_success'):
+            income_count = quarterly_data.get('income_statement', {}).get('periods', 0) if quarterly_data.get('income_statement') else 0
+            balance_count = quarterly_data.get('balance_sheet', {}).get('periods', 0) if quarterly_data.get('balance_sheet') else 0
+            cash_flow_count = quarterly_data.get('cash_flow', {}).get('periods', 0) if quarterly_data.get('cash_flow') else 0
+            print(f"   ✓ 已获取季报数据：利润表{income_count}期，资产负债表{balance_count}期，现金流量表{cash_flow_count}期")
+        else:
+            print("   ⚠ 未获取到季报数据，将基于基本财务数据分析")
+        
         time.sleep(1)
         
-        analysis = self.deepseek_client.fundamental_analysis(stock_info, financial_data)
+        analysis = self.deepseek_client.fundamental_analysis(stock_info, financial_data, quarterly_data)
         
         return {
             "agent_name": "基本面分析师", 
             "agent_role": "负责公司财务分析、行业研究、估值分析",
             "analysis": analysis,
-            "focus_areas": ["财务指标", "行业分析", "公司价值", "成长性"],
+            "focus_areas": ["财务指标", "行业分析", "公司价值", "成长性", "季报趋势"],
+            "quarterly_data": quarterly_data,  # 保存季报数据以供后续使用
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
         }
     
@@ -199,105 +210,110 @@ class StockAnalysisAgents:
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
         }
     
-    def news_announcement_analyst_agent(self, stock_info: Dict, news_announcement_data: Dict = None) -> Dict[str, Any]:
-        """新闻公告分析智能体"""
-        print("📰 新闻公告分析师正在分析中...")
+    def news_analyst_agent(self, stock_info: Dict, news_data: Dict = None) -> Dict[str, Any]:
+        """新闻分析智能体"""
+        print("📰 新闻分析师正在分析中...")
         
-        # 如果有新闻公告数据，显示数据来源
-        if news_announcement_data and news_announcement_data.get('data_success'):
-            news_count = news_announcement_data.get('news_data', {}).get('count', 0) if news_announcement_data.get('news_data') else 0
-            announcement_count = news_announcement_data.get('announcement_data', {}).get('count', 0) if news_announcement_data.get('announcement_data') else 0
-            print(f"   ✓ 已获取 {news_count} 条新闻，{announcement_count} 条公告")
+        # 如果有新闻数据，显示数据来源
+        if news_data and news_data.get('data_success'):
+            news_count = news_data.get('news_data', {}).get('count', 0) if news_data.get('news_data') else 0
+            source = news_data.get('source', 'unknown')
+            print(f"   ✓ 已从 {source} 获取 {news_count} 条新闻")
         else:
-            print("   ⚠ 未获取到新闻公告数据，将基于基本信息分析")
+            print("   ⚠ 未获取到新闻数据，将基于基本信息分析")
         
         time.sleep(1)
         
-        # 构建带有新闻公告数据的prompt
-        news_announcement_text = ""
-        if news_announcement_data and news_announcement_data.get('data_success'):
-            # 使用格式化的新闻公告数据
-            from news_announcement_data import NewsAnnouncementDataFetcher
-            fetcher = NewsAnnouncementDataFetcher()
-            news_announcement_text = f"""
+        # 构建带有新闻数据的prompt
+        news_text = ""
+        if news_data and news_data.get('data_success'):
+            # 使用格式化的新闻数据
+            from qstock_news_data import QStockNewsDataFetcher
+            fetcher = QStockNewsDataFetcher()
+            news_text = f"""
 
-【最新新闻公告数据】
-{fetcher.format_news_announcements_for_ai(news_announcement_data)}
+【最新新闻数据】
+{fetcher.format_news_for_ai(news_data)}
 
-以上是通过问财获取的实际新闻和公告数据，请重点基于这些数据进行分析。
+以上是通过qstock获取的实际新闻数据，请重点基于这些数据进行分析。
 """
         
-        news_announcement_prompt = f"""
-作为专业的新闻公告分析师，请基于最新的新闻和公告对以下股票进行深度分析：
+        news_prompt = f"""
+作为专业的新闻分析师，请基于最新的新闻对以下股票进行深度分析：
 
 股票信息：
 - 股票代码：{stock_info.get('symbol', 'N/A')}
 - 股票名称：{stock_info.get('name', 'N/A')}
 - 行业：{stock_info.get('sector', 'N/A')}
 - 细分行业：{stock_info.get('industry', 'N/A')}
-{news_announcement_text}
+{news_text}
 
 请从以下角度进行深度分析：
 
-1. **新闻分析**
+1. **新闻概要**
    - 梳理最新的重要新闻
+   - 总结核心要点和关键信息
+   - 按重要性排序新闻
+
+2. **新闻性质分析**
    - 分析新闻的性质（利好/利空/中性）
-   - 评估新闻对股价的短期和长期影响
+   - 评估新闻的可信度和权威性
+   - 识别新闻来源和传播范围
+
+3. **影响评估**
+   - 评估新闻对股价的短期影响
+   - 分析新闻对公司长期发展的影响
+   - 判断新闻对行业的影响范围
+
+4. **热点识别**
    - 识别市场关注的热点和焦点
-   - 分析新闻的可信度和影响力
+   - 分析该股票在市场中的关注度
+   - 评估舆论导向和市场情绪
 
-2. **公告分析**
-   - 梳理最新的重要公告
-   - 分析公告的类型（业绩、重组、增持、减持、分红等）
-   - 评估公告的实质性影响
-   - 识别可能的投资机会或风险
-   - 解读公司的战略意图
-
-3. **重大事件识别**
+5. **重大事件识别**
    - 识别可能影响股价的重大事件
    - 评估事件的紧迫性和重要性
-   - 分析事件的发展趋势
-   - 预判后续可能的发展
+   - 预判后续可能的发展和连锁反应
 
-4. **市场反应分析**
-   - 分析市场对新闻公告的反应
-   - 评估反应是否充分或过度
+6. **市场反应预判**
+   - 预测市场对新闻的可能反应
    - 判断是否存在预期差
-   - 识别可能的交易机会
+   - 识别可能的交易机会窗口
 
-5. **风险提示**
-   - 识别新闻公告中的风险信号
+7. **风险提示**
+   - 识别新闻中的风险信号
    - 评估潜在的负面影响
-   - 提示需要关注的问题
+   - 提示需要警惕的风险点
 
-6. **投资建议**
-   - 基于新闻公告的操作建议
-   - 关键时间节点提示
+8. **投资建议**
+   - 基于新闻的操作建议
+   - 关键时间节点和观察点
    - 需要持续关注的事项
 
 请确保分析客观、专业，重点关注对投资决策有实质性影响的内容。
-如果某些新闻或公告的重要性较低，可以简要提及或略过。
+如果某些新闻的重要性较低，可以简要提及或略过。
 """
         
         messages = [
-            {"role": "system", "content": "你是一名专业的新闻公告分析师，擅长解读公司公告、新闻事件，评估其对股价的影响。你具有敏锐的洞察力和丰富的市场经验。"},
-            {"role": "user", "content": news_announcement_prompt}
+            {"role": "system", "content": "你是一名专业的新闻分析师，擅长解读新闻事件、舆情分析，评估新闻对股价的影响。你具有敏锐的洞察力和丰富的市场经验。"},
+            {"role": "user", "content": news_prompt}
         ]
         
         analysis = self.deepseek_client.call_api(messages, max_tokens=4000)
         
         return {
-            "agent_name": "新闻公告分析师",
-            "agent_role": "负责新闻事件分析、公司公告解读、重大事件影响评估",
+            "agent_name": "新闻分析师",
+            "agent_role": "负责新闻事件分析、舆情研究、重大事件影响评估",
             "analysis": analysis,
-            "focus_areas": ["新闻解读", "公告分析", "事件影响", "市场反应", "投资机会"],
-            "news_announcement_data": news_announcement_data,  # 保存新闻公告数据以供后续使用
+            "focus_areas": ["新闻解读", "舆情分析", "事件影响", "市场反应", "投资机会"],
+            "news_data": news_data,  # 保存新闻数据以供后续使用
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
         }
     
     def run_multi_agent_analysis(self, stock_info: Dict, stock_data: Any, indicators: Dict, 
                                  financial_data: Dict = None, fund_flow_data: Dict = None, 
-                                 sentiment_data: Dict = None, news_announcement_data: Dict = None,
+                                 sentiment_data: Dict = None, news_data: Dict = None,
+                                 quarterly_data: Dict = None,
                                  enabled_analysts: Dict = None) -> Dict[str, Any]:
         """运行多智能体分析
         
@@ -334,7 +350,7 @@ class StockAnalysisAgents:
         
         # 基本面分析
         if enabled_analysts.get('fundamental', True):
-            agents_results["fundamental"] = self.fundamental_analyst_agent(stock_info, financial_data)
+            agents_results["fundamental"] = self.fundamental_analyst_agent(stock_info, financial_data, quarterly_data)
         
         # 资金面分析（传入资金流向数据）
         if enabled_analysts.get('fund_flow', True):
@@ -348,9 +364,9 @@ class StockAnalysisAgents:
         if enabled_analysts.get('sentiment', False):
             agents_results["market_sentiment"] = self.market_sentiment_agent(stock_info, sentiment_data)
         
-        # 新闻公告分析（传入新闻公告数据）
+        # 新闻分析（传入新闻数据）
         if enabled_analysts.get('news', False):
-            agents_results["news_announcement"] = self.news_announcement_analyst_agent(stock_info, news_announcement_data)
+            agents_results["news"] = self.news_analyst_agent(stock_info, news_data)
         
         print("✅ 所有已选择的分析师完成分析")
         print("=" * 50)
@@ -386,9 +402,9 @@ class StockAnalysisAgents:
             participants.append("市场情绪分析师")
             reports.append(f"【市场情绪分析师报告】\n{agents_results['market_sentiment'].get('analysis', '')}")
         
-        if "news_announcement" in agents_results:
-            participants.append("新闻公告分析师")
-            reports.append(f"【新闻公告分析师报告】\n{agents_results['news_announcement'].get('analysis', '')}")
+        if "news" in agents_results:
+            participants.append("新闻分析师")
+            reports.append(f"【新闻分析师报告】\n{agents_results['news'].get('analysis', '')}")
         
         # 组合所有报告
         all_reports = "\n\n".join(reports)
