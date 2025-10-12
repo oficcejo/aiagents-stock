@@ -17,6 +17,7 @@ from monitor_service import monitor_service
 from notification_service import notification_service
 from config_manager import config_manager
 from main_force_ui import display_main_force_selector
+from sector_strategy_ui import display_sector_strategy
 
 # 页面配置
 st.set_page_config(
@@ -308,6 +309,19 @@ def main():
                 del st.session_state.show_monitor
             if 'show_config' in st.session_state:
                 del st.session_state.show_config
+            if 'show_sector_strategy' in st.session_state:
+                del st.session_state.show_sector_strategy
+        
+        if st.button("🎯 智策板块", use_container_width=True, key="nav_sector_strategy"):
+            st.session_state.show_sector_strategy = True
+            if 'show_history' in st.session_state:
+                del st.session_state.show_history
+            if 'show_monitor' in st.session_state:
+                del st.session_state.show_monitor
+            if 'show_config' in st.session_state:
+                del st.session_state.show_config
+            if 'show_main_force' in st.session_state:
+                del st.session_state.show_main_force
         
         if st.button("🏠 返回首页", use_container_width=True, key="nav_home"):
             if 'show_history' in st.session_state:
@@ -318,6 +332,8 @@ def main():
                 del st.session_state.show_config
             if 'show_main_force' in st.session_state:
                 del st.session_state.show_main_force
+            if 'show_sector_strategy' in st.session_state:
+                del st.session_state.show_sector_strategy
         
         if st.button("⚙️ 环境配置", use_container_width=True, key="nav_config"):
             st.session_state.show_config = True
@@ -389,6 +405,7 @@ def main():
             **功能说明**
             - **智能分析**：AI团队深度分析
             - **主力选股**：主力资金精选标的
+            - **智策板块**：AI板块策略分析
             - **实时监测**：价格监控与提醒
             - **历史记录**：查看分析历史
             
@@ -412,6 +429,11 @@ def main():
     # 检查是否显示主力选股
     if 'show_main_force' in st.session_state and st.session_state.show_main_force:
         display_main_force_selector()
+        return
+    
+    # 检查是否显示智策板块
+    if 'show_sector_strategy' in st.session_state and st.session_state.show_sector_strategy:
+        display_sector_strategy()
         return
     
     # 检查是否显示环境配置
