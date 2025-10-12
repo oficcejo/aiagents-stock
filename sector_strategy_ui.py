@@ -7,13 +7,14 @@ import streamlit as st
 import plotly.graph_objects as go
 import plotly.express as px
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, time as dt_time
 import time
 import base64
 
 from sector_strategy_data import SectorStrategyDataFetcher
 from sector_strategy_engine import SectorStrategyEngine
 from sector_strategy_pdf import SectorStrategyPDFGenerator
+from sector_strategy_scheduler import sector_strategy_scheduler
 
 
 def display_sector_strategy():
@@ -27,6 +28,9 @@ def display_sector_strategy():
     """, unsafe_allow_html=True)
     
     st.markdown("---")
+    
+    # 定时任务设置区域
+    display_scheduler_settings()
     
     # 功能说明
     with st.expander("💡 智策系统介绍", expanded=False):
@@ -602,6 +606,136 @@ def display_pdf_export_section(result):
                 mime="application/pdf",
                 use_container_width=True
             )
+
+
+def display_scheduler_settings():
+    """显示定时任务设置"""
+    with st.expander("⏰ 定时分析设置", expanded=False):
+        st.markdown("""
+        **定时分析功能**
+        
+        开启后，系统将在每天指定时间自动运行智策分析，并将核心结果通过邮件发送。
+        
+        **前提条件：**
+        - 需要在 `.env` 文件中配置邮件设置
+        - 配置项：`EMAIL_ENABLED`, `SMTP_SERVER`, `EMAIL_FROM`, `EMAIL_PASSWORD`, `EMAIL_TO`
+        """)
+        
+        # 获取当前状态
+        status = sector_strategy_scheduler.get_status()
+        
+        col1, col2 = st.columns([1, 1])
+        
+        with col1:
+            # 显示当前状态
+            if status['running']:
+                st.success(f"✅ 定时任务运行中")
+                st.info(f"⏰ 定时时间: {status['schedule_time']}")
+                if status['next_run_time']:
+                    st.info(f"📅 下次运行: {status['next_run_time']}")
+                if status['last_run_time']:
+                    st.info(f"📊 上次运行: {status['last_run_time']}")
+            else:
+                st.warning("⏸️ 定时任务未运行")
+        
+        with col2:
+            # 时间设置
+            schedule_time = st.time_input(
+                "设置定时时间",
+                value=dt_time(9, 0),  # 默认9:00
+                help="系统将在每天此时间自动运行分析"
+            )
+            
+            schedule_time_str = schedule_time.strftime("%H:%M")
+            
+            # 控制按钮
+            col_a, col_b, col_c = st.columns(3)
+            
+            with col_a:
+                if not status['running']:
+                    if st.button("▶️ 启动", use_container_width=True, type="primary"):
+                        if sector_strategy_scheduler.start(schedule_time_str):
+                            st.success(f"✅ 定时任务已启动！每天 {schedule_time_str} 运行")
+                            time.sleep(1)
+                            st.rerun()
+                        else:
+                            st.error("❌ 启动失败")
+                else:
+                    if st.button("⏹️ 停止", use_container_width=True):
+                        if sector_strategy_scheduler.stop():
+                            st.success("✅ 定时任务已停止")
+                            time.sleep(1)
+                            st.rerun()
+                        else:
+                            st.error("❌ 停止失败")
+            
+            with col_b:
+                if st.button("🔄 立即运行", use_container_width=True):
+                    with st.spinner("正在运行分析..."):
+                        sector_strategy_scheduler.manual_run()
+                    st.success("✅ 手动分析完成！")
+            
+            with col_c:
+                if st.button("📧 测试邮件", use_container_width=True):
+                    test_email_notification()
+        
+        # 邮件配置检查
+        st.markdown("---")
+        check_email_config()
+
+
+def check_email_config():
+    """检查邮件配置"""
+    st.markdown("**📧 邮件配置检查**")
+    
+    import os
+    from dotenv import load_dotenv
+    load_dotenv()
+    
+    email_enabled = os.getenv('EMAIL_ENABLED', 'false').lower() == 'true'
+    smtp_server = os.getenv('SMTP_SERVER', '')
+    email_from = os.getenv('EMAIL_FROM', '')
+    email_password = os.getenv('EMAIL_PASSWORD', '')
+    email_to = os.getenv('EMAIL_TO', '')
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.write("**配置项**")
+        st.write(f"✅ 邮件功能: {'已启用' if email_enabled else '❌ 未启用'}")
+        st.write(f"{'✅' if smtp_server else '❌'} SMTP服务器: {smtp_server or '未配置'}")
+        st.write(f"{'✅' if email_from else '❌'} 发件邮箱: {email_from or '未配置'}")
+    
+    with col2:
+        st.write("**状态**")
+        st.write(f"{'✅' if email_password else '❌'} 邮箱密码: {'已配置' if email_password else '未配置'}")
+        st.write(f"{'✅' if email_to else '❌'} 收件邮箱: {email_to or '未配置'}")
+        
+        config_complete = all([email_enabled, smtp_server, email_from, email_password, email_to])
+        if config_complete:
+            st.success("✅ 邮件配置完整")
+        else:
+            st.warning("⚠️ 邮件配置不完整，请在 .env 文件中配置")
+
+
+def test_email_notification():
+    """测试邮件通知"""
+    try:
+        from notification_service import notification_service
+        
+        # 使用notification_service的send_test_email方法
+        success, message = notification_service.send_test_email()
+        
+        if success:
+            st.success(f"✅ {message}")
+            st.balloons()
+        else:
+            st.error(f"❌ {message}")
+    
+    except Exception as e:
+        st.error(f"❌ 发送测试邮件时出错: {str(e)}")
+        import traceback
+        st.code(traceback.format_exc())
 
 
 # 主入口
