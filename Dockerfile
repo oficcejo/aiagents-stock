@@ -24,8 +24,11 @@ RUN node --version && npm --version
 # 复制依赖文件
 COPY requirements.txt .
 
-# 安装Python依赖
-RUN pip install --no-cache-dir -r requirements.txt
+# 安装Python依赖 - 修改后的部分
+# 永久配置pip使用国内镜像源并增加超时时间[1](@ref)[2](@ref)
+RUN pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple/ && \
+    pip config set global.trusted-host pypi.tuna.tsinghua.edu.cn && \
+    pip install --no-cache-dir --default-timeout=1000 -r requirements.txt
 
 # 复制项目文件
 COPY . .
