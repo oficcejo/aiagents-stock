@@ -1,34 +1,44 @@
 # 使用官方Python镜像作为基础镜像
 FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/python:3.12-slim
 
+# 替换apt-get源为国内源（阿里源）
+RUN echo "deb https://mirrors.aliyun.com/debian/ bookworm main" > /etc/apt/sources.list && \
+    echo "deb https://mirrors.aliyun.com/debian/ bookworm-updates main" >> /etc/apt/sources.list && \
+    echo "deb https://mirrors.aliyun.com/debian-security bookworm-security main" >> /etc/apt/sources.list && \
+    rm -rf /etc/apt/sources.list.d/* || true
+
 # 设置工作目录
 WORKDIR /app
 
-# 安装Node.js (pywencai需要) 和中文字体 (PDF生成需要)
+# 安装Node.js和中文字体 - 使用修正版方案一
 RUN apt-get update && apt-get install -y \
-    curl \
-    gnupg \
-    fonts-noto-cjk \
-    fonts-wqy-zenhei \
-    fonts-wqy-microhei \
-    fontconfig \
-    && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
-    && apt-get install -y nodejs \
-    && fc-cache -fv \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    curl \
+    gnupg \
+    fonts-noto-cjk \
+    fonts-wqy-zenhei \
+    fonts-wqy-microhei \
+    fontconfig \
+    && curl -fsSL https://mirrors.aliyun.com/nodesource/setup_18.x | bash - \
+    && apt-get install -y nodejs npm \
+    && fc-cache -fv \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-# 验证安装
-RUN node --version && npm --version
+# 验证安装 - 添加详细检查
+RUN echo "Node.js版本:" && node --version && \
+    echo "npm路径:" && which npm && \
+    echo "npm版本:" && npm --version
+
+# 配置npm使用淘宝镜像源
+RUN npm config set registry https://registry.npmmirror.com/
 
 # 复制依赖文件
 COPY requirements.txt .
 
-# 安装Python依赖 - 修改后的部分
-# 永久配置pip使用国内镜像源并增加超时时间[1](@ref)[2](@ref)
-RUN pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple/ && \
-    pip config set global.trusted-host pypi.tuna.tsinghua.edu.cn && \
-    pip install --no-cache-dir --default-timeout=1000 -r requirements.txt
+# 安装Python依赖
+RUN pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/ && \
+    pip config set global.trusted-host mirrors.aliyun.com && \
+    pip install --no-cache-dir --default-timeout=1000 -r requirements.txt
 
 # 复制项目文件
 COPY . .
@@ -44,4 +54,3 @@ HEALTHCHECK CMD curl --fail http://localhost:8501/_stcore/health || exit 1
 
 # 启动应用
 CMD ["python", "run.py"]
-
