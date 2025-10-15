@@ -128,36 +128,46 @@ class SectorStrategyScheduler:
             self._send_error_notification(f"分析异常: {str(e)}")
     
     def _send_analysis_notification(self, result):
-        """发送分析结果邮件"""
+        """发送分析结果通知（邮件和/或webhook）"""
         try:
-            # 检查邮件配置
             config = notification_service.config
-            if not config.get('email_enabled') or not all([
+            predictions = result.get("final_predictions", {})
+            timestamp = result.get("timestamp", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+            
+            sent_count = 0
+            
+            # 尝试发送Webhook
+            if config.get('webhook_enabled') and config.get('webhook_url'):
+                print("[智策定时] [Webhook] 准备发送...")
+                webhook_success = self._send_webhook_direct(predictions, timestamp)
+                if webhook_success:
+                    print("[智策定时] ✓ Webhook发送成功")
+                    sent_count += 1
+                else:
+                    print("[智策定时] ✗ Webhook发送失败")
+            
+            # 尝试发送邮件
+            if config.get('email_enabled') and all([
                 config.get('smtp_server'), 
                 config.get('email_from'),
                 config.get('email_password'),
                 config.get('email_to')
             ]):
-                print("[智策定时] ⚠️ 邮件配置不完整，跳过发送")
-                return
+                print("[智策定时] [邮件] 准备发送...")
+                subject = f"智策板块分析报告 - {timestamp}"
+                body = self._format_email_body(predictions, timestamp)
+                email_success = self._send_email_direct(subject, body)
+                if email_success:
+                    print("[智策定时] ✓ 邮件发送成功")
+                    sent_count += 1
+                else:
+                    print("[智策定时] ✗ 邮件发送失败")
             
-            predictions = result.get("final_predictions", {})
-            timestamp = result.get("timestamp", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-            
-            # 构建邮件内容
-            subject = f"智策板块分析报告 - {timestamp}"
-            body = self._format_email_body(predictions, timestamp)
-            
-            # 直接发送邮件
-            success = self._send_email_direct(subject, body)
-            
-            if success:
-                print("[智策定时] ✓ 邮件发送成功")
-            else:
-                print("[智策定时] ✗ 邮件发送失败")
+            if sent_count == 0:
+                print("[智策定时] ⚠️ 未配置通知方式或发送全部失败")
         
         except Exception as e:
-            print(f"[智策定时] ✗ 邮件发送异常: {e}")
+            print(f"[智策定时] ✗ 通知发送异常: {e}")
             import traceback
             traceback.print_exc()
     
@@ -176,6 +186,144 @@ class SectorStrategyScheduler:
             self._send_email_direct(subject, body)
         except:
             pass
+    
+    def _send_webhook_direct(self, predictions, timestamp):
+        """发送webhook通知"""
+        try:
+            import requests
+            
+            config = notification_service.config
+            webhook_type = config.get('webhook_type', 'dingtalk')
+            webhook_url = config['webhook_url']
+            
+            # 格式化简洁的分析摘要
+            summary = self._format_webhook_summary(predictions, timestamp)
+            
+            if webhook_type == 'dingtalk':
+                return self._send_dingtalk(webhook_url, summary, timestamp)
+            elif webhook_type == 'feishu':
+                return self._send_feishu(webhook_url, summary, timestamp)
+            else:
+                print(f"[智策定时] ✗ 不支持的webhook类型: {webhook_type}")
+                return False
+        
+        except Exception as e:
+            print(f"[智策定时] ✗ Webhook发送失败: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+    
+    def _send_dingtalk(self, url, summary, timestamp):
+        """发送钉钉消息"""
+        try:
+            import requests
+            
+            # 获取自定义关键词
+            keyword = notification_service.config.get('webhook_keyword', '')
+            title_prefix = f"{keyword} - " if keyword else ""
+            
+            data = {
+                "msgtype": "markdown",
+                "markdown": {
+                    "title": f"{title_prefix}智策板块分析报告",
+                    "text": summary
+                }
+            }
+            
+            response = requests.post(url, json=data, headers={'Content-Type': 'application/json'}, timeout=10)
+            
+            if response.status_code == 200:
+                result = response.json()
+                return result.get('errcode') == 0
+            return False
+        
+        except Exception as e:
+            print(f"[智策定时] 钉钉发送异常: {e}")
+            return False
+    
+    def _send_feishu(self, url, summary, timestamp):
+        """发送飞书消息"""
+        try:
+            import requests
+            
+            # 获取自定义关键词（飞书通常不需要关键词，但保持一致性）
+            keyword = notification_service.config.get('webhook_keyword', '')
+            title_prefix = f"【{keyword} - " if keyword else "【"
+            
+            data = {
+                "msg_type": "text",
+                "content": {
+                    "text": f"{title_prefix}智策板块分析报告】\n分析时间: {timestamp}\n\n{summary}"
+                }
+            }
+            
+            response = requests.post(url, json=data, headers={'Content-Type': 'application/json'}, timeout=10)
+            
+            if response.status_code == 200:
+                result = response.json()
+                return result.get('code') == 0
+            return False
+        
+        except Exception as e:
+            print(f"[智策定时] 飞书发送异常: {e}")
+            return False
+    
+    def _format_webhook_summary(self, predictions, timestamp):
+        """格式化webhook摘要（精简版）"""
+        # 获取自定义关键词
+        keyword = notification_service.config.get('webhook_keyword', '')
+        title_prefix = f"{keyword} - " if keyword else ""
+        
+        lines = []
+        lines.append(f"### {title_prefix}智策板块分析报告")
+        lines.append(f"**分析时间**: {timestamp}")
+        lines.append("")
+        
+        # 板块多空（只显示高信心度的）
+        long_short = predictions.get("long_short", {})
+        if long_short:
+            bullish = [item for item in long_short.get("bullish", []) if item.get('confidence', 0) >= 7]
+            bearish = [item for item in long_short.get("bearish", []) if item.get('confidence', 0) >= 7]
+            
+            if bullish or bearish:
+                lines.append("#### 📊 板块多空")
+                if bullish:
+                    lines.append("**看多**: " + "、".join([f"{item.get('sector')}({item.get('confidence')}分)" for item in bullish[:3]]))
+                if bearish:
+                    lines.append("**看空**: " + "、".join([f"{item.get('sector')}({item.get('confidence')}分)" for item in bearish[:3]]))
+                lines.append("")
+        
+        # 板块轮动（只显示潜力板块）
+        rotation = predictions.get("rotation", {})
+        if rotation:
+            potential = rotation.get("potential", [])[:3]
+            if potential:
+                lines.append("#### 🔄 潜力接力板块")
+                for item in potential:
+                    lines.append(f"- {item.get('sector')}: {item.get('advice', 'N/A')}")
+                lines.append("")
+        
+        # 板块热度TOP3
+        heat = predictions.get("heat", {})
+        if heat:
+            hottest = heat.get("hottest", [])[:3]
+            if hottest:
+                lines.append("#### 🌡️ 热度TOP3")
+                for idx, item in enumerate(hottest, 1):
+                    lines.append(f"{idx}. {item.get('sector')} - {item.get('score', 0)}分")
+                lines.append("")
+        
+        # 策略总结
+        summary = predictions.get("summary", {})
+        if summary and summary.get('key_opportunity'):
+            lines.append("#### 💡 核心机会")
+            lines.append(summary['key_opportunity'][:150] + "..." if len(summary.get('key_opportunity', '')) > 150 else summary.get('key_opportunity', ''))
+            lines.append("")
+        
+        lines.append("---")
+        lines.append("*由智策AI系统自动生成*")
+        
+        return "\n".join(lines)
     
     def _send_email_direct(self, subject, body):
         """直接发送邮件（参考notification_service的实现）"""

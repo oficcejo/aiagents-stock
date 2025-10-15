@@ -1,4 +1,7 @@
-# ============================================================
+# -*- coding: utf-8 -*-
+"""更新.env.example模板文件"""
+
+env_example_content = """# ============================================================
 # AI股票分析系统环境配置模板
 # ============================================================
 # 使用说明：
@@ -93,3 +96,12 @@ WEBHOOK_KEYWORD=
 # ========== 时区配置 ==========
 # 系统时区设置（可选）
 TZ=Asia/Shanghai
+"""
+
+with open('.env.example', 'w', encoding='utf-8') as f:
+    f.write(env_example_content)
+
+print("[OK] .env.example file updated successfully")
+print("[OK] File encoding: UTF-8")
+print("[OK] All Chinese characters should display correctly")
+

@@ -56,6 +56,67 @@ class ConfigManager:
                 "required": False,
                 "type": "text"
             },
+            "EMAIL_ENABLED": {
+                "value": "false",
+                "description": "启用邮件通知",
+                "required": False,
+                "type": "boolean"
+            },
+            "SMTP_SERVER": {
+                "value": "",
+                "description": "SMTP服务器地址",
+                "required": False,
+                "type": "text"
+            },
+            "SMTP_PORT": {
+                "value": "587",
+                "description": "SMTP服务器端口",
+                "required": False,
+                "type": "text"
+            },
+            "EMAIL_FROM": {
+                "value": "",
+                "description": "发件人邮箱",
+                "required": False,
+                "type": "text"
+            },
+            "EMAIL_PASSWORD": {
+                "value": "",
+                "description": "邮箱授权码",
+                "required": False,
+                "type": "password"
+            },
+            "EMAIL_TO": {
+                "value": "",
+                "description": "收件人邮箱",
+                "required": False,
+                "type": "text"
+            },
+            "WEBHOOK_ENABLED": {
+                "value": "false",
+                "description": "启用Webhook通知",
+                "required": False,
+                "type": "boolean"
+            },
+            "WEBHOOK_TYPE": {
+                "value": "dingtalk",
+                "description": "Webhook类型（dingtalk/feishu）",
+                "required": False,
+                "type": "select",
+                "options": ["dingtalk", "feishu"]
+            },
+            "WEBHOOK_URL": {
+                "value": "",
+                "description": "Webhook地址",
+                "required": False,
+                "type": "text"
+            },
+            "WEBHOOK_KEYWORD": {
+                "value": "aiagents通知",
+                "description": "Webhook自定义关键词（钉钉安全验证）",
+                "required": False,
+                "type": "text"
+            },
         }
     
     def read_env(self) -> Dict[str, str]:
@@ -124,6 +185,24 @@ class ConfigManager:
             lines.append(f'MINIQMT_ACCOUNT_ID="{config.get("MINIQMT_ACCOUNT_ID", "")}"')
             lines.append(f'MINIQMT_HOST="{config.get("MINIQMT_HOST", "127.0.0.1")}"')
             lines.append(f'MINIQMT_PORT="{config.get("MINIQMT_PORT", "58610")}"')
+            lines.append("")
+            
+            # 邮件通知配置
+            lines.append("# ========== 邮件通知配置（可选）==========")
+            lines.append(f'EMAIL_ENABLED="{config.get("EMAIL_ENABLED", "false")}"')
+            lines.append(f'SMTP_SERVER="{config.get("SMTP_SERVER", "")}"')
+            lines.append(f'SMTP_PORT="{config.get("SMTP_PORT", "587")}"')
+            lines.append(f'EMAIL_FROM="{config.get("EMAIL_FROM", "")}"')
+            lines.append(f'EMAIL_PASSWORD="{config.get("EMAIL_PASSWORD", "")}"')
+            lines.append(f'EMAIL_TO="{config.get("EMAIL_TO", "")}"')
+            lines.append("")
+            
+            # Webhook通知配置
+            lines.append("# ========== Webhook通知配置（可选）==========")
+            lines.append(f'WEBHOOK_ENABLED="{config.get("WEBHOOK_ENABLED", "false")}"')
+            lines.append(f'WEBHOOK_TYPE="{config.get("WEBHOOK_TYPE", "dingtalk")}"')
+            lines.append(f'WEBHOOK_URL="{config.get("WEBHOOK_URL", "")}"')
+            lines.append(f'WEBHOOK_KEYWORD="{config.get("WEBHOOK_KEYWORD", "aiagents通知")}"')
             
             with open(self.env_file, 'w', encoding='utf-8') as f:
                 f.write('\n'.join(lines))

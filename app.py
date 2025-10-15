@@ -1957,7 +1957,7 @@ def display_config_manager():
     config_info = config_manager.get_config_info()
     
     # 创建标签页
-    tab1, tab2, tab3 = st.tabs(["📝 基本配置", "📊 数据源配置", "🤖 量化交易配置"])
+    tab1, tab2, tab3, tab4 = st.tabs(["📝 基本配置", "📊 数据源配置", "🤖 量化交易配置", "📢 通知配置"])
     
     # 使用session_state保存临时配置
     if 'temp_config' not in st.session_state:
@@ -2087,6 +2087,160 @@ def display_config_manager():
         
         st.warning("⚠️ 警告：量化交易涉及真实资金操作，请谨慎配置和使用！")
     
+    with tab4:
+        st.markdown("### 通知配置")
+        st.markdown("配置邮件和Webhook通知，用于实时监测和智策定时分析的提醒。")
+        
+        # 创建两列布局
+        col_email, col_webhook = st.columns(2)
+        
+        with col_email:
+            st.markdown("#### 📧 邮件通知")
+            
+            # 邮件启用开关
+            email_enabled_info = config_info.get("EMAIL_ENABLED", {"value": "false"})
+            current_email_enabled = st.session_state.temp_config.get("EMAIL_ENABLED", "false") == "true"
+            
+            new_email_enabled = st.checkbox(
+                "启用邮件通知",
+                value=current_email_enabled,
+                help="开启后可以接收邮件提醒",
+                key="input_email_enabled"
+            )
+            st.session_state.temp_config["EMAIL_ENABLED"] = "true" if new_email_enabled else "false"
+            
+            # SMTP服务器
+            smtp_server_info = config_info.get("SMTP_SERVER", {"description": "SMTP服务器地址", "value": ""})
+            current_smtp_server = st.session_state.temp_config.get("SMTP_SERVER", "")
+            
+            new_smtp_server = st.text_input(
+                f"📮 {smtp_server_info['description']}",
+                value=current_smtp_server,
+                disabled=not new_email_enabled,
+                placeholder="smtp.qq.com",
+                key="input_smtp_server"
+            )
+            st.session_state.temp_config["SMTP_SERVER"] = new_smtp_server
+            
+            # SMTP端口
+            smtp_port_info = config_info.get("SMTP_PORT", {"description": "SMTP端口", "value": "587"})
+            current_smtp_port = st.session_state.temp_config.get("SMTP_PORT", "587")
+            
+            new_smtp_port = st.text_input(
+                f"🔌 {smtp_port_info['description']}",
+                value=current_smtp_port,
+                disabled=not new_email_enabled,
+                placeholder="587 (TLS) 或 465 (SSL)",
+                key="input_smtp_port"
+            )
+            st.session_state.temp_config["SMTP_PORT"] = new_smtp_port
+            
+            # 发件人邮箱
+            email_from_info = config_info.get("EMAIL_FROM", {"description": "发件人邮箱", "value": ""})
+            current_email_from = st.session_state.temp_config.get("EMAIL_FROM", "")
+            
+            new_email_from = st.text_input(
+                f"📤 {email_from_info['description']}",
+                value=current_email_from,
+                disabled=not new_email_enabled,
+                placeholder="your-email@qq.com",
+                key="input_email_from"
+            )
+            st.session_state.temp_config["EMAIL_FROM"] = new_email_from
+            
+            # 邮箱授权码
+            email_password_info = config_info.get("EMAIL_PASSWORD", {"description": "邮箱授权码", "value": ""})
+            current_email_password = st.session_state.temp_config.get("EMAIL_PASSWORD", "")
+            
+            new_email_password = st.text_input(
+                f"🔐 {email_password_info['description']}",
+                value=current_email_password,
+                type="password",
+                disabled=not new_email_enabled,
+                help="不是邮箱登录密码，而是SMTP授权码",
+                key="input_email_password"
+            )
+            st.session_state.temp_config["EMAIL_PASSWORD"] = new_email_password
+            
+            # 收件人邮箱
+            email_to_info = config_info.get("EMAIL_TO", {"description": "收件人邮箱", "value": ""})
+            current_email_to = st.session_state.temp_config.get("EMAIL_TO", "")
+            
+            new_email_to = st.text_input(
+                f"📥 {email_to_info['description']}",
+                value=current_email_to,
+                disabled=not new_email_enabled,
+                placeholder="receiver@qq.com",
+                key="input_email_to"
+            )
+            st.session_state.temp_config["EMAIL_TO"] = new_email_to
+            
+            if new_email_enabled and all([new_smtp_server, new_email_from, new_email_password, new_email_to]):
+                st.success("✅ 邮件配置完整")
+            elif new_email_enabled:
+                st.warning("⚠️ 邮件配置不完整")
+            else:
+                st.info("ℹ️ 邮件通知未启用")
+            
+            st.caption("💡 QQ邮箱授权码获取：设置 → 账户 → POP3/IMAP/SMTP → 生成授权码")
+        
+        with col_webhook:
+            st.markdown("#### 📱 Webhook通知")
+            
+            # Webhook启用开关
+            webhook_enabled_info = config_info.get("WEBHOOK_ENABLED", {"value": "false"})
+            current_webhook_enabled = st.session_state.temp_config.get("WEBHOOK_ENABLED", "false") == "true"
+            
+            new_webhook_enabled = st.checkbox(
+                "启用Webhook通知",
+                value=current_webhook_enabled,
+                help="开启后可以发送到钉钉或飞书群",
+                key="input_webhook_enabled"
+            )
+            st.session_state.temp_config["WEBHOOK_ENABLED"] = "true" if new_webhook_enabled else "false"
+            
+            # Webhook类型选择
+            webhook_type_info = config_info.get("WEBHOOK_TYPE", {"description": "Webhook类型", "value": "dingtalk", "options": ["dingtalk", "feishu"]})
+            current_webhook_type = st.session_state.temp_config.get("WEBHOOK_TYPE", "dingtalk")
+            
+            new_webhook_type = st.selectbox(
+                f"📲 {webhook_type_info['description']}",
+                options=webhook_type_info.get('options', ["dingtalk", "feishu"]),
+                index=0 if current_webhook_type == "dingtalk" else 1,
+                disabled=not new_webhook_enabled,
+                key="input_webhook_type"
+            )
+            st.session_state.temp_config["WEBHOOK_TYPE"] = new_webhook_type
+            
+            # Webhook URL
+            webhook_url_info = config_info.get("WEBHOOK_URL", {"description": "Webhook地址", "value": ""})
+            current_webhook_url = st.session_state.temp_config.get("WEBHOOK_URL", "")
+            
+            new_webhook_url = st.text_input(
+                f"🔗 {webhook_url_info['description']}",
+                value=current_webhook_url,
+                disabled=not new_webhook_enabled,
+                placeholder="https://oapi.dingtalk.com/robot/send?access_token=...",
+                key="input_webhook_url"
+            )
+            st.session_state.temp_config["WEBHOOK_URL"] = new_webhook_url
+            
+            if new_webhook_enabled and new_webhook_url:
+                st.success(f"✅ Webhook配置完整 ({new_webhook_type})")
+            elif new_webhook_enabled:
+                st.warning("⚠️ 请配置Webhook URL")
+            else:
+                st.info("ℹ️ Webhook通知未启用")
+            
+            # 显示帮助信息
+            if new_webhook_type == "dingtalk":
+                st.caption("💡 钉钉机器人配置：\n1. 进入钉钉群 → 设置 → 智能群助手\n2. 添加机器人 → 自定义\n3. 复制Webhook地址")
+            else:
+                st.caption("💡 飞书机器人配置：\n1. 进入飞书群 → 设置 → 群机器人\n2. 添加机器人 → 自定义机器人\n3. 复制Webhook地址")
+        
+        st.markdown("---")
+        st.info("💡 **使用说明**：\n- 可以同时启用邮件和Webhook通知\n- 实时监测和智策定时分析都会使用配置的通知方式\n- 配置后建议使用各功能中的测试按钮验证通知是否正常")
+    
     # 操作按钮
     st.markdown("---")
     col1, col2, col3, col4 = st.columns([1, 1, 1, 2])
@@ -2151,6 +2305,19 @@ MINIQMT_ENABLED="{current_config.get('MINIQMT_ENABLED', 'false')}"
 MINIQMT_ACCOUNT_ID="{current_config.get('MINIQMT_ACCOUNT_ID', '')}"
 MINIQMT_HOST="{current_config.get('MINIQMT_HOST', '127.0.0.1')}"
 MINIQMT_PORT="{current_config.get('MINIQMT_PORT', '58610')}"
+
+# ========== 邮件通知配置（可选）==========
+EMAIL_ENABLED="{current_config.get('EMAIL_ENABLED', 'false')}"
+SMTP_SERVER="{current_config.get('SMTP_SERVER', '')}"
+SMTP_PORT="{current_config.get('SMTP_PORT', '587')}"
+EMAIL_FROM="{current_config.get('EMAIL_FROM', '')}"
+EMAIL_PASSWORD="{current_config.get('EMAIL_PASSWORD', '')}"
+EMAIL_TO="{current_config.get('EMAIL_TO', '')}"
+
+# ========== Webhook通知配置（可选）==========
+WEBHOOK_ENABLED="{current_config.get('WEBHOOK_ENABLED', 'false')}"
+WEBHOOK_TYPE="{current_config.get('WEBHOOK_TYPE', 'dingtalk')}"
+WEBHOOK_URL="{current_config.get('WEBHOOK_URL', '')}"
 """, language="bash")
 
 def display_batch_analysis_results(results, period):

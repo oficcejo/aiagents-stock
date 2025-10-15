@@ -27,7 +27,9 @@ class NotificationService:
             'email_password': '',
             'email_to': '',
             'webhook_enabled': False,
-            'webhook_url': ''
+            'webhook_url': '',
+            'webhook_type': 'dingtalk',  # dingtalk 或 feishu
+            'webhook_keyword': 'aiagents通知'  # 钉钉自定义关键词
         }
         
         # 从环境变量加载配置
@@ -43,6 +45,14 @@ class NotificationService:
             config['email_password'] = os.getenv('EMAIL_PASSWORD')
         if os.getenv('EMAIL_TO'):
             config['email_to'] = os.getenv('EMAIL_TO')
+        if os.getenv('WEBHOOK_ENABLED'):
+            config['webhook_enabled'] = os.getenv('WEBHOOK_ENABLED').lower() == 'true'
+        if os.getenv('WEBHOOK_URL'):
+            config['webhook_url'] = os.getenv('WEBHOOK_URL')
+        if os.getenv('WEBHOOK_TYPE'):
+            config['webhook_type'] = os.getenv('WEBHOOK_TYPE').lower()
+        if os.getenv('WEBHOOK_KEYWORD'):
+            config['webhook_keyword'] = os.getenv('WEBHOOK_KEYWORD')
         
         return config
     
@@ -75,13 +85,26 @@ class NotificationService:
     
     def send_notification(self, notification: Dict) -> bool:
         """发送单个通知"""
-        # 优先尝试邮件通知
-        if self.config['email_enabled']:
-            return self._send_email_notification(notification)
+        success = False
         
-        # 备用方案：在Streamlit界面显示
-        self._show_streamlit_notification(notification)
-        return True
+        # 尝试webhook通知
+        if self.config['webhook_enabled']:
+            webhook_success = self._send_webhook_notification(notification)
+            if webhook_success:
+                success = True
+        
+        # 尝试邮件通知
+        if self.config['email_enabled']:
+            email_success = self._send_email_notification(notification)
+            if email_success:
+                success = True
+        
+        # 如果两者都未启用或都失败，使用界面通知作为备用
+        if not success:
+            self._show_streamlit_notification(notification)
+            success = True
+        
+        return success
     
     def _send_email_notification(self, notification: Dict) -> bool:
         """发送邮件通知"""
@@ -261,6 +284,237 @@ class NotificationService:
                 self.config['email_password'],
                 self.config['email_to']
             ])
+        }
+    
+    def _send_webhook_notification(self, notification: Dict) -> bool:
+        """发送Webhook通知"""
+        try:
+            # 检查webhook配置是否完整
+            if not self.config['webhook_url']:
+                print("⚠️ Webhook URL未配置")
+                return False
+            
+            webhook_type = self.config['webhook_type']
+            
+            if webhook_type == 'dingtalk':
+                return self._send_dingtalk_webhook(notification)
+            elif webhook_type == 'feishu':
+                return self._send_feishu_webhook(notification)
+            else:
+                print(f"⚠️ 不支持的webhook类型: {webhook_type}")
+                return False
+        
+        except Exception as e:
+            print(f"Webhook发送失败: {e}")
+            return False
+    
+    def _send_dingtalk_webhook(self, notification: Dict) -> bool:
+        """发送钉钉Webhook通知"""
+        try:
+            import requests
+            
+            # 构建钉钉消息格式（包含自定义关键词）
+            keyword = self.config.get('webhook_keyword', '')
+            title_prefix = f"{keyword} - " if keyword else ""
+            content_prefix = f"### {keyword} - " if keyword else "### "
+            
+            data = {
+                "msgtype": "markdown",
+                "markdown": {
+                    "title": f"{title_prefix}{notification['symbol']} {notification['name']}",
+                    "text": f"""{content_prefix}股票监测提醒
+
+**股票代码**: {notification['symbol']}
+
+**股票名称**: {notification['name']}
+
+**提醒类型**: {notification['type']}
+
+**提醒内容**: {notification['message']}
+
+**触发时间**: {notification['triggered_at']}
+
+---
+
+_此消息由AI股票分析系统自动发送_"""
+                }
+            }
+            
+            print(f"[钉钉] 正在发送Webhook...")
+            print(f"  - URL: {self.config['webhook_url'][:50]}...")
+            
+            response = requests.post(
+                self.config['webhook_url'],
+                json=data,
+                headers={'Content-Type': 'application/json'},
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                if result.get('errcode') == 0:
+                    print(f"[成功] 钉钉Webhook发送成功")
+                    return True
+                else:
+                    print(f"[失败] 钉钉Webhook返回错误: {result.get('errmsg')}")
+                    return False
+            else:
+                print(f"[失败] 钉钉Webhook请求失败: HTTP {response.status_code}")
+                return False
+        
+        except Exception as e:
+            print(f"钉钉Webhook发送异常: {e}")
+            return False
+    
+    def _send_feishu_webhook(self, notification: Dict) -> bool:
+        """发送飞书Webhook通知"""
+        try:
+            import requests
+            
+            # 构建飞书消息格式
+            data = {
+                "msg_type": "interactive",
+                "card": {
+                    "header": {
+                        "title": {
+                            "content": f"📊 股票监测提醒 - {notification['symbol']}",
+                            "tag": "plain_text"
+                        },
+                        "template": "blue"
+                    },
+                    "elements": [
+                        {
+                            "tag": "div",
+                            "fields": [
+                                {
+                                    "is_short": True,
+                                    "text": {
+                                        "content": f"**股票代码**\n{notification['symbol']}",
+                                        "tag": "lark_md"
+                                    }
+                                },
+                                {
+                                    "is_short": True,
+                                    "text": {
+                                        "content": f"**股票名称**\n{notification['name']}",
+                                        "tag": "lark_md"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "tag": "div",
+                            "fields": [
+                                {
+                                    "is_short": True,
+                                    "text": {
+                                        "content": f"**提醒类型**\n{notification['type']}",
+                                        "tag": "lark_md"
+                                    }
+                                },
+                                {
+                                    "is_short": True,
+                                    "text": {
+                                        "content": f"**触发时间**\n{notification['triggered_at']}",
+                                        "tag": "lark_md"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "tag": "div",
+                            "text": {
+                                "content": f"**提醒内容**\n{notification['message']}",
+                                "tag": "lark_md"
+                            }
+                        },
+                        {
+                            "tag": "hr"
+                        },
+                        {
+                            "tag": "note",
+                            "elements": [
+                                {
+                                    "tag": "plain_text",
+                                    "content": "此消息由AI股票分析系统自动发送"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+            
+            print(f"[飞书] 正在发送Webhook...")
+            print(f"  - URL: {self.config['webhook_url'][:50]}...")
+            
+            response = requests.post(
+                self.config['webhook_url'],
+                json=data,
+                headers={'Content-Type': 'application/json'},
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                if result.get('code') == 0:
+                    print(f"[成功] 飞书Webhook发送成功")
+                    return True
+                else:
+                    print(f"[失败] 飞书Webhook返回错误: {result.get('msg')}")
+                    return False
+            else:
+                print(f"[失败] 飞书Webhook请求失败: HTTP {response.status_code}")
+                return False
+        
+        except Exception as e:
+            print(f"飞书Webhook发送异常: {e}")
+            return False
+    
+    def send_test_webhook(self) -> tuple[bool, str]:
+        """发送测试Webhook"""
+        try:
+            # 检查webhook配置是否完整
+            if not self.config['webhook_url']:
+                return False, "Webhook URL未配置，请检查环境变量设置"
+            
+            # 创建测试通知（包含关键词"aiagents通知"以通过钉钉安全设置）
+            test_notification = {
+                'symbol': '测试',
+                'name': 'Webhook配置测试',
+                'type': '系统测试',
+                'message': '如果您收到此消息，说明Webhook配置正确！',
+                'triggered_at': '刚刚'
+            }
+            
+            webhook_type = self.config['webhook_type']
+            
+            if webhook_type == 'dingtalk':
+                success = self._send_dingtalk_webhook(test_notification)
+                if success:
+                    return True, "钉钉Webhook测试成功！请检查钉钉群消息。"
+                else:
+                    return False, "钉钉Webhook发送失败，请检查URL和网络连接"
+            
+            elif webhook_type == 'feishu':
+                success = self._send_feishu_webhook(test_notification)
+                if success:
+                    return True, "飞书Webhook测试成功！请检查飞书群消息。"
+                else:
+                    return False, "飞书Webhook发送失败，请检查URL和网络连接"
+            
+            else:
+                return False, f"不支持的webhook类型: {webhook_type}"
+        
+        except Exception as e:
+            return False, f"发送失败: {str(e)}"
+    
+    def get_webhook_config_status(self) -> Dict:
+        """获取Webhook配置状态"""
+        return {
+            'enabled': self.config['webhook_enabled'],
+            'webhook_type': self.config['webhook_type'],
+            'webhook_url': self.config['webhook_url'][:50] + '...' if self.config['webhook_url'] else '未配置',
+            'configured': bool(self.config['webhook_url'])
         }
 
 # 全局通知服务实例

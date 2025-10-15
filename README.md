@@ -2,16 +2,36 @@
 
 - 初心：在股市摸爬滚打多年，自学自编各种指标，花冤枉钱学习了各种战法各种策略，也曾入各种小班，总是赚少赔多，逐渐失去在股市玩的信心。自从去年deepseek上市，一直探索用ai辅助分析，且近日受tradingagents项目启发（感谢原作），多agent结合跟踪主力资金战法（某指每年收费6000rmb），用各种ai辅助编程，拼凑了这么个小程序，根据软件提供的辅助信息，实盘测试盈率还是挺高的，并且逐步形成了自己的交易系统，近一个月来，账户也慢慢在扭亏为盈。开源此软件的目的，就是为了使像我一样的小散，不再迷茫。也许这个软件不能让你发大财，但是他能给你足够的信心。最后提醒：股市有风险，入市需谨慎！
 - 希望能帮到你！欢迎加微信群讨论
-<img width="300" height="324" alt="image" src="https://www.sd-hn.cn/img/2wm.png" />
+<img width="300" height="324" alt="image" src="https://www.sd-hn.cn/img/2wm1015.png" />
 
 ### 基于Python + Streamlit + DeepSeek的智能股票分析系统，模拟证券公司分析师团队，提供全方位的股票投资分析和决策建议。
 <img width="1910" height="923" alt="image" src="https://github.com/user-attachments/assets/f929f751-3726-48e6-bc18-919f6a599629" />
 <img width="1910" height="923" alt="01" src="https://github.com/user-attachments/assets/7dcd4b2c-8b4b-428b-8a17-4d843e98a626" />
 <img width="1910" height="923" alt="02" src="https://github.com/user-attachments/assets/02018fff-4e6b-4354-b258-a5da25537c38" />
 
+## ✨1015 更新说明（最新）
+### 🔔 新增Webhook通知功能 ⭐️
+- **多平台支持**：支持钉钉、飞书群机器人推送通知
+- **全面集成**：实时监测、智策定时分析均支持Webhook推送
+- **灵活配置**：
+  - Web界面可视化配置，简单易用
+  - 支持自定义关键词，匹配机器人安全设置
+  - 可同时启用邮件和Webhook，双重保障
+- **消息格式**：
+  - 钉钉：精美Markdown格式，信息清晰
+  - 飞书：交互式卡片消息，展示美观
+- **智能推送**：
+  - 实时监测：进场/止盈/止损实时提醒
+  - 智策分析：每日板块策略精简摘要
+  - 量化交易：自动下单执行通知
+- **完整测试**：内置测试功能，一键验证配置
+- **详细文档**：提供完整的配置指南和故障排查
+
+<img width="1910" height="923" alt="Webhook配置界面" src="https://github.com/user-attachments/assets/webhook_config.png" />
+
 ## ✨1011 更新优化数据获取
 
-## ✨1010 更新说明（最新）
+## ✨1010 更新说明
 ### 🇭🇰 新增港股分析支持 ⭐️
 - **市场扩展**：现已支持A股、港股、美股三大市场
 - **港股代码**：支持多种格式（700/00700/HK00700）
@@ -142,7 +162,21 @@
 <img width="1910" height="923" alt="image" src="https://github.com/user-attachments/assets/a85defbf-321a-4fe2-b491-6855f2aa366c" />
 <img width="1869" height="906" alt="image" src="https://github.com/user-attachments/assets/d59de299-6300-4669-9902-7754da7407db" />
 
-### 📧 邮件通知系统
+### 📧 通知系统
+#### 📱 Webhook通知（新增）⭐️
+- **双平台支持**：钉钉群机器人、飞书群机器人
+- **实时推送**：股票监测提醒、智策分析报告即时送达
+- **灵活配置**：Web界面可视化配置，支持自定义关键词
+- **消息格式**：
+  - 钉钉：Markdown格式，信息清晰美观
+  - 飞书：交互式卡片，展示丰富多彩
+- **通知场景**：
+  - 实时监测：价格进入进场区间、达到止盈位、触及止损位
+  - 智策分析：每日板块策略、投资机会推送
+  - 量化交易：自动下单执行通知
+- **测试功能**：一键测试Webhook配置，快速验证
+
+#### 📧 邮件通知
 - **多邮箱支持**：QQ邮箱、163邮箱、Gmail等
 - **触发条件**：
   - 价格进入进场区间
@@ -150,6 +184,11 @@
   - 触及止损位
 - **测试功能**：一键测试邮件配置
 - **历史记录**：完整的通知历史查询
+
+#### 🔔 双重保障
+- **同时启用**：Webhook和邮件可同时使用
+- **互为补充**：Webhook实时查看，邮件详细存档
+- **灵活选择**：可单独使用任一通知方式
 <img width="1910" height="923" alt="image" src="https://github.com/user-attachments/assets/a1a3c1ca-f97f-43eb-a043-1011c09e06d0" />
 <img width="1910" height="923" alt="image" src="https://github.com/user-attachments/assets/1808f284-e922-4eac-bfea-134996de93f1" />
 ### 🎨 现代化界面
@@ -276,6 +315,12 @@ SMTP_PORT=587
 EMAIL_FROM=your_email@qq.com
 EMAIL_PASSWORD=your_authorization_code
 EMAIL_TO=receiver@example.com
+
+# Webhook通知配置（可选）⭐️ 新增
+WEBHOOK_ENABLED=false
+WEBHOOK_TYPE=dingtalk  # 或 feishu
+WEBHOOK_URL=your_webhook_url_here
+WEBHOOK_KEYWORD=股票  # 钉钉自定义关键词，飞书可留空
 
 # MiniQMT量化交易配置（可选）
 MINIQMT_ENABLED=false
@@ -513,10 +558,43 @@ EMAIL_TO=receiver@example.com
    - 点击"📧 发送测试邮件"
    - 检查收件箱（含垃圾箱）
 
+**Webhook通知配置** ⭐️ 新增：
+
+1. **方法一：Web界面配置（推荐）**
+   - 进入"⚙️ 环境配置" → "📢 通知配置"
+   - 勾选"启用Webhook通知"
+   - 选择类型（钉钉/飞书）
+   - 填写Webhook URL和关键词
+   - 点击"💾 保存配置"
+
+2. **方法二：编辑.env文件**
+```env
+WEBHOOK_ENABLED=true
+WEBHOOK_TYPE=dingtalk
+WEBHOOK_URL=https://oapi.dingtalk.com/robot/send?access_token=xxxxx
+WEBHOOK_KEYWORD=股票
+```
+
+3. **创建钉钉机器人**：
+   - 钉钉群 → 设置 → 智能群助手 → 添加机器人 → 自定义
+   - 安全设置：自定义关键词（如：股票、分析）
+   - 复制Webhook地址到配置中
+
+4. **创建飞书机器人**：
+   - 飞书群 → 设置 → 群机器人 → 添加机器人 → 自定义机器人
+   - 设置名称：AI股票分析系统
+   - 复制Webhook地址到配置中
+
+5. **测试配置**：
+   - 进入"📊 实时监测" → "🔔 通知管理"
+   - 点击"📱 发送测试Webhook"
+   - 检查钉钉/飞书群是否收到消息
+
 **通知触发条件**：
 - ✅ 价格进入进场区间 → 进场提醒
 - ✅ 价格达到止盈位 → 止盈提醒
 - ✅ 价格跌破止损位 → 止损提醒
+- ✅ 智策定时分析 → 板块策略推送
 
 #### 使用技巧
 
@@ -608,12 +686,17 @@ AI股票分析系统
 - 通知记录表
 - CRUD操作接口
 
-#### 📧 通知服务模块 (notification_service.py)
-- 邮件通知发送
-- 网页通知展示
-- 多邮箱支持（QQ/163/Gmail）
-- 通知历史管理
-- 配置测试功能
+#### 📧 通知服务模块 (notification_service.py) ⭐️ 增强
+- **邮件通知**：发送详细分析报告
+- **Webhook通知** ⭐️ 新增：
+  - 钉钉群机器人推送（Markdown格式）
+  - 飞书群机器人推送（交互式卡片）
+  - 自定义关键词支持
+  - 自动错误处理和重试
+- **网页通知**：界面实时提醒
+- **多平台支持**：QQ邮箱/163邮箱/Gmail/钉钉/飞书
+- **通知历史管理**：完整记录和查询
+- **配置测试功能**：一键测试邮件和Webhook
 
 #### 🎯 主力选股模块 ⭐️ 新增
 **main_force_selector.py**
@@ -780,6 +863,29 @@ DEFAULT_INTERVAL = "1d"    # 默认数据间隔
      - 进入容器检查：`docker exec -it agentsstock1 bash`
    - **详细文档**：查看 `DOCKER_DEPLOYMENT.md` 获取完整的故障排除指南
 
+10. **Webhook通知问题** ⭐️ 新增
+   - **未收到Webhook消息**：
+     - 检查 `WEBHOOK_ENABLED=true` 是否已设置
+     - 验证Webhook URL是否完整正确
+     - 确认机器人未被移出群聊
+     - 检查网络连接是否正常
+   - **钉钉关键词不匹配（错误码310000）**：
+     - 确认机器人安全设置中的关键词
+     - 在.env中设置 `WEBHOOK_KEYWORD=股票`（与机器人设置一致）
+     - 或添加关键词：股票、分析、智策、监测
+   - **飞书消息发送失败**：
+     - 确认选择 `WEBHOOK_TYPE=feishu`
+     - 检查Webhook URL是否为飞书格式
+     - 飞书不需要关键词，可设置 `WEBHOOK_KEYWORD=""`
+   - **消息格式异常**：
+     - 确认选择了正确的Webhook类型（钉钉/飞书）
+     - 重新保存配置并重启应用
+   - **测试Webhook**：
+     - 进入"📊 实时监测" → "🔔 通知管理"
+     - 点击"📱 发送测试Webhook"验证配置
+     - 查看终端日志了解详细错误信息
+   - **详细文档**：查看 `Webhook通知配置指南.md` 获取完整配置教程
+
 ### 日志调试
 系统运行时会在控制台输出详细日志，可用于问题诊断。如遇到错误，请查看终端输出。
 
@@ -791,6 +897,23 @@ docker-compose logs -f
 # 或查看特定容器日志
 docker logs -f agentsstock1
 ```
+
+### 相关文档
+
+**通知系统文档** ⭐️：
+- [Webhook通知配置指南.md](Webhook通知配置指南.md) - Webhook完整配置教程
+- [Webhook功能完成说明.md](Webhook功能完成说明.md) - Webhook功能详细说明
+- [Webhook自定义关键词功能说明.md](Webhook自定义关键词功能说明.md) - 关键词配置指南
+- [邮件配置指南.md](邮件配置指南.md) - 邮件通知配置
+
+**其他功能文档**：
+- [环境配置功能说明.md](环境配置功能说明.md) - 完整环境配置说明
+- [环境配置快速指南.md](环境配置快速指南.md) - 快速配置参考
+- [实时监测优化说明.md](实时监测优化说明.md) - 实时监测功能详解
+- [智策定时分析使用指南.md](智策定时分析使用指南.md) - 智策板块分析
+- [主力选股使用指南.md](主力选股使用指南.md) - 主力选股功能
+- [量化交易快速指南.md](量化交易快速指南.md) - MiniQMT集成指南
+- [DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md) - Docker部署详细文档
 
 ### 错误报告
 如发现bug，请查看 `BUGFIX.md` 文件了解已知问题和解决方案。
@@ -810,3 +933,4 @@ MIT License
 ---
 
 **享受AI驱动的智能股票分析体验！** 🚀📈任何疑问请留言或联系ws3101001@126.com
+**技术支持：山东科技大学 于舒馨**
