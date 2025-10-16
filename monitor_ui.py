@@ -12,7 +12,7 @@ def display_monitor_panel():
     st.markdown("## 📊 实时监测面板")
     
     # 监测服务控制
-    col1, col2, col3 = st.columns([1, 1, 1])
+    col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
     
     with col1:
         if st.button("▶️ 启动监测服务", type="primary"):
@@ -28,6 +28,18 @@ def display_monitor_panel():
             for stock in stocks:
                 monitor_service.manual_update_stock(stock['id'])
             st.success(f"✅ 已手动更新 {len(stocks)} 只股票")
+    
+    with col4:
+        # 显示定时调度状态
+        try:
+            scheduler = monitor_service.get_scheduler()
+            status = scheduler.get_status()
+            if status['scheduler_running']:
+                st.success("⏰ 定时已启用")
+            else:
+                st.info("⏰ 定时未启用")
+        except:
+            st.info("⏰ 定时未配置")
     
     # 显示通知
     display_notifications()

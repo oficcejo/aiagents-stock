@@ -9,6 +9,8 @@
 <img width="1910" height="923" alt="01" src="https://github.com/user-attachments/assets/7dcd4b2c-8b4b-428b-8a17-4d843e98a626" />
 <img width="1910" height="923" alt="02" src="https://github.com/user-attachments/assets/02018fff-4e6b-4354-b258-a5da25537c38" />
 
+## 1016更新增加定时实时监测功能
+
 ## ✨1015 更新说明
 
 ### 🎯 智策板块分析系统 ⭐️
@@ -1177,4 +1179,5 @@ MIT License
 ---
 
 **享受AI驱动的智能股票分析体验！** 🚀📈任何疑问请留言或联系ws3101001@126.com
+
 **技术支持：山东科技大学 于舒馨**

@@ -243,6 +243,11 @@ class StockMonitorService:
             self._update_stock_price(stock)
             return True
         return False
+    
+    def get_scheduler(self):
+        """获取调度器实例"""
+        from monitor_scheduler import get_scheduler
+        return get_scheduler(self)
 
 # 全局监测服务实例
 monitor_service = StockMonitorService()

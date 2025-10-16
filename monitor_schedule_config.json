@@ -1,0 +1,42 @@
+{
+  "enabled": true,
+  "market": "CN",
+  "trading_hours": {
+    "CN": [
+      {
+        "start": "09:30",
+        "end": "11:30"
+      },
+      {
+        "start": "13:00",
+        "end": "15:00"
+      }
+    ],
+    "US": [
+      {
+        "start": "21:30",
+        "end": "04:00"
+      }
+    ],
+    "HK": [
+      {
+        "start": "09:30",
+        "end": "12:00"
+      },
+      {
+        "start": "13:00",
+        "end": "16:00"
+      }
+    ]
+  },
+  "trading_days": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "auto_stop": true,
+  "pre_market_minutes": 5,
+  "post_market_minutes": 5
+}

@@ -85,6 +85,9 @@ def display_monitor_status():
     with col6:
         if st.button("🔄 刷新状态"):
             st.rerun()
+    
+    # 显示定时调度状态和配置
+    display_scheduler_section()
 
 def display_add_stock_section():
     """显示添加股票监测区域"""
@@ -694,6 +697,166 @@ def display_miniqmt_status():
                 if miniqmt.disconnect():
                     st.info("⏸️ 已断开MiniQMT连接")
                     st.rerun()
+
+def display_scheduler_section():
+    """显示定时调度配置区域"""
+    st.markdown("---")
+    st.markdown("### ⏰ 定时自动启动/关闭")
+    
+    # 获取调度器实例
+    scheduler = monitor_service.get_scheduler()
+    status = scheduler.get_status()
+    
+    # 状态显示
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        if status['scheduler_enabled']:
+            st.success("🟢 定时已启用")
+        else:
+            st.info("⚪ 定时未启用")
+    
+    with col2:
+        if status['scheduler_running']:
+            st.success("🔄 调度器运行中")
+        else:
+            st.info("⏸️ 调度器未运行")
+    
+    with col3:
+        if status['is_trading_day']:
+            st.success(f"📅 交易日")
+        else:
+            st.info("📅 非交易日")
+    
+    with col4:
+        if status['is_trading_time']:
+            st.success("⏰ 交易时间内")
+        else:
+            st.info(f"⏰ {status['next_trading_time']}")
+    
+    # 配置设置
+    with st.expander("⚙️ 定时调度设置", expanded=False):
+        col1, col2 = st.columns([1, 1])
+        
+        with col1:
+            st.subheader("📊 市场选择")
+            
+            market = st.selectbox(
+                "选择市场",
+                ["CN", "US", "HK"],
+                index=["CN", "US", "HK"].index(scheduler.config.get('market', 'CN')),
+                help="CN=中国A股, US=美股, HK=港股"
+            )
+            
+            market_names = {
+                "CN": "中国A股",
+                "US": "美股",
+                "HK": "港股"
+            }
+            st.info(f"**当前市场**: {market_names.get(market, market)}")
+            
+            # 显示交易时间
+            trading_hours = scheduler.config['trading_hours'].get(market, [])
+            st.markdown("**📅 交易时间：**")
+            for i, period in enumerate(trading_hours, 1):
+                st.caption(f"时段{i}: {period['start']} - {period['end']}")
+            
+            # 交易日设置
+            st.markdown("**📅 交易日设置**")
+            trading_days = st.multiselect(
+                "选择交易日",
+                options=[1, 2, 3, 4, 5, 6, 7],
+                default=scheduler.config.get('trading_days', [1, 2, 3, 4, 5]),
+                format_func=lambda x: ["周一", "周二", "周三", "周四", "周五", "周六", "周日"][x-1],
+                help="选择哪些日期为交易日"
+            )
+        
+        with col2:
+            st.subheader("⚙️ 调度参数")
+            
+            enabled = st.checkbox(
+                "启用定时调度",
+                value=scheduler.config.get('enabled', False),
+                help="启用后将在交易时间自动启动监测服务"
+            )
+            
+            auto_stop = st.checkbox(
+                "收盘后自动停止",
+                value=scheduler.config.get('auto_stop', True),
+                help="在交易时间结束后自动停止监测服务"
+            )
+            
+            pre_market_minutes = st.slider(
+                "提前启动(分钟)",
+                min_value=0,
+                max_value=30,
+                value=scheduler.config.get('pre_market_minutes', 5),
+                help="在开盘前提前多少分钟启动"
+            )
+            
+            post_market_minutes = st.slider(
+                "延后停止(分钟)",
+                min_value=0,
+                max_value=30,
+                value=scheduler.config.get('post_market_minutes', 5),
+                help="在收盘后延后多少分钟停止"
+            )
+            
+            st.markdown("---")
+            
+            # 说明信息
+            st.info("""
+            **💡 使用说明：**
+            - 启用定时调度后，系统将在交易时间自动启动监测
+            - 非交易时间或非交易日将自动停止监测（如启用自动停止）
+            - 调度器独立运行，不影响手动启动/停止
+            - 支持中国A股、美股、港股交易时间
+            """)
+        
+        # 保存按钮
+        col1, col2, col3 = st.columns([1, 1, 1])
+        
+        with col1:
+            if st.button("💾 保存设置", type="primary", use_container_width=True):
+                try:
+                    # 更新配置
+                    scheduler.update_config(
+                        enabled=enabled,
+                        market=market,
+                        trading_days=trading_days,
+                        auto_stop=auto_stop,
+                        pre_market_minutes=pre_market_minutes,
+                        post_market_minutes=post_market_minutes
+                    )
+                    
+                    st.success("✅ 设置已保存")
+                    st.balloons()
+                    time.sleep(1)
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ 保存失败: {e}")
+        
+        with col2:
+            if status['scheduler_running']:
+                if st.button("⏹️ 停止调度器", use_container_width=True):
+                    scheduler.stop_scheduler()
+                    st.info("⏸️ 调度器已停止")
+                    time.sleep(0.5)
+                    st.rerun()
+            else:
+                if enabled:
+                    if st.button("▶️ 启动调度器", type="secondary", use_container_width=True):
+                        scheduler.start_scheduler()
+                        st.success("✅ 调度器已启动")
+                        time.sleep(0.5)
+                        st.rerun()
+                else:
+                    st.button("▶️ 启动调度器", use_container_width=True, disabled=True)
+                    st.caption("请先启用定时调度")
+        
+        with col3:
+            if st.button("🔄 刷新状态", use_container_width=True):
+                st.rerun()
 
 def get_monitor_summary():
     """获取监测摘要信息"""
