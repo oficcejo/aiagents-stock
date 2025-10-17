@@ -18,6 +18,7 @@ from notification_service import notification_service
 from config_manager import config_manager
 from main_force_ui import display_main_force_selector
 from sector_strategy_ui import display_sector_strategy
+from longhubang_ui import display_longhubang
 
 # 页面配置
 st.set_page_config(
@@ -293,6 +294,8 @@ def main():
             st.session_state.show_history = True
             if 'show_monitor' in st.session_state:
                 del st.session_state.show_monitor
+            if 'show_longhubang' in st.session_state:
+                del st.session_state.show_longhubang
         
         if st.button("📊 实时监测", use_container_width=True, key="nav_monitor"):
             st.session_state.show_monitor = True
@@ -300,6 +303,8 @@ def main():
                 del st.session_state.show_history
             if 'show_main_force' in st.session_state:
                 del st.session_state.show_main_force
+            if 'show_longhubang' in st.session_state:
+                del st.session_state.show_longhubang
         
         if st.button("🎯 主力选股", use_container_width=True, key="nav_main_force"):
             st.session_state.show_main_force = True
@@ -311,6 +316,8 @@ def main():
                 del st.session_state.show_config
             if 'show_sector_strategy' in st.session_state:
                 del st.session_state.show_sector_strategy
+            if 'show_longhubang' in st.session_state:
+                del st.session_state.show_longhubang
         
         if st.button("🎯 智策板块", use_container_width=True, key="nav_sector_strategy"):
             st.session_state.show_sector_strategy = True
@@ -322,6 +329,21 @@ def main():
                 del st.session_state.show_config
             if 'show_main_force' in st.session_state:
                 del st.session_state.show_main_force
+            if 'show_longhubang' in st.session_state:
+                del st.session_state.show_longhubang
+        
+        if st.button("🎯 智瞰龙虎", use_container_width=True, key="nav_longhubang"):
+            st.session_state.show_longhubang = True
+            if 'show_history' in st.session_state:
+                del st.session_state.show_history
+            if 'show_monitor' in st.session_state:
+                del st.session_state.show_monitor
+            if 'show_config' in st.session_state:
+                del st.session_state.show_config
+            if 'show_main_force' in st.session_state:
+                del st.session_state.show_main_force
+            if 'show_sector_strategy' in st.session_state:
+                del st.session_state.show_sector_strategy
         
         if st.button("🏠 返回首页", use_container_width=True, key="nav_home"):
             if 'show_history' in st.session_state:
@@ -334,6 +356,8 @@ def main():
                 del st.session_state.show_main_force
             if 'show_sector_strategy' in st.session_state:
                 del st.session_state.show_sector_strategy
+            if 'show_longhubang' in st.session_state:
+                del st.session_state.show_longhubang
         
         if st.button("⚙️ 环境配置", use_container_width=True, key="nav_config"):
             st.session_state.show_config = True
@@ -341,6 +365,12 @@ def main():
                 del st.session_state.show_history
             if 'show_monitor' in st.session_state:
                 del st.session_state.show_monitor
+            if 'show_main_force' in st.session_state:
+                del st.session_state.show_main_force
+            if 'show_sector_strategy' in st.session_state:
+                del st.session_state.show_sector_strategy
+            if 'show_longhubang' in st.session_state:
+                del st.session_state.show_longhubang
         
         st.markdown("---")
         
@@ -434,6 +464,11 @@ def main():
     # 检查是否显示智策板块
     if 'show_sector_strategy' in st.session_state and st.session_state.show_sector_strategy:
         display_sector_strategy()
+        return
+    
+    # 检查是否显示智瞰龙虎
+    if 'show_longhubang' in st.session_state and st.session_state.show_longhubang:
+        display_longhubang()
         return
     
     # 检查是否显示环境配置

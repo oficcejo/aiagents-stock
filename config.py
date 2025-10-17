@@ -1,8 +1,8 @@
 import os
 from dotenv import load_dotenv
 
-# 加载环境变量
-load_dotenv()
+# 加载环境变量（override=True 强制覆盖已存在的环境变量）
+load_dotenv(override=True)
 
 # DeepSeek API配置
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
