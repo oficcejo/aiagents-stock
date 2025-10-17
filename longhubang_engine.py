@@ -6,6 +6,7 @@
 from longhubang_data import LonghubangDataFetcher
 from longhubang_db import LonghubangDatabase
 from longhubang_agents import LonghubangAgents
+from longhubang_scoring import LonghubangScoring
 from typing import Dict, Any, List
 from datetime import datetime, timedelta
 import time
@@ -25,6 +26,7 @@ class LonghubangEngine:
         self.data_fetcher = LonghubangDataFetcher()
         self.database = LonghubangDatabase(db_path)
         self.agents = LonghubangAgents(model=model)
+        self.scoring = LonghubangScoring()
         print(f"[智瞰龙虎] 分析引擎初始化完成")
     
     def run_comprehensive_analysis(self, date=None, days=1) -> Dict[str, Any]:
@@ -88,6 +90,13 @@ class LonghubangEngine:
                 "summary": summary
             }
             print(f"✓ 数据统计完成")
+            
+            # 阶段3.5: AI智能评分排名
+            print("\n[阶段3.5] AI智能评分排名...")
+            print("-" * 60)
+            scoring_df = self.scoring.score_all_stocks(data_list)
+            results["scoring_ranking"] = scoring_df
+            print(f"✓ 完成 {len(scoring_df)} 只股票的智能评分排名")
             
             # 阶段4: AI分析师团队分析
             print("\n[阶段4] AI分析师团队工作中...")

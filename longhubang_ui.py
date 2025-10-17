@@ -250,7 +250,8 @@ def display_analysis_results(result):
     st.markdown("---")
     
     # 创建子标签页
-    tab1, tab2, tab3, tab4 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "🏆 AI评分排名",
         "🎯 推荐股票",
         "🤖 AI分析师报告",
         "📊 数据详情",
@@ -258,16 +259,207 @@ def display_analysis_results(result):
     ])
     
     with tab1:
-        display_recommended_stocks(result)
+        display_scoring_ranking(result)
     
     with tab2:
-        display_agents_reports(result)
+        display_recommended_stocks(result)
     
     with tab3:
-        display_data_details(result)
+        display_agents_reports(result)
     
     with tab4:
+        display_data_details(result)
+    
+    with tab5:
         display_visualizations(result)
+
+
+def display_scoring_ranking(result):
+    """显示AI智能评分排名"""
+    
+    st.subheader("🏆 AI智能评分排名")
+    
+    scoring_df = result.get('scoring_ranking')
+    
+    if scoring_df is None or (hasattr(scoring_df, 'empty') and scoring_df.empty):
+        st.warning("暂无评分数据")
+        return
+    
+    # 评分说明
+    with st.expander("📖 评分维度说明", expanded=False):
+        st.markdown("""
+        ### 📊 AI智能评分体系 (总分100分)
+        
+        #### 1️⃣ 买入资金含金量 (0-30分)
+        - **顶级游资**（赵老哥、章盟主、92科比等）：每个 +10分
+        - **知名游资**（深股通、中信证券等）：每个 +5分
+        - **普通游资**：每个 +1.5分
+        
+        #### 2️⃣ 净买入额评分 (0-25分)
+        - 净流入 < 1000万：0-10分
+        - 净流入 1000-5000万：10-18分
+        - 净流入 5000万-1亿：18-22分
+        - 净流入 > 1亿：22-25分
+        
+        #### 3️⃣ 卖出压力评分 (0-20分)
+        - 卖出比例 0-10%：20分 ✨（压力极小）
+        - 卖出比例 10-30%：15-20分（压力较小）
+        - 卖出比例 30-50%：10-15分（压力中等）
+        - 卖出比例 50-80%：5-10分（压力较大）
+        - 卖出比例 > 80%：0-5分（压力极大）
+        
+        #### 4️⃣ 机构共振评分 (0-15分)
+        - **机构+游资共振**：15分 ⭐（最强信号）
+        - 仅机构买入：8-12分
+        - 仅游资买入：5-10分
+        
+        #### 5️⃣ 其他加分项 (0-10分)
+        - **主力集中度**：席位越少越集中 (+1-3分)
+        - **热门概念**：AI、新能源、芯片等 (+0-3分)
+        - **连续上榜**：连续多日上榜 (+0-2分)
+        - **买卖比例优秀**：买入远大于卖出 (+0-2分)
+        
+        ---
+        
+        💡 **评分越高，表示该股票受到资金青睐程度越高！**  
+        ⚠️ **但仍需结合市场环境、技术面等因素综合判断！**
+        """)
+    
+    st.markdown("---")
+    
+    # 显示TOP10评分表格
+    st.markdown("### 🥇 TOP10 综合评分排名")
+    
+    top10_df = scoring_df.head(10).copy()
+    
+    # 格式化显示
+    st.dataframe(
+        top10_df,
+        column_config={
+            "排名": st.column_config.TextColumn("排名", width="small"),
+            "股票名称": st.column_config.TextColumn("股票名称", width="medium"),
+            "股票代码": st.column_config.TextColumn("代码", width="small"),
+            "综合评分": st.column_config.NumberColumn(
+                "综合评分",
+                format="%.1f",
+                help="总分100分"
+            ),
+            "资金含金量": st.column_config.ProgressColumn(
+                "资金含金量",
+                format="%d分",
+                min_value=0,
+                max_value=30
+            ),
+            "净买入额": st.column_config.ProgressColumn(
+                "净买入额",
+                format="%d分",
+                min_value=0,
+                max_value=25
+            ),
+            "卖出压力": st.column_config.ProgressColumn(
+                "卖出压力",
+                format="%d分",
+                min_value=0,
+                max_value=20
+            ),
+            "机构共振": st.column_config.ProgressColumn(
+                "机构共振",
+                format="%d分",
+                min_value=0,
+                max_value=15
+            ),
+            "加分项": st.column_config.ProgressColumn(
+                "加分项",
+                format="%d分",
+                min_value=0,
+                max_value=10
+            ),
+            "顶级游资": st.column_config.NumberColumn("顶级游资", format="%d家"),
+            "买方数": st.column_config.NumberColumn("买方数", format="%d家"),
+            "机构参与": st.column_config.TextColumn("机构参与"),
+            "净流入": st.column_config.NumberColumn("净流入(元)", format="%.2f")
+        },
+        hide_index=True,
+        use_container_width=True
+    )
+    
+    st.markdown("---")
+    
+    # 评分分布图表
+    st.markdown("### 📊 评分分布可视化")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # 综合评分柱状图
+        fig1 = px.bar(
+            top10_df,
+            x='股票名称',
+            y='综合评分',
+            title='TOP10 综合评分对比',
+            text='综合评分',
+            color='综合评分',
+            color_continuous_scale='RdYlGn'
+        )
+        fig1.update_traces(texttemplate='%{text:.1f}分', textposition='outside')
+        fig1.update_layout(
+            xaxis_tickangle=-45,
+            showlegend=False,
+            height=400
+        )
+        st.plotly_chart(fig1, use_container_width=True)
+    
+    with col2:
+        # 五维评分雷达图（显示第一名）
+        if len(top10_df) > 0:
+            first_place = top10_df.iloc[0]
+            
+            fig2 = go.Figure(data=go.Scatterpolar(
+                r=[
+                    first_place['资金含金量'] / 30 * 100,
+                    first_place['净买入额'] / 25 * 100,
+                    first_place['卖出压力'] / 20 * 100,
+                    first_place['机构共振'] / 15 * 100,
+                    first_place['加分项'] / 10 * 100
+                ],
+                theta=['资金含金量', '净买入额', '卖出压力', '机构共振', '加分项'],
+                fill='toself',
+                name=first_place['股票名称']
+            ))
+            
+            fig2.update_layout(
+                polar=dict(
+                    radialaxis=dict(
+                        visible=True,
+                        range=[0, 100]
+                    )
+                ),
+                showlegend=True,
+                title=f"🥇 {first_place['股票名称']} 五维评分",
+                height=400
+            )
+            st.plotly_chart(fig2, use_container_width=True)
+    
+    st.markdown("---")
+    
+    # 完整排名表格
+    st.markdown("### 📋 完整评分排名")
+    
+    st.dataframe(
+        scoring_df,
+        column_config={
+            "排名": st.column_config.TextColumn("排名", width="small"),
+            "股票名称": st.column_config.TextColumn("股票名称"),
+            "股票代码": st.column_config.TextColumn("代码"),
+            "综合评分": st.column_config.NumberColumn("综合评分", format="%.1f"),
+            "顶级游资": st.column_config.NumberColumn("顶级游资", format="%d家"),
+            "买方数": st.column_config.NumberColumn("买方数", format="%d家"),
+            "机构参与": st.column_config.TextColumn("机构"),
+            "净流入": st.column_config.NumberColumn("净流入(元)", format="%.2f")
+        },
+        hide_index=True,
+        use_container_width=True
+    )
 
 
 def display_recommended_stocks(result):
