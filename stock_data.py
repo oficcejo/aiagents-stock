@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 import requests
 import json
 import pywencai
+from data_source_manager import data_source_manager
 
 class StockDataFetcher:
     """股票数据获取类"""
@@ -15,6 +16,7 @@ class StockDataFetcher:
         self.data = None
         self.info = None
         self.financial_data = None
+        self.data_source_manager = data_source_manager
         
     def get_stock_info(self, symbol):
         """获取股票基本信息"""
@@ -67,7 +69,7 @@ class StockDataFetcher:
         return symbol.zfill(5)
     
     def _get_chinese_stock_info(self, symbol):
-        """获取中国股票基本信息"""
+        """获取中国股票基本信息（支持akshare和tushare数据源自动切换）"""
         try:
             # 初始化基本信息
             info = {
@@ -82,7 +84,12 @@ class StockDataFetcher:
                 "exchange": "上海/深圳证券交易所"
             }
             
-            # 方法1: 尝试获取个股详细信息
+            # 先尝试使用数据源管理器获取基本信息
+            basic_info = self.data_source_manager.get_stock_basic_info(symbol)
+            if basic_info:
+                info.update(basic_info)
+            
+            # 方法1: 尝试获取个股详细信息（akshare）
             try:
                 stock_info = ak.stock_individual_info_em(symbol=symbol)
                 if stock_info is not None and not stock_info.empty:
@@ -115,7 +122,24 @@ class StockDataFetcher:
                             except:
                                 pass
             except Exception as e:
-                print(f"获取个股详细信息失败: {e}")
+                print(f"[Akshare] 获取个股详细信息失败: {e}")
+                # 如果akshare失败，尝试从tushare获取
+                if self.data_source_manager.tushare_available and info['name'] == '未知':
+                    print(f"[Tushare] 尝试获取基本信息（备用数据源）...")
+                    try:
+                        ts_code = self.data_source_manager._convert_to_ts_code(symbol)
+                        df = self.data_source_manager.tushare_api.daily_basic(
+                            ts_code=ts_code,
+                            trade_date=datetime.now().strftime('%Y%m%d')
+                        )
+                        if df is not None and not df.empty:
+                            row = df.iloc[0]
+                            info['pe_ratio'] = row.get('pe', 'N/A')
+                            info['pb_ratio'] = row.get('pb', 'N/A')
+                            info['market_cap'] = row.get('total_mv', 'N/A')
+                            print(f"[Tushare] ✅ 成功获取部分信息")
+                    except Exception as te:
+                        print(f"[Tushare] ❌ 获取失败: {te}")
             
             # 方法2: 尝试获取实时价格和涨跌幅（如果网络允许）
             try:
@@ -152,20 +176,28 @@ class StockDataFetcher:
                                 pass
                                 
             except Exception as e:
-                print(f"获取实时数据失败: {e}")
-                # 如果实时数据获取失败，尝试使用历史数据获取价格
+                print(f"[Akshare] 获取实时数据失败: {e}")
+                # 如果实时数据获取失败，尝试使用数据源管理器获取历史数据（支持tushare备用）
                 try:
-                    hist_data = ak.stock_zh_a_hist(symbol=symbol, period="daily", 
-                                                 start_date=(datetime.now() - timedelta(days=5)).strftime('%Y%m%d'),
-                                                 end_date=datetime.now().strftime('%Y%m%d'), adjust="qfq")
+                    print(f"[数据源管理器] 尝试获取最近交易数据...")
+                    hist_data = self.data_source_manager.get_stock_hist_data(
+                        symbol=symbol,
+                        start_date=(datetime.now() - timedelta(days=5)).strftime('%Y%m%d'),
+                        end_date=datetime.now().strftime('%Y%m%d'),
+                        adjust='qfq'
+                    )
+                    
                     if hist_data is not None and not hist_data.empty:
-                        latest = hist_data.iloc[-1]
-                        info['current_price'] = latest['收盘']
-                        # 计算涨跌幅
-                        if len(hist_data) > 1:
-                            prev_close = hist_data.iloc[-2]['收盘']
-                            change_pct = ((latest['收盘'] - prev_close) / prev_close) * 100
-                            info['change_percent'] = round(change_pct, 2)
+                        # 标准化列名
+                        if 'close' in hist_data.columns:
+                            latest = hist_data.iloc[-1]
+                            info['current_price'] = latest['close']
+                            # 计算涨跌幅
+                            if len(hist_data) > 1:
+                                prev_close = hist_data.iloc[-2]['close']
+                                change_pct = ((latest['close'] - prev_close) / prev_close) * 100
+                                info['change_percent'] = round(change_pct, 2)
+                            print(f"[数据源管理器] ✅ 成功获取价格数据")
                 except Exception as e2:
                     print(f"获取历史数据也失败: {e2}")
             
@@ -389,7 +421,7 @@ class StockDataFetcher:
             return {"error": f"获取美股信息失败: {str(e)}"}
     
     def _get_chinese_stock_data(self, symbol, period="1y"):
-        """获取中国股票历史数据"""
+        """获取中国股票历史数据（支持akshare和tushare数据源自动切换）"""
         try:
             # 计算日期范围
             end_date = datetime.now().strftime('%Y%m%d')
@@ -402,25 +434,36 @@ class StockDataFetcher:
             else:
                 start_date = (datetime.now() - timedelta(days=365)).strftime('%Y%m%d')
             
-            # 获取历史数据
-            df = ak.stock_zh_a_hist(symbol=symbol, period="daily", 
-                                   start_date=start_date, end_date=end_date, adjust="qfq")
+            # 使用数据源管理器获取数据（自动切换akshare和tushare）
+            df = self.data_source_manager.get_stock_hist_data(
+                symbol=symbol,
+                start_date=start_date,
+                end_date=end_date,
+                adjust='qfq'
+            )
             
             if df is not None and not df.empty:
-                # 重命名列以匹配标准格式
+                # 标准化列名为大写（与原有格式保持一致）
                 df = df.rename(columns={
-                    '日期': 'Date',
-                    '开盘': 'Open',
-                    '收盘': 'Close', 
-                    '最高': 'High',
-                    '最低': 'Low',
-                    '成交量': 'Volume'
+                    'date': 'Date',
+                    'open': 'Open',
+                    'close': 'Close',
+                    'high': 'High',
+                    'low': 'Low',
+                    'volume': 'Volume'
                 })
-                df['Date'] = pd.to_datetime(df['Date'])
-                df.set_index('Date', inplace=True)
+                
+                # 确保Date列为datetime类型
+                if 'Date' not in df.columns and df.index.name == 'date':
+                    df.index.name = 'Date'
+                elif 'Date' in df.columns:
+                    df['Date'] = pd.to_datetime(df['Date'])
+                    df.set_index('Date', inplace=True)
+                
+                print(f"✅ 成功获取 {symbol} 的历史数据，共 {len(df)} 条记录")
                 return df
             else:
-                return {"error": "无法获取历史数据"}
+                return {"error": "所有数据源均无法获取历史数据"}
                 
         except Exception as e:
             return {"error": f"获取中国股票数据失败: {str(e)}"}
