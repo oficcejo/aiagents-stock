@@ -2260,6 +2260,50 @@ def display_config_manager():
             )
             st.session_state.temp_config["WEBHOOK_URL"] = new_webhook_url
             
+            # Webhook自定义关键词（钉钉安全验证）
+            webhook_keyword_info = config_info.get("WEBHOOK_KEYWORD", {"description": "自定义关键词（钉钉安全验证）", "value": "aiagents通知"})
+            current_webhook_keyword = st.session_state.temp_config.get("WEBHOOK_KEYWORD", "aiagents通知")
+            
+            new_webhook_keyword = st.text_input(
+                f"🔑 {webhook_keyword_info['description']}",
+                value=current_webhook_keyword,
+                disabled=not new_webhook_enabled or new_webhook_type != "dingtalk",
+                placeholder="aiagents通知",
+                help="钉钉机器人安全设置中的自定义关键词，飞书不需要此设置",
+                key="input_webhook_keyword"
+            )
+            st.session_state.temp_config["WEBHOOK_KEYWORD"] = new_webhook_keyword
+            
+            # 测试连通按钮
+            if new_webhook_enabled and new_webhook_url:
+                if st.button("🧪 测试Webhook连通", use_container_width=True, key="test_webhook_btn"):
+                    with st.spinner("正在发送测试消息..."):
+                        # 临时更新配置
+                        temp_env_backup = {}
+                        for key in ["WEBHOOK_ENABLED", "WEBHOOK_TYPE", "WEBHOOK_URL", "WEBHOOK_KEYWORD"]:
+                            temp_env_backup[key] = os.getenv(key)
+                            os.environ[key] = st.session_state.temp_config.get(key, "")
+                        
+                        try:
+                            # 创建临时通知服务实例
+                            from notification_service import NotificationService
+                            temp_notification_service = NotificationService()
+                            success, message = temp_notification_service.send_test_webhook()
+                            
+                            if success:
+                                st.success(f"✅ {message}")
+                            else:
+                                st.error(f"❌ {message}")
+                        except Exception as e:
+                            st.error(f"❌ 测试失败: {str(e)}")
+                        finally:
+                            # 恢复环境变量
+                            for key, value in temp_env_backup.items():
+                                if value is not None:
+                                    os.environ[key] = value
+                                elif key in os.environ:
+                                    del os.environ[key]
+            
             if new_webhook_enabled and new_webhook_url:
                 st.success(f"✅ Webhook配置完整 ({new_webhook_type})")
             elif new_webhook_enabled:
@@ -2269,7 +2313,7 @@ def display_config_manager():
             
             # 显示帮助信息
             if new_webhook_type == "dingtalk":
-                st.caption("💡 钉钉机器人配置：\n1. 进入钉钉群 → 设置 → 智能群助手\n2. 添加机器人 → 自定义\n3. 复制Webhook地址")
+                st.caption("💡 钉钉机器人配置：\n1. 进入钉钉群 → 设置 → 智能群助手\n2. 添加机器人 → 自定义\n3. 复制Webhook地址\n4. 安全设置选择【自定义关键词】，填写上方的关键词")
             else:
                 st.caption("💡 飞书机器人配置：\n1. 进入飞书群 → 设置 → 群机器人\n2. 添加机器人 → 自定义机器人\n3. 复制Webhook地址")
         
@@ -2353,6 +2397,7 @@ EMAIL_TO="{current_config.get('EMAIL_TO', '')}"
 WEBHOOK_ENABLED="{current_config.get('WEBHOOK_ENABLED', 'false')}"
 WEBHOOK_TYPE="{current_config.get('WEBHOOK_TYPE', 'dingtalk')}"
 WEBHOOK_URL="{current_config.get('WEBHOOK_URL', '')}"
+WEBHOOK_KEYWORD="{current_config.get('WEBHOOK_KEYWORD', 'aiagents通知')}"
 """, language="bash")
 
 def display_batch_analysis_results(results, period):

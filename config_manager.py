@@ -224,6 +224,9 @@ class ConfigManager:
                 "required": info["required"],
                 "type": info["type"]
             }
+            # 如果有options字段，也包含进去
+            if "options" in info:
+                config_info[key]["options"] = info["options"]
         
         return config_info
     
