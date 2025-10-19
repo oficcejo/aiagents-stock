@@ -5,10 +5,12 @@
 <img width="300" height="324" alt="image" src="https://www.sd-hn.cn/img/2wm1015.png" />
 
 ### 基于Python + Streamlit + DeepSeek的智能股票分析系统，模拟证券公司分析师团队，提供全方位的股票投资分析和决策建议。
-<img width="1910" height="923" alt="image" src="https://github.com/user-attachments/assets/f929f751-3726-48e6-bc18-919f6a599629" />
-<img width="1910" height="923" alt="01" src="https://github.com/user-attachments/assets/7dcd4b2c-8b4b-428b-8a17-4d843e98a626" />
-<img width="1910" height="923" alt="02" src="https://github.com/user-attachments/assets/02018fff-4e6b-4354-b258-a5da25537c38" />
-
+<img width="1910" height="923" alt="image" src="https://github.com/user-attachments/assets/fe366e1d-2352-46db-a3cc-6f147ee6d9d9" />
+<img width="1910" height="923" alt="image" src="https://github.com/user-attachments/assets/112e9e34-381e-4e61-b7b6-6614260b2594" />
+<img width="1910" height="923" alt="image" src="https://github.com/user-attachments/assets/46e36075-2f08-4113-bd1d-913ef4dd279c" />
+<img width="1910" height="923" alt="image" src="https://github.com/user-attachments/assets/cb3069cc-3cf3-442d-88aa-d4fc756f81eb" />
+<img width="1910" height="923" alt="image" src="https://github.com/user-attachments/assets/ff80584a-0599-4891-9b8d-47485fa3678a" />
+## 1019更新龙虎榜评分、增强风险管理师数据获取能力
 ## ✨1017 更新说明
 
 ### 🎯 智瞰龙虎板块分析系统 ⭐️ 全新上线
