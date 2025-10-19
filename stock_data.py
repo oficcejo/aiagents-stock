@@ -816,6 +816,34 @@ class StockDataFetcher:
     # - 新方案：使用 akshare 的 stock_individual_fund_flow 接口
     # - 新方案优势：数据标准化、准确获取最近20个交易日、6类资金详细分类
     
+    def get_risk_data(self, symbol):
+        """
+        获取股票风险数据（限售解禁、大股东减持、重要事件）
+        只支持中国A股
+        """
+        try:
+            # 只有中国A股才支持风险数据查询
+            if not self._is_chinese_stock(symbol):
+                return {
+                    'symbol': symbol,
+                    'data_success': False,
+                    'error': '仅支持中国A股风险数据查询'
+                }
+            
+            # 使用风险数据获取器
+            from risk_data_fetcher import RiskDataFetcher
+            fetcher = RiskDataFetcher()
+            risk_data = fetcher.get_risk_data(symbol)
+            
+            return risk_data
+            
+        except Exception as e:
+            return {
+                'symbol': symbol,
+                'data_success': False,
+                'error': f'获取风险数据失败: {str(e)}'
+            }
+    
     def _safe_convert(self, value):
         """安全地转换数值"""
         if value is None or value == '' or (isinstance(value, float) and np.isnan(value)):

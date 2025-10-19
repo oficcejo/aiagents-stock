@@ -73,13 +73,34 @@ class StockAnalysisAgents:
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
         }
     
-    def risk_management_agent(self, stock_info: Dict, indicators: Dict) -> Dict[str, Any]:
-        """风险管理智能体"""
+    def risk_management_agent(self, stock_info: Dict, indicators: Dict, risk_data: Dict = None) -> Dict[str, Any]:
+        """风险管理智能体（增强版）"""
         print("⚠️ 风险管理师正在评估中...")
+        
+        # 如果有风险数据，显示数据来源
+        if risk_data and risk_data.get('data_success'):
+            print("   ✓ 已获取问财风险数据（限售解禁、大股东减持、重要事件）")
+        else:
+            print("   ⚠ 未获取到风险数据，将基于基本信息分析")
+        
         time.sleep(1)
         
+        # 构建风险数据文本
+        risk_data_text = ""
+        if risk_data and risk_data.get('data_success'):
+            # 使用格式化的风险数据
+            from risk_data_fetcher import RiskDataFetcher
+            fetcher = RiskDataFetcher()
+            risk_data_text = f"""
+
+【实际风险数据】（来自问财）
+{fetcher.format_risk_data_for_ai(risk_data)}
+
+以上是通过问财（pywencai）获取的实际风险数据，请重点关注这些数据进行深度风险分析。
+"""
+        
         risk_prompt = f"""
-作为风险管理专家，请基于以下信息进行风险评估：
+作为资深风险管理专家，请基于以下信息进行全面深度的风险评估：
 
 股票信息：
 - 股票代码：{stock_info.get('symbol', 'N/A')}
@@ -93,32 +114,105 @@ class StockAnalysisAgents:
 - RSI：{indicators.get('rsi', 'N/A')}
 - 布林带位置：当前价格相对于上下轨的位置
 - 波动率指标等
+{risk_data_text}
 
-请从以下角度进行风险评估：
-1. 市场风险（系统性风险）
-2. 个股风险（非系统性风险）
-3. 流动性风险
-4. 波动性风险
-5. 估值风险
-6. 行业风险
-7. 风险等级评定（低/中/高）
-8. 风险控制建议
+⚠️ 重要提示：以上风险数据是从问财（pywencai）实时查询的完整原始数据，请你：
+1. 仔细解析每一条记录的所有字段信息
+2. 识别数据中的关键风险点（时间、规模、频率、股东身份等）
+3. 对数据进行深度分析，不要遗漏任何重要信息
+4. 如果数据中有日期字段，要特别关注最近的记录和即将发生的事件
+5. 如果数据中有金额/比例字段，要评估其规模和影响力
+6. 基于实际数据给出量化的风险评估，而不是空泛的描述
 
-给出专业的风险评估报告。
+请从以下角度进行全面的风险评估：
+
+1. **限售解禁风险分析** ⭐ 重点
+   - 解禁时间和规模评估
+   - 解禁对股价的潜在冲击
+   - 解禁股东类型分析（创始人/投资机构/其他）
+   - 历史解禁后股价走势参考
+   - 风险等级评定和应对建议
+
+2. **股东减持风险分析** ⭐ 重点
+   - 减持频率和力度评估
+   - 减持股东身份和意图分析
+   - 减持对市场信心的影响
+   - 是否存在连续减持或集中减持
+   - 风险警示和投资建议
+
+3. **重要事件风险分析** ⭐ 重点
+   - 识别可能影响股价的重大事件
+   - 事件性质判断（利好/利空/中性）
+   - 事件影响的时间维度（短期/中期/长期）
+   - 事件的确定性和不确定性
+   - 风险提示和关注要点
+
+4. **市场风险（系统性风险）**
+   - 宏观经济环境风险
+   - 市场整体走势风险
+   - Beta系数反映的市场敏感度
+   - 系统性风险应对策略
+
+5. **个股风险（非系统性风险）**
+   - 公司基本面风险
+   - 经营管理风险
+   - 竞争力风险
+   - 行业地位风险
+
+6. **流动性风险**
+   - 成交量和换手率分析
+   - 买卖盘深度评估
+   - 流动性枯竭风险
+   - 大额交易影响评估
+
+7. **波动性风险**
+   - 价格波动幅度分析
+   - 52周最高最低位分析
+   - RSI等技术指标的风险提示
+   - 波动率对投资的影响
+
+8. **估值风险**
+   - 当前估值水平评估
+   - 市场预期和估值偏差
+   - 估值过高风险警示
+
+9. **行业风险**
+   - 行业周期阶段
+   - 行业竞争格局
+   - 行业政策风险
+   - 行业技术变革风险
+
+10. **综合风险评定**
+    - 风险等级评定（低/中/高）
+    - 主要风险因素排序
+    - 风险暴露时间窗口
+    - 风险演变趋势判断
+
+11. **风险控制建议** ⭐ 核心
+    - 仓位控制建议（具体比例）
+    - 止损位设置建议（具体价位）
+    - 风险规避策略（什么情况下不建议投资）
+    - 风险对冲方案（如果适用）
+    - 持仓时间建议
+    - 重点关注指标和信号
+
+请基于实际数据进行客观、专业、严谨的风险评估，给出可操作的风险控制建议。
+如果某些风险数据缺失，也要指出数据缺失本身可能带来的风险。
 """
         
         messages = [
-            {"role": "system", "content": "你是一名专业的风险管理专家，具有丰富的风险识别和控制经验。"},
+            {"role": "system", "content": "你是一名资深的风险管理专家，具有20年以上的风险识别和控制经验，擅长全面评估各类投资风险，特别关注限售解禁、股东减持、重要事件等可能影响股价的风险因素。你擅长从海量原始数据中提取关键信息，进行深度解析和量化评估。"},
             {"role": "user", "content": risk_prompt}
         ]
         
-        analysis = self.deepseek_client.call_api(messages)
+        analysis = self.deepseek_client.call_api(messages, max_tokens=6000)
         
         return {
             "agent_name": "风险管理师",
             "agent_role": "负责风险识别、风险评估、风险控制策略制定",
             "analysis": analysis,
-            "focus_areas": ["风险识别", "风险量化", "风险控制", "资产配置"],
+            "focus_areas": ["限售解禁风险", "股东减持风险", "重要事件风险", "风险识别", "风险量化", "风险控制", "资产配置"],
+            "risk_data": risk_data,  # 保存风险数据以供后续使用
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
         }
     
@@ -313,7 +407,7 @@ class StockAnalysisAgents:
     def run_multi_agent_analysis(self, stock_info: Dict, stock_data: Any, indicators: Dict, 
                                  financial_data: Dict = None, fund_flow_data: Dict = None, 
                                  sentiment_data: Dict = None, news_data: Dict = None,
-                                 quarterly_data: Dict = None,
+                                 quarterly_data: Dict = None, risk_data: Dict = None,
                                  enabled_analysts: Dict = None) -> Dict[str, Any]:
         """运行多智能体分析
         
@@ -356,9 +450,9 @@ class StockAnalysisAgents:
         if enabled_analysts.get('fund_flow', True):
             agents_results["fund_flow"] = self.fund_flow_analyst_agent(stock_info, indicators, fund_flow_data)
         
-        # 风险管理分析
+        # 风险管理分析（传入风险数据）
         if enabled_analysts.get('risk', True):
-            agents_results["risk_management"] = self.risk_management_agent(stock_info, indicators)
+            agents_results["risk_management"] = self.risk_management_agent(stock_info, indicators, risk_data)
         
         # 市场情绪分析（传入市场情绪数据）
         if enabled_analysts.get('sentiment', False):

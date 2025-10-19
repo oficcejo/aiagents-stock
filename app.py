@@ -636,9 +636,21 @@ def main():
             
             st.info(f"📊 准备分析 {len(stock_list)} 只股票: {', '.join(stock_list)}")
             
-            # 清除之前的批量分析结果
+            # 清除之前的分析结果（包括单个和批量）
             if 'batch_analysis_results' in st.session_state:
                 del st.session_state.batch_analysis_results
+            if 'analysis_completed' in st.session_state:
+                del st.session_state.analysis_completed
+            if 'stock_info' in st.session_state:
+                del st.session_state.stock_info
+            if 'agents_results' in st.session_state:
+                del st.session_state.agents_results
+            if 'discussion_result' in st.session_state:
+                del st.session_state.discussion_result
+            if 'final_decision' in st.session_state:
+                del st.session_state.final_decision
+            if 'just_completed' in st.session_state:
+                del st.session_state.just_completed
             
             # 获取批量模式
             batch_mode = st.session_state.get('batch_mode', '顺序分析')
@@ -646,8 +658,12 @@ def main():
             # 运行批量分析
             run_batch_analysis(stock_list, period, batch_mode)
     
+    # 检查是否有已完成的批量分析结果（优先显示批量结果）
+    if 'batch_analysis_results' in st.session_state and st.session_state.batch_analysis_results:
+        display_batch_analysis_results(st.session_state.batch_analysis_results, period)
+    
     # 检查是否有已完成的单个分析结果（但不是刚刚完成的，避免重复显示）
-    if 'analysis_completed' in st.session_state and st.session_state.analysis_completed:
+    elif 'analysis_completed' in st.session_state and st.session_state.analysis_completed:
         # 如果是刚刚完成的分析，清除标志，避免重复显示
         if st.session_state.get('just_completed', False):
             st.session_state.just_completed = False
@@ -676,10 +692,6 @@ def main():
             
             # 显示最终决策
             display_final_decision(final_decision, stock_info, agents_results, discussion_result)
-    
-    # 检查是否有已完成的批量分析结果
-    elif 'batch_analysis_results' in st.session_state and st.session_state.batch_analysis_results:
-        display_batch_analysis_results(st.session_state.batch_analysis_results, period)
     
     # 示例和说明
     elif not stock_input:
@@ -832,6 +844,15 @@ def analyze_single_stock_for_batch(symbol, period, enabled_analysts_config=None,
             except:
                 pass
         
+        # 5.5 获取风险数据（限售解禁、大股东减持、重要事件，可选）
+        risk_data = None
+        enable_risk = enabled_analysts_config.get('risk', True)
+        if enable_risk and fetcher._is_chinese_stock(symbol):
+            try:
+                risk_data = fetcher.get_risk_data(symbol)
+            except:
+                pass
+        
         # 6. 初始化AI分析系统
         agents = StockAnalysisAgents(model=selected_model)
         
@@ -841,7 +862,7 @@ def analyze_single_stock_for_batch(symbol, period, enabled_analysts_config=None,
         # 7. 运行多智能体分析
         agents_results = agents.run_multi_agent_analysis(
             stock_info, stock_data, indicators, financial_data, 
-            fund_flow_data, sentiment_data, news_data, quarterly_data,
+            fund_flow_data, sentiment_data, news_data, quarterly_data, risk_data,
             enabled_analysts=enabled_analysts_config
         )
         
@@ -1137,6 +1158,36 @@ def run_stock_analysis(symbol, period):
                 news_data = None
         elif enable_news and not fetcher._is_chinese_stock(symbol):
             st.info("ℹ️ 美股暂不支持新闻数据")
+        progress_bar.progress(45)
+        
+        # 5.5 获取风险数据（仅在选择了风险管理师时，使用问财数据源）
+        enable_risk = st.session_state.get('enable_risk', True)
+        risk_data = None
+        if enable_risk and fetcher._is_chinese_stock(symbol):
+            status_text.text("⚠️ 正在获取风险数据（限售解禁、大股东减持、重要事件）...")
+            try:
+                risk_data = fetcher.get_risk_data(symbol)
+                if risk_data and risk_data.get('data_success'):
+                    # 统计获取到的风险数据类型
+                    risk_types = []
+                    if risk_data.get('lifting_ban') and risk_data['lifting_ban'].get('has_data'):
+                        risk_types.append("限售解禁")
+                    if risk_data.get('shareholder_reduction') and risk_data['shareholder_reduction'].get('has_data'):
+                        risk_types.append("大股东减持")
+                    if risk_data.get('important_events') and risk_data['important_events'].get('has_data'):
+                        risk_types.append("重要事件")
+                    
+                    if risk_types:
+                        st.info(f"✅ 成功获取风险数据：{', '.join(risk_types)}")
+                    else:
+                        st.info("ℹ️ 暂无风险相关数据")
+                else:
+                    st.info("ℹ️ 暂无风险相关数据，将基于基本信息进行风险分析")
+            except Exception as e:
+                st.warning(f"⚠️ 获取风险数据时出错: {str(e)}")
+                risk_data = None
+        elif enable_risk and not fetcher._is_chinese_stock(symbol):
+            st.info("ℹ️ 美股暂不支持风险数据（限售解禁、大股东减持等）")
         progress_bar.progress(50)
         
         # 6. 初始化AI分析系统
@@ -1165,7 +1216,7 @@ def run_stock_analysis(symbol, period):
         status_text.text("🔍 AI分析师团队正在分析,请耐心等待几分钟...")
         agents_results = agents.run_multi_agent_analysis(
             stock_info, stock_data, indicators, financial_data, 
-            fund_flow_data, sentiment_data, news_data, quarterly_data,
+            fund_flow_data, sentiment_data, news_data, quarterly_data, risk_data,
             enabled_analysts=enabled_analysts
         )
         progress_bar.progress(75)
@@ -2504,21 +2555,15 @@ def display_comparison_table(results):
     df = pd.DataFrame(comparison_data)
     
     # 应用样式
-    def highlight_rating(val):
-        if val == '买入' or val == '强烈买入':
-            return 'background-color: #c8e6c9; color: #2e7d32;'
-        elif val == '持有':
-            return 'background-color: #fff9c4; color: #f57f17;'
-        elif val == '卖出' or val == '强烈卖出':
-            return 'background-color: #ffcdd2; color: #c62828;'
-        return ''
-    
-    # 显示表格
+    # 显示表格（不使用样式，避免matplotlib导入问题）
     st.dataframe(
-        df.style.applymap(highlight_rating, subset=['投资评级']),
+        df,
         use_container_width=True,
         height=400
     )
+    
+    # 添加评级说明
+    st.caption("💡 投资评级说明：强烈买入 > 买入 > 持有 > 卖出 > 强烈卖出")
     
     # 添加筛选功能
     st.markdown("---")
