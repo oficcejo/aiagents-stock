@@ -283,21 +283,26 @@ class LonghubangDatabase:
         return df
     
     def save_analysis_report(self, data_date_range, analysis_content, 
-                           recommended_stocks, summary):
+                           recommended_stocks, summary, full_result=None):
         """
-        保存AI分析报告
+        保存AI分析报告（完整版）
         
         Args:
             data_date_range: 数据日期范围
-            analysis_content: 分析内容
+            analysis_content: 分析内容（JSON字符串或字典）
             recommended_stocks: 推荐股票列表
             summary: 摘要
+            full_result: 完整的分析结果字典（可选）
             
         Returns:
             int: 报告ID
         """
         conn = self.get_connection()
         cursor = conn.cursor()
+        
+        # 如果传入的是字典，转换为JSON字符串
+        if isinstance(analysis_content, dict):
+            analysis_content = json.dumps(analysis_content, ensure_ascii=False, indent=2)
         
         cursor.execute('''
         INSERT INTO longhubang_analysis 
@@ -372,6 +377,14 @@ class LonghubangDatabase:
                     report['recommended_stocks'] = json.loads(report['recommended_stocks'])
                 except:
                     pass
+            
+            # 解析analysis_content字段
+            if report.get('analysis_content'):
+                try:
+                    report['analysis_content_parsed'] = json.loads(report['analysis_content'])
+                except:
+                    # 如果不是JSON格式，保持原样
+                    report['analysis_content_parsed'] = None
             
             return report
         

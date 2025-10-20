@@ -83,6 +83,7 @@ def display_portfolio_stocks():
 def display_stock_card(stock: Dict):
     """显示单个股票卡片"""
     
+    stock_id = stock.get("id")  # 获取股票ID
     code = stock.get("code", "")
     name = stock.get("name", "")
     cost_price = stock.get("cost_price")
@@ -121,7 +122,7 @@ def display_stock_card(stock: Dict):
                     st.rerun()
             with col_del:
                 if st.button("🗑️", key=f"del_{code}", help="删除"):
-                    portfolio_manager.delete_stock(code)
+                    portfolio_manager.delete_stock(stock_id)  # 使用stock_id而不是code
                     st.success(f"已删除 {code}")
                     time.sleep(0.5)
                     st.rerun()
@@ -154,7 +155,7 @@ def display_stock_card(stock: Dict):
                 with col_submit:
                     if st.form_submit_button("保存", type="primary"):
                         portfolio_manager.update_stock(
-                            code,
+                            stock_id,  # 使用stock_id而不是code
                             cost_price=new_cost if new_cost > 0 else None,
                             quantity=new_quantity if new_quantity > 0 else None,
                             note=new_note,

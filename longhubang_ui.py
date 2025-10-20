@@ -102,6 +102,11 @@ def display_longhubang():
 def display_analysis_tab():
     """显示分析标签页"""
     
+    # 检查是否触发批量分析（不立即删除标志）
+    if st.session_state.get('longhubang_batch_trigger'):
+        run_longhubang_batch_analysis()
+        return
+    
     st.subheader("🔍 龙虎榜综合分析")
     
     # 参数设置
@@ -382,6 +387,33 @@ def display_scoring_ranking(result):
         hide_index=True,
         use_container_width=True
     )
+    
+    # 一键批量分析功能
+    st.markdown("---")
+    
+    col_batch1, col_batch2, col_batch3 = st.columns([2, 1, 1])
+    with col_batch1:
+        st.markdown("#### 🚀 批量深度分析")
+        st.caption("对TOP10股票进行完整的AI团队分析，获取投资评级和关键价位")
+    
+    with col_batch2:
+        batch_count = st.selectbox(
+            "分析数量",
+            options=[3, 5, 10],
+            index=0,
+            help="选择分析前N只股票"
+        )
+    
+    with col_batch3:
+        st.write("")  # 占位
+        if st.button("🚀 开始批量分析", type="primary", use_container_width=True):
+            # 提取股票代码
+            stock_codes = top10_df.head(batch_count)['股票代码'].tolist()
+            
+            # 存储到session_state，触发批量分析
+            st.session_state.longhubang_batch_codes = stock_codes
+            st.session_state.longhubang_batch_trigger = True
+            st.rerun()
     
     st.markdown("---")
     
@@ -687,32 +719,223 @@ def display_pdf_export_section(result):
 
 
 def display_history_tab():
-    """显示历史报告标签页"""
+    """显示历史报告标签页（增强版）"""
     
     st.subheader("📚 历史分析报告")
     
     try:
         engine = LonghubangEngine()
-        reports_df = engine.get_historical_reports(limit=20)
+        reports_df = engine.get_historical_reports(limit=50)
         
         if reports_df.empty:
             st.info("暂无历史报告")
             return
         
-        st.dataframe(
-            reports_df,
-            column_config={
-                "id": st.column_config.NumberColumn("ID", format="%d"),
-                "analysis_date": st.column_config.TextColumn("分析时间"),
-                "data_date_range": st.column_config.TextColumn("数据日期范围"),
-                "summary": st.column_config.TextColumn("摘要")
-            },
-            hide_index=True,
-            use_container_width=True
-        )
+        st.info(f"💾 共有 {len(reports_df)} 条历史报告")
+        
+        # 显示报告列表
+        st.markdown("### 📋 报告列表")
+        
+        # 为每条报告创建展开面板
+        for idx, row in reports_df.iterrows():
+            report_id = row['id']
+            analysis_date = row['analysis_date']
+            data_date_range = row['data_date_range']
+            summary = row['summary']
+            
+            # 创建展开面板
+            with st.expander(
+                f"📄 报告 #{report_id} | {analysis_date} | 数据范围: {data_date_range}",
+                expanded=False
+            ):
+                # 获取完整报告详情
+                report_detail = engine.get_report_detail(report_id)
+                
+                if not report_detail:
+                    st.warning("无法加载报告详情")
+                    continue
+                
+                # 显示摘要
+                st.markdown("#### 📝 报告摘要")
+                st.info(summary)
+                
+                st.markdown("---")
+                
+                # 显示推荐股票
+                recommended_stocks = report_detail.get('recommended_stocks', [])
+                if recommended_stocks:
+                    st.markdown(f"#### 🎯 推荐股票 ({len(recommended_stocks)}只)")
+                    
+                    # 创建DataFrame显示
+                    df_stocks = pd.DataFrame(recommended_stocks)
+                    st.dataframe(
+                        df_stocks,
+                        column_config={
+                            "rank": st.column_config.NumberColumn("排名", format="%d"),
+                            "code": st.column_config.TextColumn("代码"),
+                            "name": st.column_config.TextColumn("名称"),
+                            "net_inflow": st.column_config.NumberColumn("净流入", format="%.2f"),
+                            "reason": st.column_config.TextColumn("推荐理由"),
+                            "confidence": st.column_config.TextColumn("确定性"),
+                            "hold_period": st.column_config.TextColumn("持有周期")
+                        },
+                        hide_index=True,
+                        use_container_width=True
+                    )
+                
+                st.markdown("---")
+                
+                # 尝试解析完整分析内容
+                analysis_content_parsed = report_detail.get('analysis_content_parsed')
+                
+                if analysis_content_parsed and isinstance(analysis_content_parsed, dict):
+                    # 显示AI分析师团队报告
+                    agents_analysis = analysis_content_parsed.get('agents_analysis', {})
+                    
+                    if agents_analysis:
+                        st.markdown("#### 🤖 AI分析师团队报告")
+                        
+                        agent_info = {
+                            'youzi': {'title': '🎯 游资行为分析师', 'icon': '🎯'},
+                            'stock': {'title': '📈 个股潜力分析师', 'icon': '📈'},
+                            'theme': {'title': '🔥 题材追踪分析师', 'icon': '🔥'},
+                            'risk': {'title': '⚠️ 风险控制专家', 'icon': '⚠️'},
+                            'chief': {'title': '👔 首席策略师', 'icon': '👔'}
+                        }
+                        
+                        for agent_key, info in agent_info.items():
+                            agent_data = agents_analysis.get(agent_key, {})
+                            if agent_data:
+                                with st.expander(f"{info['icon']} {info['title']}", expanded=False):
+                                    analysis = agent_data.get('analysis', '暂无分析')
+                                    st.markdown(analysis)
+                                    st.caption(f"分析时间: {agent_data.get('timestamp', 'N/A')}")
+                    
+                    # 显示AI评分排名
+                    scoring_ranking = analysis_content_parsed.get('scoring_ranking', [])
+                    if scoring_ranking:
+                        st.markdown("---")
+                        st.markdown("#### 🏆 AI智能评分排名 (TOP10)")
+                        
+                        df_scoring = pd.DataFrame(scoring_ranking[:10])
+                        
+                        # 显示完整的评分表格
+                        st.dataframe(
+                            df_scoring,
+                            column_config={
+                                "排名": st.column_config.NumberColumn("排名", format="%d"),
+                                "股票名称": st.column_config.TextColumn("股票名称", width="medium"),
+                                "股票代码": st.column_config.TextColumn("代码", width="small"),
+                                "综合评分": st.column_config.NumberColumn(
+                                    "综合评分",
+                                    format="%.1f",
+                                    help="总分100分"
+                                ),
+                                "资金含金量": st.column_config.ProgressColumn(
+                                    "资金含金量",
+                                    format="%d分",
+                                    min_value=0,
+                                    max_value=30
+                                ),
+                                "净买入额": st.column_config.ProgressColumn(
+                                    "净买入额",
+                                    format="%d分",
+                                    min_value=0,
+                                    max_value=25
+                                ),
+                                "卖出压力": st.column_config.ProgressColumn(
+                                    "卖出压力",
+                                    format="%d分",
+                                    min_value=0,
+                                    max_value=20
+                                ),
+                                "机构共振": st.column_config.ProgressColumn(
+                                    "机构共振",
+                                    format="%d分",
+                                    min_value=0,
+                                    max_value=15
+                                ),
+                                "加分项": st.column_config.ProgressColumn(
+                                    "加分项",
+                                    format="%d分",
+                                    min_value=0,
+                                    max_value=10
+                                ),
+                                "顶级游资": st.column_config.NumberColumn("顶级游资", format="%d家"),
+                                "买方数": st.column_config.NumberColumn("买方数", format="%d家"),
+                                "机构参与": st.column_config.TextColumn("机构参与"),
+                                "净流入": st.column_config.NumberColumn("净流入(元)", format="%.2f")
+                            },
+                            hide_index=True,
+                            use_container_width=True
+                        )
+                        
+                        # 显示评分说明
+                        with st.expander("📖 评分维度说明", expanded=False):
+                            st.markdown("""
+                            **AI智能评分体系 (总分100分)**
+                            
+                            - **资金含金量** (0-30分)：顶级游资+10分，知名游资+5分，普通游资+1.5分
+                            - **净买入额** (0-25分)：根据净流入金额大小评分
+                            - **卖出压力** (0-20分)：卖出比例越低得分越高
+                            - **机构共振** (0-15分)：机构+游资共振15分最高
+                            - **加分项** (0-10分)：主力集中度、热门概念、连续上榜等
+                            
+                            💡 评分越高，表示该股票受到资金青睐程度越高！
+                            """)
+                    
+                    # 显示数据概况
+                    data_info = analysis_content_parsed.get('data_info', {})
+                    if data_info:
+                        st.markdown("---")
+                        st.markdown("#### 📊 数据概况")
+                        
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.metric("龙虎榜记录", f"{data_info.get('total_records', 0)} 条")
+                        with col2:
+                            st.metric("涉及股票", f"{data_info.get('total_stocks', 0)} 只")
+                        with col3:
+                            st.metric("涉及游资", f"{data_info.get('total_youzi', 0)} 个")
+                
+                else:
+                    # 如果无法解析，显示原始内容
+                    st.markdown("#### 📄 原始分析内容")
+                    analysis_content = report_detail.get('analysis_content', '')
+                    if analysis_content:
+                        st.text_area("", value=analysis_content[:2000], height=200, disabled=True)
+                        if len(analysis_content) > 2000:
+                            st.caption("(内容过长，仅显示前2000字符)")
+                
+                # 导出按钮
+                st.markdown("---")
+                col_export1, col_export2 = st.columns(2)
+                
+                with col_export1:
+                    if st.button(f"📥 导出为PDF", key=f"export_pdf_{report_id}"):
+                        st.info("PDF导出功能开发中...")
+                
+                with col_export2:
+                    if st.button(f"📋 加载到分析页", key=f"load_report_{report_id}"):
+                        # 将历史报告加载到当前分析结果中
+                        if analysis_content_parsed:
+                            # 重建完整的result结构
+                            loaded_result = {
+                                "success": True,
+                                "timestamp": report_detail.get('analysis_date', ''),
+                                "data_info": analysis_content_parsed.get('data_info', {}),
+                                "agents_analysis": analysis_content_parsed.get('agents_analysis', {}),
+                                "scoring_ranking": pd.DataFrame(analysis_content_parsed.get('scoring_ranking', [])) if analysis_content_parsed.get('scoring_ranking') else None,
+                                "final_report": analysis_content_parsed.get('final_report', {}),
+                                "recommended_stocks": report_detail.get('recommended_stocks', [])
+                            }
+                            st.session_state.longhubang_result = loaded_result
+                            st.success('✅ 报告已加载到分析页面，请切换到"龙虎榜分析"标签查看')
         
     except Exception as e:
         st.error(f"❌ 加载历史报告失败: {str(e)}")
+        import traceback
+        st.code(traceback.format_exc())
 
 
 def display_statistics_tab():
@@ -788,6 +1011,365 @@ def display_statistics_tab():
         
     except Exception as e:
         st.error(f"❌ 加载统计数据失败: {str(e)}")
+
+
+def run_longhubang_batch_analysis():
+    """执行龙虎榜TOP股票批量分析（遵循统一调用规范）"""
+    
+    st.markdown("## 🚀 龙虎榜TOP股票批量分析")
+    st.markdown("---")
+    
+    # 检查是否已有分析结果
+    if st.session_state.get('longhubang_batch_results'):
+        display_longhubang_batch_results(st.session_state.longhubang_batch_results)
+        
+        # 返回按钮
+        col_back, col_clear = st.columns(2)
+        with col_back:
+            if st.button("🔙 返回龙虎榜分析", use_container_width=True):
+                # 清除所有批量分析相关状态
+                if 'longhubang_batch_trigger' in st.session_state:
+                    del st.session_state.longhubang_batch_trigger
+                if 'longhubang_batch_codes' in st.session_state:
+                    del st.session_state.longhubang_batch_codes
+                if 'longhubang_batch_results' in st.session_state:
+                    del st.session_state.longhubang_batch_results
+                st.rerun()
+        
+        with col_clear:
+            if st.button("🔄 重新分析", use_container_width=True):
+                # 清除结果，保留触发标志和代码
+                if 'longhubang_batch_results' in st.session_state:
+                    del st.session_state.longhubang_batch_results
+                st.rerun()
+        
+        return
+    
+    # 获取股票代码列表
+    stock_codes = st.session_state.get('longhubang_batch_codes', [])
+    
+    if not stock_codes:
+        st.error("未找到股票代码列表")
+        # 清除触发标志
+        if 'longhubang_batch_trigger' in st.session_state:
+            del st.session_state.longhubang_batch_trigger
+        return
+    
+    st.info(f"即将分析 {len(stock_codes)} 只股票：{', '.join(stock_codes)}")
+    
+    # 返回按钮
+    if st.button("🔙 取消返回", type="secondary"):
+        # 清除所有批量分析相关状态
+        if 'longhubang_batch_trigger' in st.session_state:
+            del st.session_state.longhubang_batch_trigger
+        if 'longhubang_batch_codes' in st.session_state:
+            del st.session_state.longhubang_batch_codes
+        st.rerun()
+    
+    st.markdown("---")
+    
+    # 分析选项
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        analysis_mode = st.selectbox(
+            "分析模式",
+            options=["sequential", "parallel"],
+            format_func=lambda x: "顺序分析（稳定）" if x == "sequential" else "并行分析（快速）",
+            help="顺序分析较慢但稳定，并行分析更快但消耗更多资源"
+        )
+    
+    with col2:
+        if analysis_mode == "parallel":
+            max_workers = st.number_input(
+                "并行线程数",
+                min_value=2,
+                max_value=5,
+                value=3,
+                help="同时分析的股票数量"
+            )
+        else:
+            max_workers = 1
+    
+    st.markdown("---")
+    
+    # 开始分析按钮
+    col_confirm, col_cancel = st.columns(2)
+    
+    start_analysis = False
+    with col_confirm:
+        if st.button("🚀 确认开始分析", type="primary", use_container_width=True):
+            start_analysis = True
+    
+    with col_cancel:
+        if st.button("❌ 取消", type="secondary", use_container_width=True):
+            # 清除所有批量分析相关状态
+            if 'longhubang_batch_trigger' in st.session_state:
+                del st.session_state.longhubang_batch_trigger
+            if 'longhubang_batch_codes' in st.session_state:
+                del st.session_state.longhubang_batch_codes
+            st.rerun()
+    
+    if start_analysis:
+        # 导入统一分析函数（遵循统一规范）
+        from app import analyze_single_stock_for_batch
+        import concurrent.futures
+        import time
+        
+        st.markdown("---")
+        st.info("⏳ 正在执行批量分析，请稍候...")
+        
+        # 进度显示
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        results = []
+        start_time = time.time()
+        
+        if analysis_mode == "sequential":
+            # 顺序分析
+            for i, code in enumerate(stock_codes):
+                status_text.text(f"正在分析 {code} ({i+1}/{len(stock_codes)})")
+                progress_bar.progress((i + 1) / len(stock_codes))
+                
+                try:
+                    # 调用统一分析函数
+                    result = analyze_single_stock_for_batch(
+                        symbol=code,
+                        period="1y",
+                        enabled_analysts_config={
+                            'technical': True,
+                            'fundamental': True,
+                            'fund_flow': True,
+                            'risk': True,
+                            'sentiment': False,
+                            'news': False
+                        },
+                        selected_model='deepseek-chat'
+                    )
+                    
+                    results.append({
+                        "code": code,
+                        "result": result
+                    })
+                    
+                except Exception as e:
+                    results.append({
+                        "code": code,
+                        "result": {"success": False, "error": str(e)}
+                    })
+        
+        else:
+            # 并行分析
+            status_text.text(f"并行分析 {len(stock_codes)} 只股票...")
+            
+            def analyze_one(code):
+                try:
+                    result = analyze_single_stock_for_batch(
+                        symbol=code,
+                        period="1y",
+                        enabled_analysts_config={
+                            'technical': True,
+                            'fundamental': True,
+                            'fund_flow': True,
+                            'risk': True,
+                            'sentiment': False,
+                            'news': False
+                        },
+                        selected_model='deepseek-chat'
+                    )
+                    return {"code": code, "result": result}
+                except Exception as e:
+                    return {"code": code, "result": {"success": False, "error": str(e)}}
+            
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = {executor.submit(analyze_one, code): code for code in stock_codes}
+                
+                completed = 0
+                for future in concurrent.futures.as_completed(futures):
+                    completed += 1
+                    progress_bar.progress(completed / len(stock_codes))
+                    status_text.text(f"已完成 {completed}/{len(stock_codes)}")
+                    results.append(future.result())
+        
+        # 清除进度
+        progress_bar.empty()
+        status_text.empty()
+        
+        # 计算统计
+        elapsed_time = time.time() - start_time
+        success_count = sum(1 for r in results if r.get("result", {}).get("success"))
+        failed_count = len(results) - success_count
+        
+        st.success(f"✅ 批量分析完成！成功 {success_count} 只，失败 {failed_count} 只，耗时 {elapsed_time:.1f}秒")
+        
+        # 保存结果到session_state
+        st.session_state.longhubang_batch_results = {
+            "results": results,
+            "total": len(results),
+            "success": success_count,
+            "failed": failed_count,
+            "elapsed_time": elapsed_time
+        }
+        
+        time.sleep(0.5)
+        st.rerun()
+
+
+def display_longhubang_batch_results(batch_results: dict):
+    """显示龙虎榜批量分析结果"""
+    
+    st.markdown("### 📊 批量分析结果")
+    
+    results = batch_results.get("results", [])
+    total = batch_results.get("total", 0)
+    success = batch_results.get("success", 0)
+    failed = batch_results.get("failed", 0)
+    elapsed_time = batch_results.get("elapsed_time", 0)
+    
+    # 统计信息
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("总计", total)
+    with col2:
+        st.metric("成功", success)
+    with col3:
+        st.metric("失败", failed)
+    with col4:
+        st.metric("耗时", f"{elapsed_time:.1f}秒")
+    
+    st.markdown("---")
+    
+    # 失败的股票
+    failed_results = [r for r in results if not r.get("result", {}).get("success")]
+    if failed_results:
+        with st.expander(f"❌ 失败股票 ({len(failed_results)}只)", expanded=False):
+            for item in failed_results:
+                code = item.get("code", "")
+                error = item.get("result", {}).get("error", "未知错误")
+                st.error(f"**{code}**: {error}")
+    
+    # 成功的股票
+    success_results = [r for r in results if r.get("result", {}).get("success")]
+    
+    if not success_results:
+        st.warning("⚠️ 没有成功分析的股票")
+        return
+    
+    st.markdown("### 🎯 分析结果详情")
+    
+    # 显示每只股票的分析结果（使用统一字段名）
+    for item in success_results:
+        code = item.get("code", "")
+        result = item.get("result", {})
+        final_decision = result.get("final_decision", {})
+        stock_info = result.get("stock_info", {})
+        
+        # 使用统一字段名
+        rating = final_decision.get("rating", "未知")
+        confidence = final_decision.get("confidence_level", "N/A")
+        entry_range = final_decision.get("entry_range", "N/A")
+        take_profit = final_decision.get("take_profit", "N/A")
+        stop_loss = final_decision.get("stop_loss", "N/A")
+        target_price = final_decision.get("target_price", "N/A")
+        advice = final_decision.get("advice", "")
+        
+        # 评级颜色
+        if "强烈买入" in rating or "买入" in rating:
+            rating_color = "🟢"
+        elif "卖出" in rating:
+            rating_color = "🔴"
+        else:
+            rating_color = "🟡"
+        
+        with st.expander(f"{rating_color} {code} {stock_info.get('name', '')} - {rating} (信心度: {confidence})", expanded=False):
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.markdown("**基本信息**")
+                st.write(f"当前价: {stock_info.get('current_price', 'N/A')}")
+                st.write(f"目标价: {target_price}")
+            
+            with col2:
+                st.markdown("**进出场位置**")
+                st.write(f"进场区间: {entry_range}")
+                st.write(f"止盈位: {take_profit}")
+            
+            with col3:
+                st.markdown("**风控**")
+                st.write(f"止损位: {stop_loss}")
+                st.write(f"评级: {rating}")
+            
+            if advice:
+                st.markdown("**投资建议**")
+                st.info(advice)
+            
+            # 添加到监测按钮
+            if st.button(f"➕ 加入监测", key=f"add_monitor_{code}"):
+                add_to_monitor_from_longhubang(code, stock_info.get('name', ''), final_decision)
+
+
+def add_to_monitor_from_longhubang(code: str, name: str, final_decision: dict):
+    """从龙虎榜分析结果添加到监测列表"""
+    try:
+        from monitor_db import monitor_db
+        import re
+        
+        # 提取数据（使用统一字段名和解析逻辑）
+        rating = final_decision.get("rating", "持有")
+        entry_range = final_decision.get("entry_range", "")
+        take_profit_str = final_decision.get("take_profit", "")
+        stop_loss_str = final_decision.get("stop_loss", "")
+        
+        # 解析进场区间
+        entry_min, entry_max = None, None
+        if entry_range and isinstance(entry_range, str) and "-" in entry_range:
+            try:
+                parts = entry_range.split("-")
+                entry_min = float(parts[0].strip())
+                entry_max = float(parts[1].strip())
+            except:
+                pass
+        
+        # 解析止盈止损
+        take_profit, stop_loss = None, None
+        if take_profit_str:
+            try:
+                numbers = re.findall(r'\d+\.?\d*', str(take_profit_str))
+                if numbers:
+                    take_profit = float(numbers[0])
+            except:
+                pass
+        
+        if stop_loss_str:
+            try:
+                numbers = re.findall(r'\d+\.?\d*', str(stop_loss_str))
+                if numbers:
+                    stop_loss = float(numbers[0])
+            except:
+                pass
+        
+        # 验证必需参数
+        if not all([entry_min, entry_max, take_profit, stop_loss]):
+            st.error("❌ 分析结果缺少完整的进场区间和止盈止损信息")
+            return
+        
+        # 添加到监测
+        monitor_db.add_monitored_stock(
+            symbol=code,
+            name=name,
+            rating=rating,
+            entry_range={"min": entry_min, "max": entry_max},
+            take_profit=take_profit,
+            stop_loss=stop_loss,
+            check_interval=60,
+            notification_enabled=True
+        )
+        
+        st.success(f"✅ {code} 已成功加入监测列表！")
+        
+    except Exception as e:
+        st.error(f"❌ 添加监测失败: {str(e)}")
 
 
 # 测试函数

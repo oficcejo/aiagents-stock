@@ -151,18 +151,40 @@ class LonghubangEngine:
             results["final_report"] = final_report
             print("✓ 最终报告生成完成")
             
-            # 阶段7: 保存分析报告到数据库
-            print("\n[阶段7] 保存分析报告...")
+            # 阶段7: 保存完整分析报告到数据库
+            print("\n[阶段7] 保存完整分析报告...")
             print("-" * 60)
             data_date_range = self._get_date_range(data_list)
+            
+            # 转换评分排名数据为可序列化格式
+            scoring_ranking_data = []
+            if scoring_df is not None and hasattr(scoring_df, 'to_dict'):
+                try:
+                    # 转换DataFrame为字典列表，确保所有数据都被序列化
+                    scoring_ranking_data = scoring_df.to_dict('records')
+                    print(f"✓ 评分排名数据已转换: {len(scoring_ranking_data)} 条记录")
+                except Exception as e:
+                    print(f"⚠ 评分排名数据转换失败: {e}")
+                    scoring_ranking_data = []
+            
+            # 构建完整的分析内容（结构化）
+            full_analysis_content = {
+                "agents_analysis": agents_results,
+                "data_info": results["data_info"],
+                "scoring_ranking": scoring_ranking_data,
+                "final_report": final_report,
+                "timestamp": results["timestamp"]
+            }
+            
             report_id = self.database.save_analysis_report(
                 data_date_range=data_date_range,
-                analysis_content=str(agents_results),
+                analysis_content=full_analysis_content,  # 保存完整的结构化数据
                 recommended_stocks=recommended_stocks,
-                summary=final_report.get('summary', '')
+                summary=final_report.get('summary', ''),
+                full_result=results  # 传入完整结果
             )
             results["report_id"] = report_id
-            print(f"✓ 报告已保存 (ID: {report_id})")
+            print(f"✓ 完整报告已保存 (ID: {report_id})")
             
             results["success"] = True
             
