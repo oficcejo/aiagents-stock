@@ -7,3 +7,6 @@
 /__pycache__
 # 环境变量文件
 .env
+/.cursor
+/openspec
+/docs

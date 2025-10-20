@@ -516,6 +516,244 @@ _此消息由AI股票分析系统自动发送_"""
             'webhook_url': self.config['webhook_url'][:50] + '...' if self.config['webhook_url'] else '未配置',
             'configured': bool(self.config['webhook_url'])
         }
+    
+    def send_portfolio_analysis_notification(self, analysis_results: dict, sync_result: dict = None) -> bool:
+        """
+        发送持仓分析完成通知
+        
+        Args:
+            analysis_results: 批量分析结果
+            sync_result: 监测同步结果（可选）
+            
+        Returns:
+            是否发送成功
+        """
+        try:
+            # 构建通知内容
+            total = analysis_results.get("total", 0)
+            succeeded = len([r for r in analysis_results.get("results", []) if r.get("result", {}).get("success")])
+            failed = total - succeeded
+            elapsed_time = analysis_results.get("elapsed_time", 0)
+            results = analysis_results.get("results", [])
+            
+            # 邮件主题
+            subject = f"持仓定时分析完成 - 共{total}只股票"
+            
+            # 构建邮件正文（HTML格式）
+            html_body = f"""
+            <html>
+            <head>
+                <style>
+                    body {{ font-family: Arial, sans-serif; }}
+                    .summary {{ background-color: #f0f8ff; padding: 15px; border-radius: 5px; margin-bottom: 20px; }}
+                    .stock {{ border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; border-radius: 5px; }}
+                    .success {{ color: green; }}
+                    .failed {{ color: red; }}
+                    .rating-buy {{ color: #28a745; font-weight: bold; }}
+                    .rating-hold {{ color: #ffc107; font-weight: bold; }}
+                    .rating-sell {{ color: #dc3545; font-weight: bold; }}
+                </style>
+            </head>
+            <body>
+                <h2>持仓定时分析完成</h2>
+                <div class="summary">
+                    <h3>分析概况</h3>
+                    <p>总数: {total} 只</p>
+                    <p class="success">成功: {succeeded} 只</p>
+                    <p class="failed">失败: {failed} 只</p>
+                    <p>耗时: {elapsed_time:.2f} 秒</p>
+            """
+            
+            # 添加监测同步结果
+            if sync_result:
+                html_body += f"""
+                    <h3>监测同步结果</h3>
+                    <p>新增监测: {sync_result.get('added', 0)} 只</p>
+                    <p>更新监测: {sync_result.get('updated', 0)} 只</p>
+                    <p>同步失败: {sync_result.get('failed', 0)} 只</p>
+                """
+            
+            html_body += """
+                </div>
+                <h3>分析结果详情</h3>
+            """
+            
+            # 添加每只股票的详细结果
+            for item in results[:10]:  # 只显示前10只
+                code = item.get("code", "")
+                result = item.get("result", {})
+                
+                if result.get("success"):
+                    final_decision = result.get("final_decision", {})
+                    stock_info = result.get("stock_info", {})
+                    
+                    # 使用正确的字段名
+                    rating = final_decision.get("rating", "未知")
+                    confidence = final_decision.get("confidence_level", "N/A")
+                    entry_range = final_decision.get("entry_range", "N/A")
+                    take_profit = final_decision.get("take_profit", "N/A")
+                    stop_loss = final_decision.get("stop_loss", "N/A")
+                    
+                    # 评级颜色
+                    rating_class = "rating-hold"
+                    if "强烈买入" in rating or "买入" in rating:
+                        rating_class = "rating-buy"
+                    elif "卖出" in rating:
+                        rating_class = "rating-sell"
+                    
+                    html_body += f"""
+                    <div class="stock">
+                        <h4>{code} {stock_info.get('name', '')} - <span class="{rating_class}">{rating}</span> (信心度: {confidence})</h4>
+                        <p>进场区间: {entry_range}</p>
+                        <p>止盈位: {take_profit} | 止损位: {stop_loss}</p>
+                    </div>
+                    """
+                else:
+                    error = result.get("error", "未知错误")
+                    html_body += f"""
+                    <div class="stock">
+                        <h4 class="failed">{code} - 分析失败</h4>
+                        <p>错误: {error}</p>
+                    </div>
+                    """
+            
+            if len(results) > 10:
+                html_body += f"<p>...还有 {len(results) - 10} 只股票未显示</p>"
+            
+            html_body += """
+            </body>
+            </html>
+            """
+            
+            # 构建纯文本版本
+            text_body = f"""
+持仓定时分析完成
+
+分析概况:
+- 总数: {total} 只
+- 成功: {succeeded} 只
+- 失败: {failed} 只
+- 耗时: {elapsed_time:.2f} 秒
+"""
+            
+            if sync_result:
+                text_body += f"""
+监测同步结果:
+- 新增监测: {sync_result.get('added', 0)} 只
+- 更新监测: {sync_result.get('updated', 0)} 只
+- 同步失败: {sync_result.get('failed', 0)} 只
+"""
+            
+            text_body += "\n分析结果详情:\n"
+            for item in results[:10]:
+                code = item.get("code", "")
+                result = item.get("result", {})
+                
+                if result.get("success"):
+                    final_decision = result.get("final_decision", {})
+                    stock_info = result.get("stock_info", {})
+                    # 使用正确的字段名
+                    rating = final_decision.get("rating", "未知")
+                    text_body += f"- {code} {stock_info.get('name', '')}: {rating}\n"
+                else:
+                    error = result.get("error", "未知错误")
+                    text_body += f"- {code}: 分析失败 ({error})\n"
+            
+            success = False
+            
+            # 发送邮件
+            if self.config['email_enabled']:
+                email_success = self._send_custom_email(subject, html_body, text_body)
+                if email_success:
+                    success = True
+                    print("[OK] 邮件通知发送成功")
+            
+            # 发送Webhook
+            if self.config['webhook_enabled']:
+                webhook_success = self._send_portfolio_webhook(analysis_results, sync_result)
+                if webhook_success:
+                    success = True
+                    print("[OK] Webhook通知发送成功")
+            
+            return success
+            
+        except Exception as e:
+            print(f"[ERROR] 发送持仓分析通知失败: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return False
+    
+    def _send_custom_email(self, subject: str, html_body: str, text_body: str) -> bool:
+        """发送自定义邮件"""
+        try:
+            msg = MIMEMultipart('alternative')
+            msg['From'] = self.config['email_from']
+            msg['To'] = self.config['email_to']
+            msg['Subject'] = subject
+            
+            part1 = MIMEText(text_body, 'plain', 'utf-8')
+            part2 = MIMEText(html_body, 'html', 'utf-8')
+            
+            msg.attach(part1)
+            msg.attach(part2)
+            
+            with smtplib.SMTP(self.config['smtp_server'], self.config['smtp_port']) as server:
+                server.starttls()
+                server.login(self.config['email_from'], self.config['email_password'])
+                server.send_message(msg)
+            
+            return True
+            
+        except Exception as e:
+            print(f"[ERROR] 邮件发送失败: {str(e)}")
+            return False
+    
+    def _send_portfolio_webhook(self, analysis_results: dict, sync_result: dict = None) -> bool:
+        """发送持仓分析Webhook通知"""
+        try:
+            import requests
+            
+            total = analysis_results.get("total", 0)
+            succeeded = len([r for r in analysis_results.get("results", []) if r.get("result", {}).get("success")])
+            failed = total - succeeded
+            elapsed_time = analysis_results.get("elapsed_time", 0)
+            
+            # 构建Markdown消息
+            content = f"### 持仓定时分析完成\\n\\n"
+            content += f"**分析概况**\\n"
+            content += f"- 总数: {total} 只\\n"
+            content += f"- 成功: {succeeded} 只\\n"
+            content += f"- 失败: {failed} 只\\n"
+            content += f"- 耗时: {elapsed_time:.2f} 秒\\n\\n"
+            
+            if sync_result:
+                content += f"**监测同步**\\n"
+                content += f"- 新增: {sync_result.get('added', 0)} 只\\n"
+                content += f"- 更新: {sync_result.get('updated', 0)} 只\\n\\n"
+            
+            # 根据webhook类型构建请求
+            if self.config['webhook_type'] == 'dingtalk':
+                data = {
+                    "msgtype": "markdown",
+                    "markdown": {
+                        "title": f"{self.config['webhook_keyword']}",
+                        "text": f"{self.config['webhook_keyword']}\\n\\n{content}"
+                    }
+                }
+            else:  # feishu
+                data = {
+                    "msg_type": "text",
+                    "content": {
+                        "text": content
+                    }
+                }
+            
+            response = requests.post(self.config['webhook_url'], json=data, timeout=10)
+            return response.status_code == 200
+            
+        except Exception as e:
+            print(f"[ERROR] Webhook发送失败: {str(e)}")
+            return False
 
 # 全局通知服务实例
 notification_service = NotificationService()

@@ -390,6 +390,137 @@ class StockMonitorDatabase:
                 'quant_config': quant_config
             }
         return None
+    
+    def get_monitor_by_code(self, symbol: str) -> Optional[Dict]:
+        """
+        根据股票代码获取监测信息
+        
+        Args:
+            symbol: 股票代码
+            
+        Returns:
+            监测股票信息字典，不存在则返回None
+        """
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT * FROM monitored_stocks WHERE symbol = ?
+        ''', (symbol,))
+        
+        row = cursor.fetchone()
+        conn.close()
+        
+        if row:
+            entry_range = json.loads(row[4])
+            quant_config = json.loads(row[12]) if row[12] else None
+            
+            return {
+                'id': row[0],
+                'symbol': row[1],
+                'name': row[2],
+                'rating': row[3],
+                'entry_range': entry_range,
+                'take_profit': row[5],
+                'stop_loss': row[6],
+                'current_price': row[7],
+                'last_checked': row[8],
+                'check_interval': row[9],
+                'notification_enabled': row[10],
+                'quant_enabled': row[11],
+                'quant_config': quant_config
+            }
+        return None
+    
+    def batch_add_or_update_monitors(self, monitors_data: List[Dict]) -> Dict[str, int]:
+        """
+        批量添加或更新监测股票
+        
+        Args:
+            monitors_data: 监测股票数据列表，每个字典包含：
+                - code/symbol: 股票代码
+                - name: 股票名称  
+                - rating: 投资评级
+                - entry_min, entry_max: 进场区间
+                - take_profit: 止盈位
+                - stop_loss: 止损位
+                - check_interval: 检查间隔（可选，默认60秒）
+                - notification_enabled: 是否启用通知（可选，默认True）
+                
+        Returns:
+            统计字典 {"added": X, "updated": Y, "failed": Z, "total": N}
+        """
+        added = 0
+        updated = 0
+        failed = 0
+        
+        for data in monitors_data:
+            try:
+                # 兼容code和symbol两种字段名
+                symbol = data.get('code') or data.get('symbol')
+                name = data.get('name', symbol)
+                rating = data.get('rating', '持有')
+                entry_min = data.get('entry_min')
+                entry_max = data.get('entry_max')
+                take_profit = data.get('take_profit')
+                stop_loss = data.get('stop_loss')
+                check_interval = data.get('check_interval', 60)
+                notification_enabled = data.get('notification_enabled', True)
+                
+                # 验证必需字段
+                if not symbol or not all([entry_min, entry_max, take_profit, stop_loss]):
+                    print(f"[WARN] {symbol} 参数不完整，跳过")
+                    failed += 1
+                    continue
+                
+                # 构建entry_range
+                entry_range = {"min": entry_min, "max": entry_max}
+                
+                # 检查是否已存在
+                existing = self.get_monitor_by_code(symbol)
+                
+                if existing:
+                    # 更新现有监测
+                    self.update_monitored_stock(
+                        existing['id'],
+                        rating=rating,
+                        entry_range=entry_range,
+                        take_profit=take_profit,
+                        stop_loss=stop_loss,
+                        check_interval=check_interval,
+                        notification_enabled=notification_enabled
+                    )
+                    updated += 1
+                    print(f"[OK] 更新监测: {symbol}")
+                else:
+                    # 添加新监测
+                    self.add_monitored_stock(
+                        symbol=symbol,
+                        name=name,
+                        rating=rating,
+                        entry_range=entry_range,
+                        take_profit=take_profit,
+                        stop_loss=stop_loss,
+                        check_interval=check_interval,
+                        notification_enabled=notification_enabled
+                    )
+                    added += 1
+                    print(f"[OK] 添加监测: {symbol}")
+                    
+            except Exception as e:
+                symbol_str = data.get('code') or data.get('symbol', 'Unknown')
+                print(f"[ERROR] 处理监测失败 ({symbol_str}): {str(e)}")
+                failed += 1
+        
+        result = {
+            "added": added,
+            "updated": updated,
+            "failed": failed,
+            "total": added + updated + failed
+        }
+        
+        print(f"\n[OK] 批量同步完成: 新增{added}只, 更新{updated}只, 失败{failed}只")
+        return result
 
 # 全局数据库实例
 monitor_db = StockMonitorDatabase()
