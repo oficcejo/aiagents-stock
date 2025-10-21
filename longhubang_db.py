@@ -7,12 +7,13 @@ import sqlite3
 from datetime import datetime
 import json
 import pandas as pd
+import os
 
 
 class LonghubangDatabase:
     """龙虎榜数据库管理类"""
     
-    def __init__(self, db_path='longhubang.db'):
+    def __init__(self, db_path='data/longhubang.db'):
         """
         初始化数据库
         
@@ -20,6 +21,10 @@ class LonghubangDatabase:
             db_path: 数据库文件路径
         """
         self.db_path = db_path
+        # 确保数据库所在目录存在
+        db_dir = os.path.dirname(self.db_path)
+        if db_dir and not os.path.exists(db_dir):
+            os.makedirs(db_dir, exist_ok=True)
         self.init_database()
     
     def get_connection(self):
@@ -495,4 +500,3 @@ if __name__ == "__main__":
     # 获取统计信息
     stats = db.get_statistics()
     print(f"\n数据库统计: {stats}")
-
