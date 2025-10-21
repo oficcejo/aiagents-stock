@@ -385,11 +385,20 @@ DEEPSEEK_API_KEY=sk-your-actual-api-key-here
 ```
 
 #### 3. 启动服务
+
+**国内用户推荐**（使用国内镜像源，构建速度快6倍+）：
+```bash
+# 使用国内源版Dockerfile构建
+docker build -f "Dockerfile国内源版" -t agentsstock1 .
+docker run -d -p 8503:8501 -v $(pwd)/.env:/app/.env --name agentsstock1 agentsstock1
+```
+
+**标准构建方式**：
 ```bash
 # 使用 Docker Compose（推荐）
 docker-compose up -d
 
-# 或使用 Docker 命令
+# 或使用标准 Dockerfile
 docker build -t agentsstock1 .
 docker run -d -p 8503:8501 -v $(pwd)/.env:/app/.env --name agentsstock1 agentsstock1
 ```
@@ -409,7 +418,9 @@ docker-compose down
 docker-compose restart
 ```
 
-**📖 详细文档**：查看 [DOCKER_DEPLOYMENT.md](docs/DOCKER_DEPLOYMENT.md) 获取完整的Docker部署指南和故障排除。
+**📖 详细文档**：
+- [DOCKER_DEPLOYMENT.md](docs/DOCKER_DEPLOYMENT.md) - Docker部署完整指南
+- [DOCKER_CN_BUILD_GUIDE.md](docs/DOCKER_CN_BUILD_GUIDE.md) - 国内镜像源构建指南 ⭐ 推荐
 
 ---
 
