@@ -860,8 +860,7 @@ def display_main_force_batch_results(batch_results):
                             rating=rating,
                             entry_range=entry_range_dict if entry_range_dict else None,
                             take_profit=take_profit,
-                            stop_loss=stop_loss,
-                            notes=f"主力选股批量分析 | {rating}"
+                            stop_loss=stop_loss
                         )
                         st.success(f"✅ {symbol} - {name} 已加入监测列表")
                     except Exception as e:
