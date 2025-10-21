@@ -1,10 +1,13 @@
 # 使用官方Python镜像作为基础镜像
 FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/python:3.12-slim
 
+# 设置时区环境变量
+ENV TZ=Asia/Shanghai
+
 # 设置工作目录
 WORKDIR /app
 
-# 安装Node.js (pywencai需要) 和中文字体 (PDF生成需要)
+# 安装Node.js (pywencai需要)、中文字体 (PDF生成需要) 和时区数据
 RUN apt-get update && apt-get install -y \
     curl \
     gnupg \
@@ -12,6 +15,9 @@ RUN apt-get update && apt-get install -y \
     fonts-wqy-zenhei \
     fonts-wqy-microhei \
     fontconfig \
+    tzdata \
+    && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime \
+    && echo $TZ > /etc/timezone \
     && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
     && apt-get install -y nodejs \
     && fc-cache -fv \

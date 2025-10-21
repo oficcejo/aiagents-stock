@@ -489,9 +489,14 @@ class PortfolioScheduler:
     
     def _reschedule(self):
         """重新调度任务（支持多个时间点）"""
-        schedule.clear()
+        # 只清除持仓定时分析的任务，不影响其他模块
+        jobs_to_remove = [job for job in schedule.jobs if not any(tag in ['sector_strategy', 'monitor'] for tag in job.tags)]
+        for job in jobs_to_remove:
+            schedule.cancel_job(job)
+        
         for time_str in self.schedule_times:
-            schedule.every().day.at(time_str).do(self._scheduled_job)
+            job = schedule.every().day.at(time_str).do(self._scheduled_job)
+            job.tag('portfolio_analysis')
         self._update_next_run_time()
         print(f"[OK] 重新调度任务: 每天 {', '.join(self.schedule_times)}")
     
@@ -537,9 +542,15 @@ class PortfolioScheduler:
             return False
         
         # 调度任务（为每个时间点创建任务）
-        schedule.clear()
+        # 只清除持仓定时分析的任务，不影响智策和监测任务
+        jobs_to_remove = [job for job in schedule.jobs if 'portfolio_analysis' in job.tags]
+        for job in jobs_to_remove:
+            schedule.cancel_job(job)
+        print(f"[OK] 清除了 {len(jobs_to_remove)} 个旧的持仓任务")
+        
         for time_str in self.schedule_times:
-            schedule.every().day.at(time_str).do(self._scheduled_job)
+            job = schedule.every().day.at(time_str).do(self._scheduled_job)
+            job.tag('portfolio_analysis')
             print(f"[OK] 添加调度任务: 每天 {time_str}")
         
         self._update_next_run_time()
@@ -570,7 +581,15 @@ class PortfolioScheduler:
             return False
         
         self._is_running = False
-        schedule.clear()
+        
+        # 只清除持仓定时分析的任务，不影响其他模块（智策、监测）
+        try:
+            jobs_to_remove = [job for job in schedule.jobs if 'portfolio_analysis' in job.tags]
+            for job in jobs_to_remove:
+                schedule.cancel_job(job)
+            print(f"[OK] 清除了 {len(jobs_to_remove)} 个持仓任务")
+        except Exception as e:
+            print(f"[WARN] 清除任务时出错: {e}")
         
         # 等待线程结束（最多等待2秒）
         if self.thread and self.thread.is_alive():

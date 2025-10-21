@@ -1,28 +1,34 @@
 # 使用官方Python镜像作为基础镜像
 FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/python:3.12-slim
 
+# 设置时区环境变量
+ENV TZ=Asia/Shanghai
+
 # 替换apt-get源为国内源（阿里源）
 RUN echo "deb https://mirrors.aliyun.com/debian/ bookworm main" > /etc/apt/sources.list && \
-    echo "deb https://mirrors.aliyun.com/debian/ bookworm-updates main" >> /etc/apt/sources.list && \
-    echo "deb https://mirrors.aliyun.com/debian-security bookworm-security main" >> /etc/apt/sources.list && \
-    rm -rf /etc/apt/sources.list.d/* || true
+    echo "deb https://mirrors.aliyun.com/debian/ bookworm-updates main" >> /etc/apt/sources.list && \
+    echo "deb https://mirrors.aliyun.com/debian-security bookworm-security main" >> /etc/apt/sources.list && \
+    rm -rf /etc/apt/sources.list.d/* || true
 
 # 设置工作目录
 WORKDIR /app
 
-# 安装Node.js和中文字体 - 使用修正版方案一
+# 安装Node.js、中文字体和时区数据 - 使用修正版方案一
 RUN apt-get update && apt-get install -y \
-    curl \
-    gnupg \
-    fonts-noto-cjk \
-    fonts-wqy-zenhei \
-    fonts-wqy-microhei \
-    fontconfig \
-    && curl -fsSL https://mirrors.aliyun.com/nodesource/setup_18.x | bash - \
-    && apt-get install -y nodejs npm \
-    && fc-cache -fv \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    curl \
+    gnupg \
+    fonts-noto-cjk \
+    fonts-wqy-zenhei \
+    fonts-wqy-microhei \
+    fontconfig \
+    tzdata \
+    && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime \
+    && echo $TZ > /etc/timezone \
+    && curl -fsSL https://mirrors.aliyun.com/nodesource/setup_18.x | bash - \
+    && apt-get install -y nodejs npm \
+    && fc-cache -fv \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # 验证安装 - 添加详细检查
 RUN echo "Node.js版本:" && node --version && \

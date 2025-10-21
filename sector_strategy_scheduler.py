@@ -23,6 +23,8 @@ class SectorStrategyScheduler:
         self.enabled = False
         self.last_run_time = None
         self.last_result = None
+        self.last_notification_time = None  # 记录上次通知时间，防止重复
+        self._analysis_lock = threading.Lock()  # 添加锁，防止并发执行
         print("[智策定时] 调度器初始化完成")
     
     def start(self, schedule_time="09:00"):
@@ -38,13 +40,23 @@ class SectorStrategyScheduler:
         
         self.schedule_time = schedule_time
         self.enabled = True
+        
+        # 先清除所有带sector_strategy标签的任务
+        try:
+            jobs_to_remove = [job for job in schedule.jobs if 'sector_strategy' in job.tags]
+            for job in jobs_to_remove:
+                schedule.cancel_job(job)
+            print(f"[智策定时] 清除了 {len(jobs_to_remove)} 个旧任务")
+        except Exception as e:
+            print(f"[智策定时] 清除旧任务时出错: {e}")
+        
+        # 设置定时任务（确保只添加一次）
+        job = schedule.every().day.at(schedule_time).do(self._run_analysis_safe)
+        job.tag('sector_strategy')
+        print(f"[智策定时] 添加新任务: 每天 {schedule_time}")
+        
+        # 设置运行标志
         self.running = True
-        
-        # 清除之前的任务
-        schedule.clear('sector_strategy')
-        
-        # 设置定时任务
-        schedule.every().day.at(schedule_time).do(self._run_analysis).tag('sector_strategy')
         
         # 启动后台线程
         self.thread = threading.Thread(target=self._schedule_loop, daemon=True)
@@ -61,7 +73,12 @@ class SectorStrategyScheduler:
         
         self.running = False
         self.enabled = False
-        schedule.clear('sector_strategy')
+        
+        # 只清除智策的任务，不影响其他模块
+        jobs_to_remove = [job for job in schedule.jobs if 'sector_strategy' in job.tags]
+        for job in jobs_to_remove:
+            schedule.cancel_job(job)
+        print(f"[智策定时] 清除了 {len(jobs_to_remove)} 个任务")
         
         print("[智策定时] ✓ 定时任务已停止")
         return True
@@ -77,6 +94,18 @@ class SectorStrategyScheduler:
             except Exception as e:
                 print(f"[智策定时] ✗ 调度循环出错: {e}")
                 time.sleep(60)
+    
+    def _run_analysis_safe(self):
+        """运行智策分析（带锁保护，防止并发执行）"""
+        # 尝试获取锁，如果已被占用则跳过本次执行
+        if not self._analysis_lock.acquire(blocking=False):
+            print("[智策定时] ⚠️ 上一次分析还未完成，跳过本次执行")
+            return
+        
+        try:
+            self._run_analysis()
+        finally:
+            self._analysis_lock.release()
     
     def _run_analysis(self):
         """运行智策分析"""
@@ -128,8 +157,16 @@ class SectorStrategyScheduler:
             self._send_error_notification(f"分析异常: {str(e)}")
     
     def _send_analysis_notification(self, result):
-        """发送分析结果通知（邮件和/或webhook）"""
+        """发送分析结果通知（邮件和/或webhook）- 带去重保护"""
         try:
+            # 去重检查：如果5分钟内已发送过通知，则跳过
+            current_time = datetime.now()
+            if self.last_notification_time:
+                time_diff = (current_time - self.last_notification_time).total_seconds()
+                if time_diff < 300:  # 5分钟 = 300秒
+                    print(f"[智策定时] ⚠️ 距离上次通知仅{time_diff:.0f}秒，跳过重复发送")
+                    return
+            
             config = notification_service.config
             predictions = result.get("final_predictions", {})
             timestamp = result.get("timestamp", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
@@ -162,6 +199,11 @@ class SectorStrategyScheduler:
                     sent_count += 1
                 else:
                     print("[智策定时] ✗ 邮件发送失败")
+            
+            # 更新最后通知时间
+            if sent_count > 0:
+                self.last_notification_time = current_time
+                print(f"[智策定时] 📝 已记录通知时间: {current_time.strftime('%H:%M:%S')}")
             
             if sent_count == 0:
                 print("[智策定时] ⚠️ 未配置通知方式或发送全部失败")
