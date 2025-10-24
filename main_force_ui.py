@@ -8,6 +8,7 @@ import streamlit as st
 from datetime import datetime, timedelta
 from main_force_analysis import MainForceAnalyzer
 from main_force_pdf_generator import display_report_download_section
+from main_force_history_ui import display_batch_history
 import pandas as pd
 
 def display_main_force_selector():
@@ -18,7 +19,21 @@ def display_main_force_selector():
         run_main_force_batch_analysis()
         return
     
-    st.markdown("## 🎯 主力选股 - 智能筛选优质标的")
+    # 检查是否查看历史记录
+    if st.session_state.get('main_force_view_history'):
+        display_batch_history()
+        return
+    
+    # 页面标题和历史记录按钮
+    col_title, col_history = st.columns([4, 1])
+    with col_title:
+        st.markdown("## 🎯 主力选股 - 智能筛选优质标的")
+    with col_history:
+        st.write("")  # 占位
+        if st.button("📚 批量分析历史", use_container_width=True):
+            st.session_state.main_force_view_history = True
+            st.rerun()
+    
     st.markdown("---")
     
     st.markdown("""
@@ -632,17 +647,23 @@ def run_main_force_batch_analysis():
         else:
             # 并行分析
             status_text.text(f"并行分析 {len(stock_codes)} 只股票（{max_workers}线程）...")
+            print(f"\n{'='*60}")
+            print(f"🚀 开始并行分析 {len(stock_codes)} 只股票")
+            print(f"{'='*60}")
             
             def analyze_one(code):
                 try:
+                    print(f"  开始分析: {code}")
                     result = analyze_single_stock_for_batch(
                         symbol=code,
                         period=period,
                         enabled_analysts_config=enabled_analysts_config,
                         selected_model=selected_model
                     )
+                    print(f"  完成分析: {code}")
                     return result
                 except Exception as e:
+                    print(f"  分析失败: {code} - {str(e)}")
                     return {"symbol": code, "success": False, "error": str(e)}
             
             with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -652,14 +673,23 @@ def run_main_force_batch_analysis():
                 for future in concurrent.futures.as_completed(futures):
                     code = futures[future]  # 获取对应的股票代码
                     completed += 1
-                    progress_bar.progress(completed / len(stock_codes))
+                    progress = completed / len(stock_codes)
+                    progress_bar.progress(progress)
                     status_text.text(f"已完成 {completed}/{len(stock_codes)} ({code})")
+                    
+                    print(f"  进度更新: {completed}/{len(stock_codes)} ({progress*100:.1f}%) - {code}")
                     
                     try:
                         result = future.result()
                         results.append(result)
                     except Exception as e:
+                        print(f"  获取结果失败: {code} - {str(e)}")
                         results.append({"symbol": code, "success": False, "error": str(e)})
+            
+            print(f"\n✅ 所有并行任务已完成")
+            print(f"   完成数: {completed}")
+            print(f"   结果数: {len(results)}")
+            print(f"{'='*60}\n")
         
         # 清除进度
         progress_bar.empty()
@@ -682,6 +712,61 @@ def run_main_force_batch_analysis():
                     if not r.get("success", False):
                         st.error(f"**{r.get('symbol', 'N/A')}**: {r.get('error', '未知错误')}")
         
+        # 先保存到数据库历史记录（在 rerun 之前完成）
+        save_success = False
+        save_error = None
+        try:
+            from main_force_batch_db import batch_db
+            
+            # 调试信息
+            print(f"\n{'='*60}")
+            print(f"📝 准备保存批量分析结果到历史记录")
+            print(f"{'='*60}")
+            print(f"股票代码数: {len(stock_codes)}")
+            print(f"分析模式: {analysis_mode}")
+            print(f"成功数: {success_count}")
+            print(f"失败数: {failed_count}")
+            print(f"总耗时: {elapsed_time:.2f}秒")
+            print(f"结果数: {len(results)}")
+            
+            # 检查结果数据类型
+            print(f"\n检查结果数据类型:")
+            for i, result in enumerate(results[:3]):  # 只检查前3个
+                print(f"  结果 {i+1}:")
+                for key, value in list(result.items())[:5]:  # 只检查前5个字段
+                    print(f"    - {key}: {type(value).__name__}")
+            
+            print(f"\n开始保存到数据库...")
+            save_start = time.time()
+            
+            # 保存到数据库
+            record_id = batch_db.save_batch_analysis(
+                batch_count=len(stock_codes),
+                analysis_mode=analysis_mode,
+                success_count=success_count,
+                failed_count=failed_count,
+                total_time=elapsed_time,
+                results=results
+            )
+            
+            save_elapsed = time.time() - save_start
+            print(f"✅ 批量分析结果已保存到历史记录")
+            print(f"   记录ID: {record_id}")
+            print(f"   保存耗时: {save_elapsed:.2f}秒")
+            print(f"{'='*60}\n")
+            save_success = True
+            
+        except Exception as e:
+            import traceback
+            save_error = str(e)
+            print(f"\n{'='*60}")
+            print(f"⚠️ 保存历史记录失败")
+            print(f"{'='*60}")
+            print(f"错误信息: {str(e)}")
+            print(f"详细错误:")
+            print(traceback.format_exc())
+            print(f"{'='*60}\n")
+        
         # 保存结果到session_state
         st.session_state.main_force_batch_results = {
             "results": results,
@@ -689,10 +774,12 @@ def run_main_force_batch_analysis():
             "success": success_count,
             "failed": failed_count,
             "elapsed_time": elapsed_time,
-            "analysis_mode": analysis_mode
+            "analysis_mode": analysis_mode,
+            "saved_to_history": save_success,
+            "save_error": save_error
         }
         
-        time.sleep(1)
+        time.sleep(0.5)
         
         # 重新渲染以显示结果
         st.rerun()
@@ -707,8 +794,17 @@ def display_main_force_batch_results(batch_results):
     success = batch_results['success']
     failed = batch_results['failed']
     elapsed_time = batch_results['elapsed_time']
+    saved_to_history = batch_results.get('saved_to_history', False)
+    save_error = batch_results.get('save_error')
     
     st.markdown("## 📊 批量分析结果")
+    
+    # 显示保存状态
+    if saved_to_history:
+        st.success("✅ 分析结果已自动保存到历史记录，可点击右上角'📚 批量分析历史'查看")
+    elif save_error:
+        st.warning(f"⚠️ 历史记录保存失败: {save_error}，但结果仍可查看")
+    
     st.markdown("---")
     
     # 统计信息
@@ -807,7 +903,7 @@ def display_main_force_batch_results(batch_results):
                 
                 # 投资建议
                 st.markdown("#### 💡 投资建议")
-                advice = final_decision.get('advice', '暂无建议')
+                advice = final_decision.get('operation_advice', final_decision.get('advice', '暂无建议'))
                 st.info(advice)
                 
                 # 加入监测按钮

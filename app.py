@@ -288,118 +288,82 @@ def main():
     # 侧边栏
     with st.sidebar:
         # 快捷导航 - 移到顶部
-        st.markdown("### 🔍 快捷导航")
+        st.markdown("### 🔍 功能导航")
         
-        if st.button("📖 历史记录", width='stretch', key="nav_history"):
+        # 🏠 单股分析（首页）
+        if st.button("🏠 股票分析", width='stretch', key="nav_home", help="返回首页，进行单只股票的深度分析"):
+            # 清除所有功能页面标志
+            for key in ['show_history', 'show_monitor', 'show_config', 'show_main_force', 
+                       'show_sector_strategy', 'show_longhubang', 'show_portfolio']:
+                if key in st.session_state:
+                    del st.session_state[key]
+        
+        st.markdown("---")
+        
+        # 🎯 选股板块
+        with st.expander("🎯 选股板块", expanded=False):
+            st.markdown("**根据不同策略筛选优质股票**")
+            
+            if st.button("💰 主力选股", width='stretch', key="nav_main_force", help="基于主力资金流向的选股策略"):
+                st.session_state.show_main_force = True
+                for key in ['show_history', 'show_monitor', 'show_config', 'show_sector_strategy', 
+                           'show_longhubang', 'show_portfolio']:
+                    if key in st.session_state:
+                        del st.session_state[key]
+        
+        # 📊 策略分析
+        with st.expander("📊 策略分析", expanded=False):
+            st.markdown("**AI驱动的板块和龙虎榜策略**")
+            
+            if st.button("🎯 智策板块", width='stretch', key="nav_sector_strategy", help="AI板块策略分析"):
+                st.session_state.show_sector_strategy = True
+                for key in ['show_history', 'show_monitor', 'show_config', 'show_main_force', 
+                           'show_longhubang', 'show_portfolio']:
+                    if key in st.session_state:
+                        del st.session_state[key]
+            
+            if st.button("🐉 智瞰龙虎", width='stretch', key="nav_longhubang", help="龙虎榜深度分析"):
+                st.session_state.show_longhubang = True
+                for key in ['show_history', 'show_monitor', 'show_config', 'show_main_force', 
+                           'show_sector_strategy', 'show_portfolio']:
+                    if key in st.session_state:
+                        del st.session_state[key]
+        
+        # 💼 投资管理
+        with st.expander("💼 投资管理", expanded=False):
+            st.markdown("**持仓跟踪与实时监测**")
+            
+            if st.button("📊 持仓分析", width='stretch', key="nav_portfolio", help="投资组合分析与定时跟踪"):
+                st.session_state.show_portfolio = True
+                for key in ['show_history', 'show_monitor', 'show_config', 'show_main_force', 
+                           'show_sector_strategy', 'show_longhubang']:
+                    if key in st.session_state:
+                        del st.session_state[key]
+            
+            if st.button("📡 实时监测", width='stretch', key="nav_monitor", help="价格监控与预警提醒"):
+                st.session_state.show_monitor = True
+                for key in ['show_history', 'show_main_force', 'show_longhubang', 'show_portfolio',
+                           'show_config', 'show_sector_strategy']:
+                    if key in st.session_state:
+                        del st.session_state[key]
+        
+        st.markdown("---")
+        
+        # 📖 历史记录
+        if st.button("📖 历史记录", width='stretch', key="nav_history", help="查看历史分析记录"):
             st.session_state.show_history = True
-            if 'show_monitor' in st.session_state:
-                del st.session_state.show_monitor
-            if 'show_longhubang' in st.session_state:
-                del st.session_state.show_longhubang
-            if 'show_portfolio' in st.session_state:
-                del st.session_state.show_portfolio
+            for key in ['show_monitor', 'show_longhubang', 'show_portfolio', 'show_config',
+                       'show_main_force', 'show_sector_strategy']:
+                if key in st.session_state:
+                    del st.session_state[key]
         
-        if st.button("📊 实时监测", width='stretch', key="nav_monitor"):
-            st.session_state.show_monitor = True
-            if 'show_history' in st.session_state:
-                del st.session_state.show_history
-            if 'show_main_force' in st.session_state:
-                del st.session_state.show_main_force
-            if 'show_longhubang' in st.session_state:
-                del st.session_state.show_longhubang
-            if 'show_portfolio' in st.session_state:
-                del st.session_state.show_portfolio
-        
-        if st.button("🎯 主力选股", width='stretch', key="nav_main_force"):
-            st.session_state.show_main_force = True
-            if 'show_history' in st.session_state:
-                del st.session_state.show_history
-            if 'show_monitor' in st.session_state:
-                del st.session_state.show_monitor
-            if 'show_config' in st.session_state:
-                del st.session_state.show_config
-            if 'show_sector_strategy' in st.session_state:
-                del st.session_state.show_sector_strategy
-            if 'show_longhubang' in st.session_state:
-                del st.session_state.show_longhubang
-            if 'show_portfolio' in st.session_state:
-                del st.session_state.show_portfolio
-        
-        if st.button("🎯 智策板块", width='stretch', key="nav_sector_strategy"):
-            st.session_state.show_sector_strategy = True
-            if 'show_history' in st.session_state:
-                del st.session_state.show_history
-            if 'show_monitor' in st.session_state:
-                del st.session_state.show_monitor
-            if 'show_config' in st.session_state:
-                del st.session_state.show_config
-            if 'show_main_force' in st.session_state:
-                del st.session_state.show_main_force
-            if 'show_longhubang' in st.session_state:
-                del st.session_state.show_longhubang
-            if 'show_portfolio' in st.session_state:
-                del st.session_state.show_portfolio
-        
-        if st.button("🎯 智瞰龙虎", width='stretch', key="nav_longhubang"):
-            st.session_state.show_longhubang = True
-            if 'show_history' in st.session_state:
-                del st.session_state.show_history
-            if 'show_monitor' in st.session_state:
-                del st.session_state.show_monitor
-            if 'show_config' in st.session_state:
-                del st.session_state.show_config
-            if 'show_main_force' in st.session_state:
-                del st.session_state.show_main_force
-            if 'show_sector_strategy' in st.session_state:
-                del st.session_state.show_sector_strategy
-            if 'show_portfolio' in st.session_state:
-                del st.session_state.show_portfolio
-        
-        if st.button("📊 持仓分析", width='stretch', key="nav_portfolio"):
-            st.session_state.show_portfolio = True
-            if 'show_history' in st.session_state:
-                del st.session_state.show_history
-            if 'show_monitor' in st.session_state:
-                del st.session_state.show_monitor
-            if 'show_config' in st.session_state:
-                del st.session_state.show_config
-            if 'show_main_force' in st.session_state:
-                del st.session_state.show_main_force
-            if 'show_sector_strategy' in st.session_state:
-                del st.session_state.show_sector_strategy
-            if 'show_longhubang' in st.session_state:
-                del st.session_state.show_longhubang
-        
-        if st.button("🏠 返回首页", width='stretch', key="nav_home"):
-            if 'show_history' in st.session_state:
-                del st.session_state.show_history
-            if 'show_monitor' in st.session_state:
-                del st.session_state.show_monitor
-            if 'show_config' in st.session_state:
-                del st.session_state.show_config
-            if 'show_main_force' in st.session_state:
-                del st.session_state.show_main_force
-            if 'show_sector_strategy' in st.session_state:
-                del st.session_state.show_sector_strategy
-            if 'show_longhubang' in st.session_state:
-                del st.session_state.show_longhubang
-            if 'show_portfolio' in st.session_state:
-                del st.session_state.show_portfolio
-        
-        if st.button("⚙️ 环境配置", width='stretch', key="nav_config"):
+        # ⚙️ 环境配置
+        if st.button("⚙️ 环境配置", width='stretch', key="nav_config", help="系统设置与API配置"):
             st.session_state.show_config = True
-            if 'show_history' in st.session_state:
-                del st.session_state.show_history
-            if 'show_monitor' in st.session_state:
-                del st.session_state.show_monitor
-            if 'show_main_force' in st.session_state:
-                del st.session_state.show_main_force
-            if 'show_sector_strategy' in st.session_state:
-                del st.session_state.show_sector_strategy
-            if 'show_longhubang' in st.session_state:
-                del st.session_state.show_longhubang
-            if 'show_portfolio' in st.session_state:
-                del st.session_state.show_portfolio
+            for key in ['show_history', 'show_monitor', 'show_main_force', 'show_sector_strategy', 
+                       'show_longhubang', 'show_portfolio']:
+                if key in st.session_state:
+                    del st.session_state[key]
         
         st.markdown("---")
         
@@ -462,10 +426,10 @@ def main():
             - 🇺🇸 美股：字母代码（如AAPL）
             
             **功能说明**
-            - **智能分析**：AI团队深度分析
-            - **主力选股**：主力资金精选标的
-            - **智策板块**：AI板块策略分析
-            - **实时监测**：价格监控与提醒
+            - **股票分析**：AI团队深度分析个股
+            - **选股板块**：主力资金选股策略
+            - **策略分析**：智策板块、智瞰龙虎
+            - **投资管理**：持仓分析、实时监测
             - **历史记录**：查看分析历史
             
             **AI分析流程**
