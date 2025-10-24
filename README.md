@@ -2,7 +2,7 @@
 
 - 初心：在股市摸爬滚打多年，自学自编各种指标，花冤枉钱学习了各种战法各种策略，也曾入各种小班，总是赚少赔多，逐渐失去在股市玩的信心。自从去年deepseek上市，一直探索用ai辅助分析，且近日受tradingagents项目启发（感谢原作），多agent结合跟踪主力资金战法（某指每年收费6000rmb），用各种ai辅助编程，拼凑了这么个小程序，根据软件提供的辅助信息，实盘测试盈率还是挺高的，并且逐步形成了自己的交易系统，近一个月来，账户也慢慢在扭亏为盈。开源此软件的目的，就是为了使像我一样的小散，不再迷茫。也许这个软件不能让你发大财，但是他能给你足够的信心。最后提醒：股市有风险，入市需谨慎！
 - 希望能帮到你！欢迎加微信群讨论
-<img width="300" height="324" alt="image" src="https://www.sd-hn.cn/img/2wm1015.png" />
+<img width="300" height="324" alt="image" src="https://www.sd-hn.cn/img/2wm1031.png" />
 
 ### 基于Python + Streamlit + DeepSeek的智能股票分析系统，模拟证券公司分析师团队，提供全方位的股票投资分析和决策建议。
 <img width="1910" height="923" alt="image" src="https://github.com/user-attachments/assets/fe366e1d-2352-46db-a3cc-6f147ee6d9d9" />
