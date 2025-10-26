@@ -282,11 +282,14 @@ def display_stock_card(stock: Dict):
         # 关键位置信息
         st.markdown("**🎯 关键位置**")
         
-        entry_range = stock['entry_range']
+        entry_range = stock.get('entry_range')
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            st.info(f"**进场区间**\n¥{entry_range['min']} - ¥{entry_range['max']}")
+            if entry_range and isinstance(entry_range, dict):
+                st.info(f"**进场区间**\n¥{entry_range.get('min', 0)} - ¥{entry_range.get('max', 0)}")
+            else:
+                st.warning("**进场区间**\n未设置")
         
         with col2:
             if stock['take_profit']:
@@ -378,9 +381,9 @@ def display_edit_dialog(stock_id: int):
         
         with col1:
             st.subheader("🎯 关键位置")
-            entry_range = stock['entry_range']
-            entry_min = st.number_input("进场区间最低价", value=float(entry_range['min']), step=0.01, format="%.2f")
-            entry_max = st.number_input("进场区间最高价", value=float(entry_range['max']), step=0.01, format="%.2f")
+            entry_range = stock.get('entry_range', {})
+            entry_min = st.number_input("进场区间最低价", value=float(entry_range.get('min', 0)), step=0.01, format="%.2f")
+            entry_max = st.number_input("进场区间最高价", value=float(entry_range.get('max', 0)), step=0.01, format="%.2f")
             take_profit = st.number_input("止盈价位", value=float(stock['take_profit']) if stock['take_profit'] else 0.0, step=0.01, format="%.2f")
             stop_loss = st.number_input("止损价位", value=float(stock['stop_loss']) if stock['stop_loss'] else 0.0, step=0.01, format="%.2f")
         

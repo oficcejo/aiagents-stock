@@ -109,13 +109,20 @@ class StockMonitorDatabase:
         
         stocks = []
         for row in cursor.fetchall():
-            quant_config = json.loads(row[12]) if row[12] else None
+            try:
+                quant_config = json.loads(row[12]) if row[12] else None
+                entry_range = json.loads(row[4]) if row[4] else None
+            except (json.JSONDecodeError, TypeError) as e:
+                print(f"警告: 股票 {row[1]} 的JSON解析失败: {e}")
+                entry_range = None
+                quant_config = None
+                
             stocks.append({
                 'id': row[0],
                 'symbol': row[1],
                 'name': row[2],
                 'rating': row[3],
-                'entry_range': json.loads(row[4]),
+                'entry_range': entry_range,
                 'take_profit': row[5],
                 'stop_loss': row[6],
                 'current_price': row[7],
@@ -373,13 +380,20 @@ class StockMonitorDatabase:
         conn.close()
         
         if row:
-            quant_config = json.loads(row[12]) if row[12] else None
+            try:
+                quant_config = json.loads(row[12]) if row[12] else None
+                entry_range = json.loads(row[4]) if row[4] else None
+            except (json.JSONDecodeError, TypeError) as e:
+                print(f"警告: 股票 {row[1]} 的JSON解析失败: {e}")
+                entry_range = None
+                quant_config = None
+                
             return {
                 'id': row[0],
                 'symbol': row[1],
                 'name': row[2],
                 'rating': row[3],
-                'entry_range': json.loads(row[4]),
+                'entry_range': entry_range,
                 'take_profit': row[5],
                 'stop_loss': row[6],
                 'current_price': row[7],
@@ -412,8 +426,13 @@ class StockMonitorDatabase:
         conn.close()
         
         if row:
-            entry_range = json.loads(row[4])
-            quant_config = json.loads(row[12]) if row[12] else None
+            try:
+                entry_range = json.loads(row[4]) if row[4] else None
+                quant_config = json.loads(row[12]) if row[12] else None
+            except (json.JSONDecodeError, TypeError) as e:
+                print(f"警告: 股票 {row[1]} 的JSON解析失败: {e}")
+                entry_range = None
+                quant_config = None
             
             return {
                 'id': row[0],
