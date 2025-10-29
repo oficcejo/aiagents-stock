@@ -277,7 +277,6 @@ def display_pdf_export_section(stock_info, agents_results, discussion_result, fi
                 success = generate_pdf_report(stock_info, agents_results, discussion_result, final_decision)
                 if success:
                     st.balloons()
-        
         # 生成Markdown报告按钮
         if st.button("📝 生成并下载Markdown报告", type="secondary", width='content', key=markdown_button_key):
             with st.spinner("正在生成Markdown报告..."):
@@ -308,7 +307,7 @@ def display_pdf_export_section(stock_info, agents_results, discussion_result, fi
                     
                 except Exception as e:
                     st.error(f"❌ 生成Markdown报告时出错: {str(e)}")
-    
+
     # 如果已经生成了报告，显示下载链接
     if st.session_state.show_download_links:
         generate_pdf_report(stock_info, agents_results, discussion_result, final_decision)
