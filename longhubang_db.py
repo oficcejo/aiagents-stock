@@ -7,6 +7,7 @@ import sqlite3
 from datetime import datetime
 import json
 import pandas as pd
+import logging
 
 
 class LonghubangDatabase:
@@ -20,6 +21,10 @@ class LonghubangDatabase:
             db_path: 数据库文件路径
         """
         self.db_path = db_path
+        # 初始化日志
+        self.logger = logging.getLogger(__name__)
+        if not self.logger.handlers:
+            logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s %(name)s: %(message)s')
         self.init_database()
     
     def get_connection(self):
@@ -100,7 +105,7 @@ class LonghubangDatabase:
         conn.commit()
         conn.close()
         
-        print("[智瞰龙虎] 数据库初始化完成")
+        self.logger.info("[智瞰龙虎] 数据库初始化完成")
     
     def save_longhubang_data(self, data_list):
         """
@@ -141,13 +146,13 @@ class LonghubangDatabase:
                 ))
                 saved_count += 1
             except Exception as e:
-                print(f"保存记录失败: {e}")
+                self.logger.exception(f"保存记录失败: {e}", exc_info=True)
                 continue
         
         conn.commit()
         conn.close()
         
-        print(f"[智瞰龙虎] 成功保存 {saved_count} 条龙虎榜记录")
+        self.logger.info(f"[智瞰龙虎] 成功保存 {saved_count} 条龙虎榜记录")
         return saved_count
     
     def get_longhubang_data(self, start_date=None, end_date=None, stock_code=None):
@@ -321,7 +326,7 @@ class LonghubangDatabase:
         conn.commit()
         conn.close()
         
-        print(f"[智瞰龙虎] 分析报告已保存 (ID: {report_id})")
+        self.logger.info(f"[智瞰龙虎] 分析报告已保存 (ID: {report_id})")
         return report_id
     
     def get_analysis_reports(self, limit=10):
@@ -365,30 +370,72 @@ class LonghubangDatabase:
         ''', (report_id,))
         
         row = cursor.fetchone()
+        # 在关闭连接之前获取列名，避免关闭后访问游标属性报错
+        columns = [desc[0] for desc in cursor.description] if cursor.description else []
         conn.close()
         
         if row:
-            columns = [desc[0] for desc in cursor.description]
             report = dict(zip(columns, row))
             
             # 解析JSON字段
             if report.get('recommended_stocks'):
                 try:
                     report['recommended_stocks'] = json.loads(report['recommended_stocks'])
-                except:
-                    pass
+                except Exception as e:
+                    self.logger.warning(f"推荐股票JSON解析失败: {e}")
             
             # 解析analysis_content字段
             if report.get('analysis_content'):
                 try:
                     report['analysis_content_parsed'] = json.loads(report['analysis_content'])
-                except:
+                except json.JSONDecodeError as e:
                     # 如果不是JSON格式，保持原样
                     report['analysis_content_parsed'] = None
+                    self.logger.debug(f"analysis_content字段不是有效JSON格式，将保持原始文本格式: {str(e)[:100]}")
+                except Exception as e:
+                    report['analysis_content_parsed'] = None
+                    self.logger.warning(f"analysis_content字段解析时发生未知错误: {str(e)[:100]}")
             
             return report
         
         return None
+    
+    def delete_analysis_report(self, report_id):
+        """
+        删除分析报告
+        
+        Args:
+            report_id: 报告ID
+            
+        Returns:
+            bool: 删除是否成功
+        """
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            # 先删除相关的股票追踪记录
+            cursor.execute('DELETE FROM stock_tracking WHERE analysis_id = ?', (report_id,))
+            
+            # 删除分析报告
+            cursor.execute('DELETE FROM longhubang_analysis WHERE id = ?', (report_id,))
+            
+            deleted_count = cursor.rowcount
+            conn.commit()
+            
+            if deleted_count > 0:
+                self.logger.info(f"[智瞰龙虎] 成功删除分析报告 (ID: {report_id})")
+                return True
+            else:
+                self.logger.warning(f"[智瞰龙虎] 未找到要删除的分析报告 (ID: {report_id})")
+                return False
+                
+        except Exception as e:
+            self.logger.error(f"[智瞰龙虎] 删除分析报告失败: {e}")
+            conn.rollback()
+            return False
+        finally:
+            conn.close()
     
     def update_stock_tracking(self, analysis_id, stock_code, current_price, status, notes=None):
         """

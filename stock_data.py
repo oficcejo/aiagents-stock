@@ -125,7 +125,7 @@ class StockDataFetcher:
                 print(f"[Akshare] 获取个股详细信息失败: {e}")
                 # 如果akshare失败，尝试从tushare获取
                 if self.data_source_manager.tushare_available and info['name'] == '未知':
-                    print(f"[Tushare] 尝试获取基本信息（备用数据源）...")
+                    print(f"[Tushare] 尝试获取基本信息（tushare）...")
                     try:
                         ts_code = self.data_source_manager._convert_to_ts_code(symbol)
                         df = self.data_source_manager.tushare_api.daily_basic(
@@ -141,65 +141,65 @@ class StockDataFetcher:
                     except Exception as te:
                         print(f"[Tushare] ❌ 获取失败: {te}")
             
-            # 方法2: 尝试获取实时价格和涨跌幅（如果网络允许）
-            try:
-                # 使用更简单的接口获取实时价格
-                real_time_data = ak.stock_zh_a_spot_em()
-                if real_time_data is not None and not real_time_data.empty:
-                    stock_real_time = real_time_data[real_time_data['代码'] == symbol]
-                    if not stock_real_time.empty:
-                        row = stock_real_time.iloc[0]
-                        info['current_price'] = row.get('最新价', 'N/A')
-                        info['change_percent'] = row.get('涨跌幅', 'N/A')
-                        if info['name'] == '未知':
-                            info['name'] = row.get('名称', '未知')
+            # 方法2: 尝试获取历史价格和涨跌幅（如果网络允许）
+            # try:
+            #     # 使用更简单的接口获取实时价格
+            #     real_time_data = ak.stock_zh_a_spot_em()
+            #     if real_time_data is not None and not real_time_data.empty:
+            #         stock_real_time = real_time_data[real_time_data['代码'] == symbol]
+            #         if not stock_real_time.empty:
+            #             row = stock_real_time.iloc[0]
+            #             info['current_price'] = row.get('最新价', 'N/A')
+            #             info['change_percent'] = row.get('涨跌幅', 'N/A')
+            #             if info['name'] == '未知':
+            #                 info['name'] = row.get('名称', '未知')
                         
-                        # 如果实时数据中有市盈率和市净率，优先使用
-                        if '市盈率-动态' in row and info['pe_ratio'] == 'N/A':
-                            try:
-                                pe_val = row['市盈率-动态']
-                                if pe_val and pe_val != '-':
-                                    pe_val = float(pe_val)
-                                    if 0 < pe_val <= 1000:
-                                        info['pe_ratio'] = pe_val
-                            except:
-                                pass
+            #             # 如果实时数据中有市盈率和市净率，优先使用
+            #             if '市盈率-动态' in row and info['pe_ratio'] == 'N/A':
+            #                 try:
+            #                     pe_val = row['市盈率-动态']
+            #                     if pe_val and pe_val != '-':
+            #                         pe_val = float(pe_val)
+            #                         if 0 < pe_val <= 1000:
+            #                             info['pe_ratio'] = pe_val
+            #                 except:
+            #                     pass
                         
-                        if '市净率' in row and info['pb_ratio'] == 'N/A':
-                            try:
-                                pb_val = row['市净率']
-                                if pb_val and pb_val != '-':
-                                    pb_val = float(pb_val)
-                                    if 0 < pb_val <= 100:
-                                        info['pb_ratio'] = pb_val
-                            except:
-                                pass
+            #             if '市净率' in row and info['pb_ratio'] == 'N/A':
+            #                 try:
+            #                     pb_val = row['市净率']
+            #                     if pb_val and pb_val != '-':
+            #                         pb_val = float(pb_val)
+            #                         if 0 < pb_val <= 100:
+            #                             info['pb_ratio'] = pb_val
+            #                 except:
+            #                     pass
                                 
-            except Exception as e:
-                print(f"[Akshare] 获取实时数据失败: {e}")
-                # 如果实时数据获取失败，尝试使用数据源管理器获取历史数据（支持tushare备用）
-                try:
-                    print(f"[数据源管理器] 尝试获取最近交易数据...")
-                    hist_data = self.data_source_manager.get_stock_hist_data(
-                        symbol=symbol,
-                        start_date=(datetime.now() - timedelta(days=5)).strftime('%Y%m%d'),
-                        end_date=datetime.now().strftime('%Y%m%d'),
-                        adjust='qfq'
-                    )
-                    
-                    if hist_data is not None and not hist_data.empty:
-                        # 标准化列名
-                        if 'close' in hist_data.columns:
-                            latest = hist_data.iloc[-1]
-                            info['current_price'] = latest['close']
-                            # 计算涨跌幅
-                            if len(hist_data) > 1:
-                                prev_close = hist_data.iloc[-2]['close']
-                                change_pct = ((latest['close'] - prev_close) / prev_close) * 100
-                                info['change_percent'] = round(change_pct, 2)
-                            print(f"[数据源管理器] ✅ 成功获取价格数据")
-                except Exception as e2:
-                    print(f"获取历史数据也失败: {e2}")
+            # except Exception as e:
+            #     print(f"[Akshare] 获取实时数据失败: {e}")
+            #     # 如果实时数据获取失败，尝试使用数据源管理器获取历史数据（支持tushare备用）
+            try:
+                print(f"[数据源管理器] 尝试获取最近交易数据...")
+                hist_data = self.data_source_manager.get_stock_hist_data(
+                    symbol=symbol,
+                    start_date=(datetime.now() - timedelta(days=30)).strftime('%Y%m%d'),
+                    end_date=datetime.now().strftime('%Y%m%d'),
+                    adjust='qfq'
+                )
+                
+                if hist_data is not None and not hist_data.empty:
+                    # 标准化列名
+                    if 'close' in hist_data.columns:
+                        latest = hist_data.iloc[-1]
+                        info['current_price'] = latest['close']
+                        # 计算涨跌幅
+                        if len(hist_data) > 1:
+                            prev_close = hist_data.iloc[-2]['close']
+                            change_pct = ((latest['close'] - prev_close) / prev_close) * 100
+                            info['change_percent'] = round(change_pct, 2)
+                        print(f"[数据源管理器] ✅ 成功获取价格数据")
+            except Exception as e2:
+                print(f"获取历史数据也失败: {e2}")
             
             # 方法3: 使用百度估值数据获取市盈率和市净率
             if info['pe_ratio'] == 'N/A':
@@ -638,25 +638,40 @@ class StockDataFetcher:
             
             # 4. 获取主要财务指标
             try:
-                financial_indicators = ak.stock_financial_analysis_indicator(symbol=symbol)
-                if financial_indicators is not None and not financial_indicators.empty:
-                    latest_data = financial_indicators.iloc[0]
+                financial_abstract = ak.stock_financial_abstract(symbol=symbol)
+                if financial_abstract is not None and not financial_abstract.empty:
+                    # 提取关键财务指标
+                    key_indicators = [
+                        '净资产收益率(ROE)', '总资产报酬率(ROA)', '销售毛利率', '销售净利率',
+                        '资产负债率', '流动比率', '速动比率', '存货周转率', '应收账款周转率',
+                        '总资产周转率', '营业收入同比增长', '净利润同比增长'
+                    ]
                     
-                    financial_data["financial_ratios"] = {
-                        "报告期": latest_data.get('报告期', 'N/A'),
-                        "净资产收益率ROE": latest_data.get('净资产收益率', 'N/A'),
-                        "总资产收益率ROA": latest_data.get('总资产收益率', 'N/A'),
-                        "销售毛利率": latest_data.get('销售毛利率', 'N/A'),
-                        "销售净利率": latest_data.get('销售净利率', 'N/A'),
-                        "资产负债率": latest_data.get('资产负债率', 'N/A'),
-                        "流动比率": latest_data.get('流动比率', 'N/A'),
-                        "速动比率": latest_data.get('速动比率', 'N/A'),
-                        "存货周转率": latest_data.get('存货周转率', 'N/A'),
-                        "应收账款周转率": latest_data.get('应收账款周转率', 'N/A'),
-                        "总资产周转率": latest_data.get('总资产周转率', 'N/A'),
-                        "营业收入同比增长": latest_data.get('营业收入同比增长', 'N/A'),
-                        "净利润同比增长": latest_data.get('净利润同比增长', 'N/A'),
-                    }
+                    # 筛选出包含关键指标的行
+                    indicator_rows = financial_abstract[financial_abstract['指标'].isin(key_indicators)]
+                    
+                    if not indicator_rows.empty:
+                        # 获取最新的报告期数据（第一列日期）
+                        date_columns = [col for col in financial_abstract.columns if col not in ['选项', '指标']]
+                        if date_columns:
+                            latest_date = date_columns[0]  # 最新日期列
+                            
+                            # 构建财务比率字典
+                            financial_ratios = {"报告期": latest_date}
+                            
+                            # 提取每个指标的最新值
+                            for _, row in indicator_rows.iterrows():
+                                indicator_name = row['指标']
+                                value = row.get(latest_date, 'N/A')
+                                if value is not None and not (isinstance(value, float) and pd.isna(value)):
+                                    try:
+                                        financial_ratios[indicator_name] = str(value)
+                                    except:
+                                        financial_ratios[indicator_name] = "N/A"
+                                else:
+                                    financial_ratios[indicator_name] = "N/A"
+                            
+                            financial_data["financial_ratios"] = financial_ratios
             except Exception as e:
                 print(f"获取财务指标失败: {e}")
             

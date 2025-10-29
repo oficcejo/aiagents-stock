@@ -291,7 +291,7 @@ def display_pdf_export_section(stock_info, agents_results, discussion_result, fi
         import uuid
         import time
         button_key = f"generate_report_btn_{int(time.time())}_{uuid.uuid4().hex[:8]}"
-        if st.button("📊 生成并下载报告", type="primary", use_container_width=True, key=button_key):
+        if st.button("📊 生成并下载报告", type="primary", width='content', key=button_key):
             with st.spinner("正在生成报告..."):
                 try:
                     # 生成Markdown内容

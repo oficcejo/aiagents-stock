@@ -228,35 +228,54 @@ class QuarterlyReportDataFetcher:
     def _get_financial_indicators(self, symbol):
         """获取财务指标数据"""
         try:
-            # stock_financial_analysis_indicator - 财务指标
-            df = ak.stock_financial_analysis_indicator(symbol=symbol)
+            # 使用stock_financial_abstract替代已失效的stock_financial_analysis_indicator
+            df = ak.stock_financial_abstract(symbol=symbol)
             
             if df is None or df.empty:
                 print(f"   未找到财务指标数据")
                 return None
             
             # 获取最近8期
-            df = df.head(self.periods)
+            df = df.head(self.periods * 2)  # 取更多数据以确保有足够的季度数据
             
-            # 转换为字典列表
+            # 提取关键财务指标
+            key_indicators = [
+                '净资产收益率(ROE)', '总资产报酬率(ROA)', '销售净利率', '销售毛利率',
+                '资产负债率', '流动比率', '速动比率', '应收账款周转率', '存货周转率',
+                '总资产周转率', '基本每股收益', '每股净资产', '每股现金流'
+            ]
+            
+            # 筛选出包含关键指标的行
+            indicator_rows = df[df['指标'].isin(key_indicators)]
+            
+            if indicator_rows.empty:
+                print(f"   未找到关键财务指标数据")
+                return None
+            
+            # 获取日期列（排除'选项'和'指标'列）
+            date_columns = [col for col in df.columns if col not in ['选项', '指标']]
+            
+            # 转换为字典列表，每个字典代表一个时期的财务指标
             data_list = []
-            for idx, row in df.iterrows():
-                item = {}
-                for col in df.columns:
-                    value = row.get(col)
-                    if value is None or (isinstance(value, float) and pd.isna(value)):
-                        continue
-                    try:
-                        item[col] = str(value)
-                    except:
-                        item[col] = "N/A"
-                if item:
-                    data_list.append(item)
+            for date_col in date_columns[:self.periods]:  # 只取最近的periods期
+                item = {'报告期': date_col}
+                for _, row in indicator_rows.iterrows():
+                    indicator_name = row['指标']
+                    value = row.get(date_col)
+                    if value is not None and not (isinstance(value, float) and pd.isna(value)):
+                        try:
+                            # 尝试转换为字符串
+                            item[indicator_name] = str(value)
+                        except:
+                            item[indicator_name] = "N/A"
+                    else:
+                        item[indicator_name] = "N/A"
+                data_list.append(item)
             
             return {
                 "data": data_list,
                 "periods": len(data_list),
-                "columns": df.columns.tolist(),
+                "columns": ['报告期'] + key_indicators,
                 "query_time": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             }
             

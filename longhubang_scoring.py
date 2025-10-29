@@ -445,6 +445,7 @@ class LonghubangScoring:
             
             results.append({
                 '排名': 0,  # 稍后填充
+                '排名_display': '',  # 用于显示奖牌
                 '股票名称': stock_info['name'],
                 '股票代码': code,
                 '综合评分': round(total_score, 1),
@@ -467,13 +468,14 @@ class LonghubangScoring:
         df = df.sort_values('综合评分', ascending=False).reset_index(drop=True)
         df['排名'] = range(1, len(df) + 1)
         
-        # 添加奖牌
+        # 添加奖牌显示
+        df['排名_display'] = df['排名'].astype(str)
         if len(df) >= 1:
-            df.loc[0, '排名'] = '🥇 1'
+            df.loc[0, '排名_display'] = '🥇 1'
         if len(df) >= 2:
-            df.loc[1, '排名'] = '🥈 2'
+            df.loc[1, '排名_display'] = '🥈 2'
         if len(df) >= 3:
-            df.loc[2, '排名'] = '🥉 3'
+            df.loc[2, '排名_display'] = '🥉 3'
         
         return df
     

@@ -302,7 +302,7 @@ def main():
         st.markdown("---")
         
         # 🎯 选股板块
-        with st.expander("🎯 选股板块", expanded=False):
+        with st.expander("🎯 选股板块", expanded=True):
             st.markdown("**根据不同策略筛选优质股票**")
             
             if st.button("💰 主力选股", width='stretch', key="nav_main_force", help="基于主力资金流向的选股策略"):
@@ -313,7 +313,7 @@ def main():
                         del st.session_state[key]
         
         # 📊 策略分析
-        with st.expander("📊 策略分析", expanded=False):
+        with st.expander("📊 策略分析", expanded=True):
             st.markdown("**AI驱动的板块和龙虎榜策略**")
             
             if st.button("🎯 智策板块", width='stretch', key="nav_sector_strategy", help="AI板块策略分析"):
@@ -331,7 +331,7 @@ def main():
                         del st.session_state[key]
         
         # 💼 投资管理
-        with st.expander("💼 投资管理", expanded=False):
+        with st.expander("💼 投资管理", expanded=True):
             st.markdown("**持仓跟踪与实时监测**")
             
             if st.button("📊 持仓分析", width='stretch', key="nav_portfolio", help="投资组合分析与定时跟踪"):
@@ -571,9 +571,9 @@ def main():
                                  help="负责风险识别、风险评估、风险控制策略制定")
     
     with col3:
-        enable_sentiment = st.checkbox("📈 市场情绪分析师", value=False,
+        enable_sentiment = st.checkbox("📈 市场情绪分析师", value=True,
                                       help="负责市场情绪研究、ARBR指标分析（仅A股）")
-        enable_news = st.checkbox("📰 新闻分析师", value=False,
+        enable_news = st.checkbox("📰 新闻分析师", value=True,
                                  help="负责新闻事件分析、舆情研究（仅A股，qstock数据源）")
     
     # 显示已选择的分析师
@@ -1427,7 +1427,7 @@ def display_stock_chart(stock_data, stock_info):
     
     # 生成唯一的key
     chart_key = f"main_stock_chart_{stock_info.get('symbol', 'unknown')}_{int(time.time())}"
-    st.plotly_chart(fig, width='stretch', key=chart_key)
+    st.plotly_chart(fig, use_container_width=True, config={'responsive': True}, key=chart_key)
     
     # 成交量图
     if 'Volume' in stock_data.columns:
@@ -1448,7 +1448,7 @@ def display_stock_chart(stock_data, stock_info):
         
         # 生成唯一的key
         volume_key = f"volume_chart_{stock_info.get('symbol', 'unknown')}_{int(time.time())}"
-        st.plotly_chart(fig_volume, width='stretch', key=volume_key)
+        st.plotly_chart(fig_volume, use_container_width=True, config={'responsive': True}, key=volume_key)
 
 def display_agents_analysis(agents_results):
     """显示各分析师报告"""

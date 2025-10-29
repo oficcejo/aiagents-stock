@@ -4,17 +4,37 @@
 """
 
 import streamlit as st
+import time
 import plotly.graph_objects as go
 import plotly.express as px
 import pandas as pd
 from datetime import datetime, time as dt_time
 import time
 import base64
+import json
 
 from sector_strategy_data import SectorStrategyDataFetcher
 from sector_strategy_engine import SectorStrategyEngine
 from sector_strategy_pdf import SectorStrategyPDFGenerator
+from sector_strategy_db import SectorStrategyDatabase
 from sector_strategy_scheduler import sector_strategy_scheduler
+
+
+def _parse_json_field(value, default):
+    """将可能的JSON字符串安全转换为Python对象"""
+    try:
+        if isinstance(value, (dict, list)):
+            return value
+        if value is None:
+            return default
+        if isinstance(value, str):
+            v = value.strip()
+            if not v:
+                return default
+            return json.loads(v)
+        return default
+    except Exception:
+        return default
 
 
 def display_sector_strategy():
@@ -28,6 +48,19 @@ def display_sector_strategy():
     """, unsafe_allow_html=True)
     
     st.markdown("---")
+    
+    # 创建标签页
+    tab1, tab2 = st.tabs(["📊 智策分析", "📋 历史报告"])
+    
+    with tab1:
+        display_analysis_tab()
+    
+    with tab2:
+        display_history_tab()
+
+
+def display_analysis_tab():
+    """显示分析标签页"""
     
     # 定时任务设置区域
     display_scheduler_settings()
@@ -92,12 +125,12 @@ def display_sector_strategy():
     with col2:
         st.write("")
         st.write("")
-        analyze_button = st.button("🚀 开始智策分析", type="primary", use_container_width=True)
+        analyze_button = st.button("🚀 开始智策分析", type="primary", width='content')
     
     with col3:
         st.write("")
         st.write("")
-        if st.button("🔄 清除结果", use_container_width=True):
+        if st.button("🔄 清除结果", width='content'):
             if 'sector_strategy_result' in st.session_state:
                 del st.session_state.sector_strategy_result
             st.success("已清除分析结果")
@@ -123,6 +156,108 @@ def display_sector_strategy():
             st.error(f"❌ 分析失败: {result.get('error', '未知错误')}")
 
 
+def display_history_tab():
+    """显示历史报告标签页"""
+    
+    st.markdown("### 📋 智策历史报告")
+    st.markdown("查看和管理历史分析报告")
+    
+    try:
+        # 初始化引擎以获取历史报告
+        engine = SectorStrategyEngine()
+        
+        # 获取历史报告
+        reports = engine.get_historical_reports(limit=20)
+        
+        if reports.empty:
+            st.info("📝 暂无历史报告")
+            st.markdown("""
+            **提示**: 
+            - 运行智策分析后，报告将自动保存到历史记录中
+            - 您可以在此查看和管理所有历史分析报告
+            """)
+            return
+        
+        st.success(f"📊 共找到 {len(reports)} 份历史报告")
+        
+        # 报告列表（精简摘要展示）
+        for i, report in reports.iterrows():
+            report_id = report['id'] if 'id' in report else None
+            created_at = report['created_at'] if 'created_at' in report else ''
+            data_date_range = report['data_date_range'] if 'data_date_range' in report else ''
+            summary = report['summary'] if 'summary' in report else '智策板块分析报告'
+            confidence_score = report['confidence_score'] if 'confidence_score' in report else 0
+            risk_level = report['risk_level'] if 'risk_level' in report else '中等'
+            market_outlook = report['market_outlook'] if 'market_outlook' in report else '谨慎乐观'
+
+            with st.container():
+                st.markdown(f"**📊 报告 #{report_id}**")
+                st.caption(f"生成时间: {created_at} | 数据区间: {data_date_range}")
+
+                col1, col2, col3 = st.columns([1, 1, 1])
+                with col1:
+                    st.metric("置信度", f"{confidence_score:.1%}")
+                with col2:
+                    st.metric("风险等级", risk_level)
+                with col3:
+                    st.metric("市场展望", market_outlook)
+
+                # 操作区：加载到分析视图 / 删除
+                op1, op2 = st.columns([1, 1])
+                with op1:
+                    if st.button("📥 加载到分析视图", key=f"load_{report_id}"):
+                        # 获取报告详情并写入session以展示到分析视图
+                        detail = engine.get_report_detail(report_id)
+                        if detail and isinstance(detail.get('analysis_content_parsed'), dict):
+                            st.session_state.sector_strategy_result = detail['analysis_content_parsed']
+                            st.session_state.sector_strategy_result_source = 'from_history'
+                            st.session_state.loaded_report_id = report_id
+                            st.success("✅ 已加载到分析视图，请切换到‘智策分析’标签查看")
+                            time.sleep(0.5)
+                            st.rerun()
+                        else:
+                            st.error("❌ 加载失败：报告内容缺失")
+                with op2:
+                    if st.button(f"🗑️ 删除", key=f"delete_{report_id}"):
+                        if engine.delete_report(report_id):
+                            st.success("报告已删除")
+                            st.rerun()
+                        else:
+                            st.error("删除失败")
+
+                # 改进的摘要展示逻辑，突出看多板块信息
+                st.markdown("**📝 报告摘要**")
+                summary_text = summary or "智策板块分析报告"
+                
+                # 解析摘要中的看多板块信息
+                if "看多板块:" in summary_text:
+                    parts = summary_text.split("，看多板块:")
+                    main_summary = parts[0]
+                    bullish_info = parts[1] if len(parts) > 1 else ""
+                    
+                    # 显示主要摘要信息
+                    st.markdown(f"🔹 {main_summary}")
+                    
+                    # 特别突出显示看多板块
+                    if bullish_info:
+                        st.markdown(f"📈 **看多板块**: :green[{bullish_info}]")
+                else:
+                    # 原有的简单展示方式
+                    short = summary_text if len(summary_text) <= 120 else (summary_text[:120] + "...")
+                    with st.expander(f"{short}", expanded=False):
+                        st.write(summary_text)
+
+                st.markdown("-")
+    
+    except Exception as e:
+        st.error(f"❌ 加载历史报告失败: {e}")
+
+
+def display_report_detail(report_id):
+    """详细报告页面已移除：保留占位以避免旧调用报错"""
+    st.info("当前版本仅提供报告摘要，详细页面已移除。")
+
+
 def run_sector_strategy_analysis(model="deepseek-chat"):
     """运行智策分析"""
     
@@ -136,7 +271,8 @@ def run_sector_strategy_analysis(model="deepseek-chat"):
         progress_bar.progress(10)
         
         fetcher = SectorStrategyDataFetcher()
-        data = fetcher.get_all_sector_data()
+        # 使用带缓存回退的获取逻辑
+        data = fetcher.get_cached_data_with_fallback()
         
         if not data.get("success"):
             st.error("❌ 数据获取失败")
@@ -145,7 +281,7 @@ def run_sector_strategy_analysis(model="deepseek-chat"):
         progress_bar.progress(30)
         status_text.text("✓ 数据获取完成")
         
-        # 显示数据摘要
+        # 显示数据摘要（含缓存提示）
         display_data_summary(data)
         
         # 2. 运行AI分析
@@ -154,6 +290,13 @@ def run_sector_strategy_analysis(model="deepseek-chat"):
         
         engine = SectorStrategyEngine(model=model)
         result = engine.run_comprehensive_analysis(data)
+        # 传递缓存元信息到结果以便页面提示
+        if data.get("from_cache") or data.get("cache_warning"):
+            result["cache_meta"] = {
+                "from_cache": bool(data.get("from_cache")),
+                "cache_warning": data.get("cache_warning", ""),
+                "data_timestamp": data.get("timestamp")
+            }
         
         progress_bar.progress(90)
         
@@ -185,6 +328,9 @@ def run_sector_strategy_analysis(model="deepseek-chat"):
 def display_data_summary(data):
     """显示数据摘要"""
     st.subheader("📊 市场数据概览")
+    # 缓存提示横幅
+    if data.get("from_cache") or data.get("cache_warning"):
+        st.warning(data.get("cache_warning", "当前数据来自缓存，可能不是最新信息"))
     
     col1, col2, col3, col4 = st.columns(4)
     
@@ -216,11 +362,70 @@ def display_data_summary(data):
         st.metric("概念板块", concepts_count)
 
 
+def display_saved_report_summary(saved_report: dict):
+    """在主页面显示保存的报告摘要（标题、时间、关键指标）"""
+    st.subheader("📝 报告摘要")
+    summary = saved_report.get('summary', '智策板块分析报告')
+    created_at = saved_report.get('created_at', '')
+    data_date_range = saved_report.get('data_date_range', '')
+    confidence_score = saved_report.get('confidence_score', 0)
+    risk_level = saved_report.get('risk_level', '中等')
+    market_outlook = saved_report.get('market_outlook', '谨慎乐观')
+    st.caption(f"生成时间: {created_at} | 数据区间: {data_date_range}")
+    
+    # 使用改进的摘要展示逻辑，突出看多板块信息
+    summary_text = summary or "智策板块分析报告"
+    
+    # 解析摘要中的看多板块信息
+    if "看多板块:" in summary_text:
+        parts = summary_text.split("，看多板块:")
+        main_summary = parts[0]
+        bullish_info = parts[1] if len(parts) > 1 else ""
+        
+        # 显示主要摘要信息
+        st.markdown(f"🔹 {main_summary}")
+        
+        # 特别突出显示看多板块
+        if bullish_info:
+            st.markdown(f"📈 **看多板块**: :green[{bullish_info}]")
+    else:
+        # 原有的简单展示方式
+        st.info(summary_text)
+        
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("置信度", f"{confidence_score:.1%}")
+    with col2:
+        st.metric("风险等级", risk_level)
+    with col3:
+        st.metric("市场展望", market_outlook)
+
+
 def display_analysis_results(result):
     """显示分析结果"""
     
     st.success("✅ 智策分析完成！")
     st.info(f"📅 分析时间: {result.get('timestamp', 'N/A')}")
+    # 显示缓存提示（如果本次分析使用了缓存数据）
+    cache_meta = result.get("cache_meta")
+    if cache_meta and (cache_meta.get("from_cache") or cache_meta.get("cache_warning")):
+        st.warning(cache_meta.get("cache_warning", "当前分析基于缓存数据，可能不是最新信息"))
+
+    # 如果内容源自历史报告，给出返回入口
+    if st.session_state.get('sector_strategy_result_source') == 'from_history':
+        loaded_id = st.session_state.get('loaded_report_id')
+        st.info(f"🗂️ 当前展示为历史报告内容（ID: {loaded_id}）")
+        if st.button("↩️ 返回历史报告列表"):
+            # 清除已加载的历史报告并返回
+            for key in ['sector_strategy_result', 'sector_strategy_result_source', 'loaded_report_id']:
+                if key in st.session_state:
+                    del st.session_state[key]
+            st.rerun()
+    
+    # 显示引擎回传的保存报告摘要（用于主页面动态更新）
+    saved_report = result.get("saved_report")
+    if saved_report:
+        display_saved_report_summary(saved_report)
     
     # PDF导出功能
     display_pdf_export_section(result)
@@ -525,7 +730,7 @@ def display_visualizations(predictions):
                      title='板块多空信心度对比')
         
         fig.update_layout(height=400)
-        st.plotly_chart(fig, use_container_width=True, key="sector_confidence")
+    st.plotly_chart(fig, use_container_width=True, config={'responsive': True}, key="sector_confidence")
     
     st.markdown("---")
     
@@ -562,7 +767,7 @@ def display_visualizations(predictions):
                         title='板块热度分布图')
         
         fig.update_layout(height=400)
-        st.plotly_chart(fig, use_container_width=True, key="sector_heat")
+    st.plotly_chart(fig, use_container_width=True, config={'responsive': True}, key="sector_heat")
 
 
 def display_pdf_export_section(result):
@@ -575,7 +780,7 @@ def display_pdf_export_section(result):
         st.write("将分析报告导出为PDF文件，方便保存和分享")
     
     with col2:
-        if st.button("📥 生成PDF报告", type="primary", use_container_width=True):
+        if st.button("📥 生成PDF报告", type="primary", width='content'):
             with st.spinner("正在生成PDF报告..."):
                 try:
                     # 生成PDF
@@ -600,12 +805,12 @@ def display_pdf_export_section(result):
         # 如果已经生成了PDF，显示下载按钮
         if 'sector_pdf_data' in st.session_state:
             st.download_button(
-                label="💾 下载PDF",
-                data=st.session_state.sector_pdf_data,
-                file_name=st.session_state.sector_pdf_filename,
-                mime="application/pdf",
-                use_container_width=True
-            )
+                        label="💾 下载PDF",
+                        data=st.session_state.sector_pdf_data,
+                        file_name=st.session_state.sector_pdf_filename,
+                        mime="application/pdf",
+                        width='content'
+                    )
 
 
 def display_scheduler_settings():
@@ -653,7 +858,7 @@ def display_scheduler_settings():
             
             with col_a:
                 if not status['running']:
-                    if st.button("▶️ 启动", use_container_width=True, type="primary"):
+                    if st.button("▶️ 启动", width='content', type="primary"):
                         if sector_strategy_scheduler.start(schedule_time_str):
                             st.success(f"✅ 定时任务已启动！每天 {schedule_time_str} 运行")
                             time.sleep(1)
@@ -661,7 +866,7 @@ def display_scheduler_settings():
                         else:
                             st.error("❌ 启动失败")
                 else:
-                    if st.button("⏹️ 停止", use_container_width=True):
+                    if st.button("⏹️ 停止", width='content'):
                         if sector_strategy_scheduler.stop():
                             st.success("✅ 定时任务已停止")
                             time.sleep(1)
@@ -670,13 +875,13 @@ def display_scheduler_settings():
                             st.error("❌ 停止失败")
             
             with col_b:
-                if st.button("🔄 立即运行", use_container_width=True):
+                if st.button("🔄 立即运行", width='content'):
                     with st.spinner("正在运行分析..."):
                         sector_strategy_scheduler.manual_run()
                     st.success("✅ 手动分析完成！")
             
             with col_c:
-                if st.button("📧 测试邮件", use_container_width=True):
+                if st.button("📧 测试邮件", width='content'):
                     test_email_notification()
         
         # 邮件配置检查

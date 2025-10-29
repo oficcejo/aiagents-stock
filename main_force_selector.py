@@ -5,6 +5,7 @@
 使用pywencai获取主力资金净流入前100名股票，并进行智能筛选
 """
 
+from numpy.ma import minimum_fill_value
 import pandas as pd
 import pywencai
 from datetime import datetime, timedelta
@@ -18,13 +19,16 @@ class MainForceStockSelector:
         self.raw_data = None
         self.filtered_stocks = None
     
-    def get_main_force_stocks(self, start_date: str = None, days_ago: int = 90) -> Tuple[bool, pd.DataFrame, str]:
+    def get_main_force_stocks(self, start_date: str = None, days_ago: int = None,
+                             min_market_cap: float = None, max_market_cap: float = None) -> Tuple[bool, pd.DataFrame, str]:
         """
         获取主力资金净流入前100名股票
         
         Args:
             start_date: 开始日期，格式如"2025年10月1日"，如果不提供则使用days_ago
-            days_ago: 距今多少天，默认90天（约3个月）
+            days_ago: 距今多少天
+            min_market_cap: 最小市值限制
+            max_market_cap: 最大市值限制
             
         Returns:
             (success, dataframe, message)
@@ -44,21 +48,21 @@ class MainForceStockSelector:
             # 构建查询语句 - 使用多个备选方案，所有方案都要求计算区间涨跌幅
             queries = [
                 # 方案1: 完整查询（最优）
-                f"{start_date}以来主力资金净流入排名，并计算区间涨跌幅，市值50-5000亿之间，非科创非st，"
+                f"{start_date}以来主力资金净流入排名，并计算区间涨跌幅，市值{min_market_cap}-{max_market_cap}亿之间，非科创非st，"
                 f"所属同花顺行业，总市值，净利润，营收，市盈率，市净率，"
                 f"盈利能力评分，成长能力评分，营运能力评分，偿债能力评分，"
                 f"现金流评分，资产质量评分，流动性评分，资本充足性评分",
                 
                 # 方案2: 简化查询
-                f"{start_date}以来主力资金净流入，并计算区间涨跌幅，市值50-5000亿，非科创非st，"
+                f"{start_date}以来主力资金净流入，并计算区间涨跌幅，市值{min_market_cap}-{max_market_cap}亿，非科创非st，"
                 f"所属同花顺行业，总市值，净利润，营收，市盈率，市净率",
                 
                 # 方案3: 基础查询
-                f"{start_date}以来主力资金净流入排名，并计算区间涨跌幅，市值50-5000亿，非科创非st，"
+                f"{start_date}以来主力资金净流入排名，并计算区间涨跌幅，市值{min_market_cap}-{max_market_cap}亿，非科创非st，"
                 f"所属行业，总市值",
                 
                 # 方案4: 最简查询
-                f"{start_date}以来主力资金净流入前100名，并计算区间涨跌幅，市值50-5000亿，非st非科创板，所属行业，总市值",
+                f"{start_date}以来主力资金净流入前100名，并计算区间涨跌幅，市值{min_market_cap}-{max_market_cap}亿，非st非科创板，所属行业，总市值",
             ]
             
             # 尝试不同的查询方案
@@ -132,17 +136,17 @@ class MainForceStockSelector:
             return None
     
     def filter_stocks(self, df: pd.DataFrame, 
-                     max_range_change: float = 30.0,
-                     min_market_cap: float = 50.0,
-                     max_market_cap: float = 1300.0) -> pd.DataFrame:
+                     max_range_change: float = None,
+                     min_market_cap: float = None,
+                     max_market_cap: float = None) -> pd.DataFrame:
         """
-        智能筛选股票
+        智能筛选股票 - 基于涨跌幅和市值
         
         Args:
-            df: 原始数据
-            max_range_change: 区间涨跌幅上限（%），默认30%
-            min_market_cap: 最小市值（亿），默认50亿
-            max_market_cap: 最大市值（亿），默认1300亿
+            df: 原始股票数据DataFrame
+            max_range_change: 最大涨跌幅限制
+            min_market_cap: 最小市值限制
+            max_market_cap: 最大市值限制
             
         Returns:
             筛选后的DataFrame
@@ -233,13 +237,13 @@ class MainForceStockSelector:
         self.filtered_stocks = filtered_df
         return filtered_df
     
-    def get_top_stocks(self, df: pd.DataFrame, top_n: int = 20) -> pd.DataFrame:
+    def get_top_stocks(self, df: pd.DataFrame, top_n: int = None) -> pd.DataFrame:
         """
-        获取主力资金净流入最多的前N只股票
+        获取主力资金净流入前N名股票
         
         Args:
-            df: 筛选后的数据
-            top_n: 取前N名，默认20
+            df: 筛选后的股票数据
+            top_n: 返回前N名
             
         Returns:
             前N名股票DataFrame

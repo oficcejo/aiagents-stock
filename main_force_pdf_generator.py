@@ -451,6 +451,6 @@ def display_report_download_section(analyzer, result):
             data=csv,
             file_name=csv_filename,
             mime="text/csv",
-            use_container_width=True
+            width='content'
         )
 
