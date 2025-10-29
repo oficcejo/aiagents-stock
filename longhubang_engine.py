@@ -10,6 +10,7 @@ from longhubang_scoring import LonghubangScoring
 from typing import Dict, Any, List
 from datetime import datetime, timedelta
 import time
+import logging
 
 
 class LonghubangEngine:
@@ -27,7 +28,11 @@ class LonghubangEngine:
         self.database = LonghubangDatabase(db_path)
         self.agents = LonghubangAgents(model=model)
         self.scoring = LonghubangScoring()
-        print(f"[智瞰龙虎] 分析引擎初始化完成")
+        # 初始化日志
+        self.logger = logging.getLogger(__name__)
+        if not self.logger.handlers:
+            logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s %(name)s: %(message)s')
+        self.logger.info("[智瞰龙虎] 分析引擎初始化完成")
     
     def run_comprehensive_analysis(self, date=None, days=1) -> Dict[str, Any]:
         """
@@ -40,9 +45,9 @@ class LonghubangEngine:
         Returns:
             完整的分析结果
         """
-        print("\n" + "=" * 60)
-        print("🚀 智瞰龙虎综合分析系统启动")
-        print("=" * 60)
+        self.logger.info("=" * 60)
+        self.logger.info("🚀 智瞰龙虎综合分析系统启动")
+        self.logger.info("=" * 60)
         
         results = {
             "success": False,
@@ -55,8 +60,8 @@ class LonghubangEngine:
         
         try:
             # 阶段1: 获取龙虎榜数据
-            print("\n[阶段1] 获取龙虎榜数据...")
-            print("-" * 60)
+            self.logger.info("[阶段1] 获取龙虎榜数据...")
+            self.logger.info("-" * 60)
             
             if date:
                 data_list = [self.data_fetcher.get_longhubang_data(date)]
@@ -65,21 +70,21 @@ class LonghubangEngine:
                 data_list = self.data_fetcher.get_recent_days_data(days)
             
             if not data_list:
-                print("✗ 未获取到龙虎榜数据")
+                self.logger.error("未获取到龙虎榜数据")
                 results["error"] = "未获取到龙虎榜数据"
                 return results
-            
-            print(f"✓ 成功获取 {len(data_list)} 条龙虎榜记录")
+
+            self.logger.info(f"成功获取 {len(data_list)} 条龙虎榜记录")
             
             # 阶段2: 保存数据到数据库
-            print("\n[阶段2] 保存数据到数据库...")
-            print("-" * 60)
+            self.logger.info("[阶段2] 保存数据到数据库...")
+            self.logger.info("-" * 60)
             saved_count = self.database.save_longhubang_data(data_list)
-            print(f"✓ 保存 {saved_count} 条记录")
+            self.logger.info(f"保存 {saved_count} 条记录")
             
             # 阶段3: 数据分析和统计
-            print("\n[阶段3] 数据分析和统计...")
-            print("-" * 60)
+            self.logger.info("[阶段3] 数据分析和统计...")
+            self.logger.info("-" * 60)
             summary = self.data_fetcher.analyze_data_summary(data_list)
             formatted_data = self.data_fetcher.format_data_for_ai(data_list, summary)
             
@@ -89,83 +94,86 @@ class LonghubangEngine:
                 "total_youzi": summary.get('total_youzi', 0),
                 "summary": summary
             }
-            print(f"✓ 数据统计完成")
+            self.logger.info("数据统计完成")
             
             # 阶段3.5: AI智能评分排名
-            print("\n[阶段3.5] AI智能评分排名...")
-            print("-" * 60)
+            self.logger.info("[阶段3.5] AI智能评分排名...")
+            self.logger.info("-" * 60)
             scoring_df = self.scoring.score_all_stocks(data_list)
-            results["scoring_ranking"] = scoring_df
-            print(f"✓ 完成 {len(scoring_df)} 只股票的智能评分排名")
+            # 转换为可序列化格式以避免UI/存储类型问题
+            scoring_ranking_data: List[Dict[str, Any]] = []
+            try:
+                if scoring_df is not None and hasattr(scoring_df, 'to_dict'):
+                    scoring_ranking_data = scoring_df.to_dict('records')
+                    self.logger.info(f"完成 {len(scoring_ranking_data)} 只股票的智能评分排名")
+                else:
+                    self.logger.warning("评分结果为空或格式不支持转换")
+            except Exception as e:
+                self.logger.exception(f"评分排名数据转换失败: {e}", exc_info=True)
+                scoring_ranking_data = []
+            results["scoring_ranking"] = scoring_ranking_data
             
             # 阶段4: AI分析师团队分析
-            print("\n[阶段4] AI分析师团队工作中...")
-            print("-" * 60)
+            self.logger.info("[阶段4] AI分析师团队工作中...")
+            self.logger.info("-" * 60)
             
             agents_results = {}
             
             # 1. 游资行为分析师
-            print("1/5 游资行为分析师...")
+            self.logger.info("1/5 游资行为分析师...")
             youzi_result = self.agents.youzi_behavior_analyst(formatted_data, summary)
             agents_results["youzi"] = youzi_result
             
             # 2. 个股潜力分析师
-            print("2/5 个股潜力分析师...")
+            self.logger.info("2/5 个股潜力分析师...")
             stock_result = self.agents.stock_potential_analyst(formatted_data, summary)
             agents_results["stock"] = stock_result
             
             # 3. 题材追踪分析师
-            print("3/5 题材追踪分析师...")
+            self.logger.info("3/5 题材追踪分析师...")
             theme_result = self.agents.theme_tracker_analyst(formatted_data, summary)
             agents_results["theme"] = theme_result
             
             # 4. 风险控制专家
-            print("4/5 风险控制专家...")
+            self.logger.info("4/5 风险控制专家...")
             risk_result = self.agents.risk_control_specialist(formatted_data, summary)
             agents_results["risk"] = risk_result
             
             # 5. 首席策略师综合
-            print("5/5 首席策略师综合分析...")
+            self.logger.info("5/5 首席策略师综合分析...")
             all_analyses = [youzi_result, stock_result, theme_result, risk_result]
             chief_result = self.agents.chief_strategist(all_analyses)
             agents_results["chief"] = chief_result
             
             results["agents_analysis"] = agents_results
-            print("\n✓ 所有AI分析师分析完成")
+            self.logger.info("所有AI分析师分析完成")
             
             # 阶段5: 提取推荐股票
-            print("\n[阶段5] 提取推荐股票...")
-            print("-" * 60)
+            self.logger.info("[阶段5] 提取推荐股票...")
+            self.logger.info("-" * 60)
             recommended_stocks = self._extract_recommended_stocks(
                 chief_result.get('analysis', ''),
                 stock_result.get('analysis', ''),
                 summary
             )
             results["recommended_stocks"] = recommended_stocks
-            print(f"✓ 提取 {len(recommended_stocks)} 只推荐股票")
+            self.logger.info(f"提取 {len(recommended_stocks)} 只推荐股票")
             
             # 阶段6: 生成最终报告
-            print("\n[阶段6] 生成最终报告...")
-            print("-" * 60)
+            self.logger.info("[阶段6] 生成最终报告...")
+            self.logger.info("-" * 60)
             final_report = self._generate_final_report(agents_results, summary, recommended_stocks)
             results["final_report"] = final_report
-            print("✓ 最终报告生成完成")
+            self.logger.info("最终报告生成完成")
             
             # 阶段7: 保存完整分析报告到数据库
-            print("\n[阶段7] 保存完整分析报告...")
-            print("-" * 60)
+            self.logger.info("[阶段7] 保存完整分析报告...")
+            self.logger.info("-" * 60)
             data_date_range = self._get_date_range(data_list)
             
             # 转换评分排名数据为可序列化格式
-            scoring_ranking_data = []
-            if scoring_df is not None and hasattr(scoring_df, 'to_dict'):
-                try:
-                    # 转换DataFrame为字典列表，确保所有数据都被序列化
-                    scoring_ranking_data = scoring_df.to_dict('records')
-                    print(f"✓ 评分排名数据已转换: {len(scoring_ranking_data)} 条记录")
-                except Exception as e:
-                    print(f"⚠ 评分排名数据转换失败: {e}")
-                    scoring_ranking_data = []
+            # 复用前面转换的评分数据
+            # 若前面转换失败，此处不再重复转换，避免错误
             
             # 构建完整的分析内容（结构化）
             full_analysis_content = {
@@ -184,20 +192,18 @@ class LonghubangEngine:
                 full_result=results  # 传入完整结果
             )
             results["report_id"] = report_id
-            print(f"✓ 完整报告已保存 (ID: {report_id})")
+            self.logger.info(f"完整报告已保存 (ID: {report_id})")
             
             results["success"] = True
             
-            print("\n" + "=" * 60)
-            print("✓ 智瞰龙虎综合分析完成！")
-            print("=" * 60)
+            self.logger.info("=" * 60)
+            self.logger.info("✓ 智瞰龙虎综合分析完成！")
+            self.logger.info("=" * 60)
             
         except Exception as e:
-            print(f"\n✗ 分析过程出错: {e}")
-            import traceback
-            traceback.print_exc()
+            self.logger.exception(f"分析过程出错: {e}", exc_info=True)
             results["error"] = str(e)
-        
+
         return results
     
     def _extract_recommended_stocks(self, chief_analysis: str, stock_analysis: str, summary: Dict) -> List[Dict]:

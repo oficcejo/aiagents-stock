@@ -36,7 +36,7 @@ class FundFlowAkshareDataFetcher:
     """资金流向数据获取类（使用akshare数据源）"""
     
     def __init__(self):
-        self.days = 20  # 获取最近20个交易日
+        self.days = 30  # 获取最近30个交易日
         self.available = True
         print("[OK] 资金流向数据获取器初始化成功（akshare数据源）")
     
@@ -259,7 +259,7 @@ class FundFlowAkshareDataFetcher:
             # 添加统计汇总
             text_parts.append("""
 ═══════════════════════════════════════
-[统计汇总 - 最近20个交易日]
+[统计汇总 - 最近30个交易日]
 ═══════════════════════════════════════
 """)
             

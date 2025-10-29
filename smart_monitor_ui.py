@@ -354,7 +354,7 @@ def render_monitor_tasks():
                 notify_email = st.text_input("通知邮箱（可选）")
             
             # 添加任务按钮（表单提交按钮）
-            submitted = st.form_submit_button("➕ 添加任务", type="primary", use_container_width=True)
+            submitted = st.form_submit_button("➕ 添加任务", type="primary", width='stretch')
         
         if submitted:
             # 验证必填项（form中直接使用局部变量）
@@ -564,7 +564,7 @@ def render_position_management():
             "profit_loss_pct": "盈亏%"
         },
         hide_index=True,
-        use_container_width=True
+        width='stretch'
     )
     
     # 单只股票操作
@@ -652,7 +652,7 @@ def render_history():
                     "profit_loss": "盈亏"
                 },
                 hide_index=True,
-                use_container_width=True
+                width='stretch'
             )
     
     # 通知记录
@@ -801,7 +801,7 @@ def _render_task_kline_and_decisions(task: Dict, db: SmartMonitorDB, engine):
                 )
                 
                 # 显示图表
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True, config={'responsive': True})
                 
                 st.caption(f"📅 数据时间范围：{kline_data['日期'].min()} ~ {kline_data['日期'].max()}")
             else:

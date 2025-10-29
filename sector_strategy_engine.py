@@ -4,10 +4,13 @@
 """
 
 from sector_strategy_agents import SectorStrategyAgents
+from sector_strategy_db import SectorStrategyDatabase
 from deepseek_client import DeepSeekClient
 from typing import Dict, Any
 import time
 import json
+import pandas as pd
+import logging
 
 
 class SectorStrategyEngine:
@@ -17,7 +20,80 @@ class SectorStrategyEngine:
         self.model = model
         self.agents = SectorStrategyAgents(model=model)
         self.deepseek_client = DeepSeekClient(model=model)
+        self.database = SectorStrategyDatabase()
+        self.logger = logging.getLogger(__name__)
+        if not self.logger.handlers:
+            logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s %(name)s: %(message)s')
         print(f"[智策引擎] 初始化完成 (模型: {model})")
+    
+    def save_raw_data_with_fallback(self, data_type, data_df, data_date=None):
+        """
+        保存原始数据，支持失败回退机制
+        
+        Args:
+            data_type: 数据类型
+            data_df: 数据DataFrame
+            data_date: 数据日期，默认为今天
+            
+        Returns:
+            tuple: (success, version, message)
+        """
+        if data_date is None:
+            data_date = time.strftime("%Y-%m-%d")
+        
+        try:
+            is_empty = False
+            if data_df is None:
+                is_empty = True
+            elif hasattr(data_df, 'empty'):
+                is_empty = data_df.empty
+            elif isinstance(data_df, (list, tuple, set, dict)):
+                is_empty = len(data_df) == 0
+            if is_empty:
+                self.logger.warning(f"[智策引擎] {data_type}数据为空，跳过保存")
+                return False, None, "数据为空"
+            
+            version = self.database.save_raw_data(data_date, data_type, data_df)
+            return True, version, f"保存成功，版本: {version}"
+            
+        except Exception as e:
+            self.logger.error(f"[智策引擎] 保存{data_type}数据失败: {e}")
+            return False, None, str(e)
+    
+    def get_data_with_fallback(self, data_type, data_date=None):
+        """
+        获取数据，支持失败时回退到历史数据
+        
+        Args:
+            data_type: 数据类型
+            data_date: 数据日期，默认为今天
+            
+        Returns:
+            tuple: (data_df, is_fallback, message)
+        """
+        if data_date is None:
+            data_date = time.strftime("%Y-%m-%d")
+        
+        try:
+            # 尝试获取指定日期的数据
+            data_df = self.database.get_latest_data(data_type, data_date)
+            
+            if not data_df.empty:
+                return data_df, False, f"获取{data_date}数据成功"
+            
+            # 如果指定日期没有数据，获取最新的历史数据
+            self.logger.warning(f"[智策引擎] {data_date}的{data_type}数据不存在，尝试获取历史数据")
+            data_df = self.database.get_latest_data(data_type)
+            
+            if not data_df.empty:
+                fallback_date = data_df.iloc[0].get('data_date', '未知日期')
+                return data_df, True, f"回退到{fallback_date}的历史数据"
+            else:
+                return pd.DataFrame(), True, "无可用的历史数据"
+                
+        except Exception as e:
+            self.logger.error(f"[智策引擎] 获取{data_type}数据失败: {e}")
+            return pd.DataFrame(), True, str(e)
     
     def run_comprehensive_analysis(self, data: Dict) -> Dict[str, Any]:
         """
@@ -101,6 +177,24 @@ class SectorStrategyEngine:
             print("✓ 预测生成完成")
             
             results["success"] = True
+            
+            # 4. 保存分析报告
+            print("\n[阶段4] 保存分析报告...")
+            print("-" * 60)
+            try:
+                report_id = self.save_analysis_report(results, data)
+                results["report_id"] = report_id
+                print(f"✓ 分析报告已保存 (ID: {report_id})")
+                # 保存后读取报告详情并回传到结果，用于主页面动态渲染
+                try:
+                    saved_report = self.database.get_analysis_report(report_id)
+                    if saved_report:
+                        results["saved_report"] = saved_report
+                except Exception as fetch_e:
+                    self.logger.warning(f"[智策引擎] 获取保存报告详情失败: {fetch_e}")
+            except Exception as e:
+                print(f"⚠ 保存分析报告失败: {e}")
+                self.logger.error(f"[智策引擎] 保存分析报告失败: {e}")
             
             print("\n" + "=" * 60)
             print("✓ 智策综合分析完成！")
@@ -320,6 +414,155 @@ class SectorStrategyEngine:
         except Exception as e:
             print(f"  ⚠ JSON解析失败: {e}，返回文本格式")
             return {"prediction_text": response}
+    
+    def save_analysis_report(self, results: Dict, original_data: Dict) -> int:
+        """
+        保存分析报告到数据库
+        
+        Args:
+            results: 分析结果
+            original_data: 原始数据
+            
+        Returns:
+            int: 报告ID
+        """
+        try:
+            # 提取数据日期范围
+            data_date_range = f"{time.strftime('%Y-%m-%d')} 数据分析"
+            
+            # 提取推荐板块
+            recommended_sectors = []
+            predictions = results.get("final_predictions", {})
+            
+            if isinstance(predictions, dict):
+                # 从预测结果中提取推荐板块
+                hot_sectors = predictions.get("hot_sectors", [])
+                rotation_sectors = predictions.get("rotation_opportunities", [])
+                
+                for sector in hot_sectors[:5]:  # 取前5个热门板块
+                    if isinstance(sector, dict):
+                        recommended_sectors.append({
+                            "sector_name": sector.get("name", ""),
+                            "reason": sector.get("reason", ""),
+                            "confidence": sector.get("confidence", ""),
+                            "type": "热门板块"
+                        })
+                
+                for sector in rotation_sectors[:3]:  # 取前3个轮动机会
+                    if isinstance(sector, dict):
+                        recommended_sectors.append({
+                            "sector_name": sector.get("name", ""),
+                            "reason": sector.get("reason", ""),
+                            "confidence": sector.get("confidence", ""),
+                            "type": "轮动机会"
+                        })
+            
+            # 生成摘要
+            summary = self._generate_report_summary(results)
+            
+            # 提取其他信息
+            confidence_score = self._extract_confidence_score(results)
+            risk_level = self._extract_risk_level(results)
+            investment_horizon = self._extract_investment_horizon(results)
+            market_outlook = self._extract_market_outlook(results)
+            
+            # 保存到数据库
+            report_id = self.database.save_analysis_report(
+                data_date_range=data_date_range,
+                analysis_content=results,
+                recommended_sectors=recommended_sectors,
+                summary=summary,
+                confidence_score=confidence_score,
+                risk_level=risk_level,
+                investment_horizon=investment_horizon,
+                market_outlook=market_outlook
+            )
+            
+            return report_id
+            
+        except Exception as e:
+            self.logger.error(f"[智策引擎] 保存分析报告失败: {e}")
+            raise
+    
+    def _generate_report_summary(self, results: Dict) -> str:
+        """生成报告摘要"""
+        try:
+            predictions = results.get("final_predictions", {})
+            if isinstance(predictions, dict):
+                # 从summary中提取市场趋势信息
+                summary_info = predictions.get("summary", {})
+                market_trend = summary_info.get("market_view", "") if isinstance(summary_info, dict) else ""
+                
+                # 从long_short.bullish中计算热门板块数量
+                long_short_info = predictions.get("long_short", {})
+                bullish_sectors = long_short_info.get("bullish", []) if isinstance(long_short_info, dict) else []
+                hot_sectors_count = len(bullish_sectors)
+                
+                # 如果有看多板块信息，则添加到摘要中
+                if bullish_sectors and isinstance(bullish_sectors, list):
+                    # 提取前3个看多板块名称
+                    bullish_names = [sector.get("sector", "") for sector in bullish_sectors[:3] if isinstance(sector, dict)]
+                    if bullish_names:
+                        bullish_text = "，".join(bullish_names)
+                        return f"市场趋势: {market_trend}，识别{hot_sectors_count}个热门板块机会，看多板块: {bullish_text}"
+                
+                return f"市场趋势: {market_trend}，识别{hot_sectors_count}个热门板块机会"
+            else:
+                return "智策板块分析报告"
+        except:
+            return "智策板块分析报告"
+    
+    def _extract_confidence_score(self, results: Dict) -> float:
+        """提取置信度分数"""
+        try:
+            predictions = results.get("final_predictions", {})
+            if isinstance(predictions, dict):
+                return predictions.get("confidence_score", 0.75)
+            return 0.75
+        except:
+            return 0.75
+    
+    def _extract_risk_level(self, results: Dict) -> str:
+        """提取风险等级"""
+        try:
+            predictions = results.get("final_predictions", {})
+            if isinstance(predictions, dict):
+                return predictions.get("risk_level", "中等")
+            return "中等"
+        except:
+            return "中等"
+    
+    def _extract_investment_horizon(self, results: Dict) -> str:
+        """提取投资周期"""
+        try:
+            predictions = results.get("final_predictions", {})
+            if isinstance(predictions, dict):
+                return predictions.get("investment_horizon", "短期")
+            return "短期"
+        except:
+            return "短期"
+    
+    def _extract_market_outlook(self, results: Dict) -> str:
+        """提取市场展望"""
+        try:
+            predictions = results.get("final_predictions", {})
+            if isinstance(predictions, dict):
+                return predictions.get("market_outlook", "谨慎乐观")
+            return "谨慎乐观"
+        except:
+            return "谨慎乐观"
+    
+    def get_historical_reports(self, limit=10):
+        """获取历史报告"""
+        return self.database.get_analysis_reports(limit)
+    
+    def get_report_detail(self, report_id):
+        """获取报告详情"""
+        return self.database.get_analysis_report(report_id)
+    
+    def delete_report(self, report_id):
+        """删除报告"""
+        return self.database.delete_analysis_report(report_id)
 
 
 # 测试函数

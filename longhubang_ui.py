@@ -146,10 +146,10 @@ def display_analysis_tab():
     col1, col2, col3 = st.columns([2, 2, 2])
     
     with col1:
-        analyze_button = st.button("🚀 开始分析", type="primary", use_container_width=True)
+        analyze_button = st.button("🚀 开始分析", type="primary", width='stretch')
     
     with col2:
-        if st.button("🔄 清除结果", use_container_width=True):
+        if st.button("🔄 清除结果", width='stretch'):
             if 'longhubang_result' in st.session_state:
                 del st.session_state.longhubang_result
             st.success("已清除分析结果")
@@ -335,13 +335,29 @@ def display_scoring_ranking(result):
     # 显示TOP10评分表格
     st.markdown("### 🥇 TOP10 综合评分排名")
     
+    # 兼容历史数据与类型统一，避免 Arrow 序列化错误
+    if isinstance(scoring_df, list):
+        scoring_df = pd.DataFrame(scoring_df)
+
+    numeric_cols = ['排名','综合评分','资金含金量','净买入额','卖出压力','机构共振','加分项','顶级游资','买方数','净流入']
+    for col in numeric_cols:
+        if col in scoring_df.columns:
+            scoring_df[col] = pd.to_numeric(scoring_df[col], errors='coerce')
+
+    text_cols = ['股票名称','股票代码','机构参与']
+    for col in text_cols:
+        if col in scoring_df.columns:
+            scoring_df[col] = scoring_df[col].astype(str)
+
     top10_df = scoring_df.head(10).copy()
+    if '排名' in top10_df.columns:
+        top10_df['排名'] = pd.to_numeric(top10_df['排名'], errors='coerce').fillna(0).astype(int)
     
     # 格式化显示
     st.dataframe(
         top10_df,
         column_config={
-            "排名": st.column_config.TextColumn("排名", width="small"),
+            "排名": st.column_config.NumberColumn("排名", format="%d", width="small"),
             "股票名称": st.column_config.TextColumn("股票名称", width="medium"),
             "股票代码": st.column_config.TextColumn("代码", width="small"),
             "综合评分": st.column_config.NumberColumn(
@@ -385,7 +401,7 @@ def display_scoring_ranking(result):
             "净流入": st.column_config.NumberColumn("净流入(元)", format="%.2f")
         },
         hide_index=True,
-        use_container_width=True
+        width='stretch'
     )
     
     # 一键批量分析功能
@@ -401,12 +417,15 @@ def display_scoring_ranking(result):
             "分析数量",
             options=[3, 5, 10],
             index=0,
-            help="选择分析前N只股票"
+            help="选择分析前N只股票",
+            key="batch_count_selector"
         )
+        # 同步更新session_state中的batch_count
+        st.session_state.batch_count = batch_count
     
     with col_batch3:
         st.write("")  # 占位
-        if st.button("🚀 开始批量分析", type="primary", use_container_width=True):
+        if st.button("🚀 开始批量分析", type="primary", width='stretch'):
             # 提取股票代码
             stock_codes = top10_df.head(batch_count)['股票代码'].tolist()
             
@@ -439,25 +458,35 @@ def display_scoring_ranking(result):
             showlegend=False,
             height=400
         )
-        st.plotly_chart(fig1, use_container_width=True)
+        st.plotly_chart(fig1, config={'displayModeBar': False}, use_container_width=True)
     
     with col2:
-        # 五维评分雷达图（显示第一名）
+        # 五维评分雷达图（显示批量分析数量的股票）
         if len(top10_df) > 0:
-            first_place = top10_df.iloc[0]
+            display_count = min(5, len(top10_df))
             
-            fig2 = go.Figure(data=go.Scatterpolar(
-                r=[
-                    first_place['资金含金量'] / 30 * 100,
-                    first_place['净买入额'] / 25 * 100,
-                    first_place['卖出压力'] / 20 * 100,
-                    first_place['机构共振'] / 15 * 100,
-                    first_place['加分项'] / 10 * 100
-                ],
-                theta=['资金含金量', '净买入额', '卖出压力', '机构共振', '加分项'],
-                fill='toself',
-                name=first_place['股票名称']
-            ))
+            fig2 = go.Figure()
+            
+            # 为每只股票添加雷达图
+            colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7']
+            for i in range(display_count):
+                stock = top10_df.iloc[i]
+                
+                fig2.add_trace(go.Scatterpolar(
+                    r=[
+                        stock['资金含金量'] / 30 * 100,
+                        stock['净买入额'] / 25 * 100,
+                        stock['卖出压力'] / 20 * 100,
+                        stock['机构共振'] / 15 * 100,
+                        stock['加分项'] / 10 * 100
+                    ],
+                    theta=['资金含金量', '净买入额', '卖出压力', '机构共振', '加分项'],
+                    fill='toself',
+                    name=f"{stock['股票名称']}",
+                    line_color=colors[i % len(colors)],
+                    fillcolor=colors[i % len(colors)],
+                    opacity=0.6
+                ))
             
             fig2.update_layout(
                 polar=dict(
@@ -467,10 +496,17 @@ def display_scoring_ranking(result):
                     )
                 ),
                 showlegend=True,
-                title=f"🥇 {first_place['股票名称']} 五维评分",
-                height=400
+                title=f"🏆 TOP{display_count} 五维评分对比",
+                height=400,
+                legend=dict(
+                    orientation="h",
+                    yanchor="auto",
+                    y=-0.2,
+                    xanchor="center",
+                    x=0.5
+                )
             )
-            st.plotly_chart(fig2, use_container_width=True)
+            st.plotly_chart(fig2, config={'displayModeBar': False}, use_container_width=True)
     
     st.markdown("---")
     
@@ -480,7 +516,7 @@ def display_scoring_ranking(result):
     st.dataframe(
         scoring_df,
         column_config={
-            "排名": st.column_config.TextColumn("排名", width="small"),
+            "排名": st.column_config.NumberColumn("排名", format="%d", width="small"),
             "股票名称": st.column_config.TextColumn("股票名称"),
             "股票代码": st.column_config.TextColumn("代码"),
             "综合评分": st.column_config.NumberColumn("综合评分", format="%.1f"),
@@ -490,7 +526,7 @@ def display_scoring_ranking(result):
             "净流入": st.column_config.NumberColumn("净流入(元)", format="%.2f")
         },
         hide_index=True,
-        use_container_width=True
+        width='stretch'
     )
 
 
@@ -523,7 +559,7 @@ def display_recommended_stocks(result):
             "reason": st.column_config.TextColumn("推荐理由")
         },
         hide_index=True,
-        use_container_width=True
+        width='stretch'
     )
     
     # 详细推荐理由
@@ -599,7 +635,7 @@ def display_data_details(result):
                 "净流入金额": st.column_config.NumberColumn("净流入金额(元)", format="%.2f")
             },
             hide_index=True,
-            use_container_width=True
+            width='stretch'
         )
     
     # TOP股票
@@ -616,7 +652,7 @@ def display_data_details(result):
                 "net_inflow": st.column_config.NumberColumn("净流入金额(元)", format="%.2f")
             },
             hide_index=True,
-            use_container_width=True
+            width='stretch'
         )
     
     # 热门概念
@@ -637,7 +673,7 @@ def display_data_details(result):
                 "出现次数": st.column_config.NumberColumn("出现次数", format="%d")
             },
             hide_index=True,
-            use_container_width=True
+            width='stretch'
         )
 
 
@@ -664,7 +700,7 @@ def display_visualizations(result):
             labels={'name': '股票名称', 'net_inflow': '净流入金额(元)'}
         )
         fig.update_layout(xaxis_tickangle=-45)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, config={'displayModeBar': False}, use_container_width=True)
     
     # 热门概念图表
     if summary.get('hot_concepts'):
@@ -679,7 +715,7 @@ def display_visualizations(result):
             names='概念',
             title='热门概念出现次数分布'
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, config={'displayModeBar': False}, use_container_width=True)
 
 
 def display_pdf_export_section(result):
@@ -693,7 +729,7 @@ def display_pdf_export_section(result):
         st.info("💡 点击按钮生成并下载专业的PDF分析报告")
     
     with col2:
-        if st.button("📥 生成PDF", type="primary", use_container_width=True):
+        if st.button("📥 生成PDF", type="primary", width='stretch'):
             with st.spinner("正在生成PDF报告..."):
                 try:
                     generator = LonghubangPDFGenerator()
@@ -709,7 +745,7 @@ def display_pdf_export_section(result):
                         data=pdf_bytes,
                         file_name=f"智瞰龙虎报告_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
                         mime="application/pdf",
-                        use_container_width=True
+                        width='stretch'
                     )
                     
                     st.success("✅ PDF报告生成成功！")
@@ -780,7 +816,7 @@ def display_history_tab():
                             "hold_period": st.column_config.TextColumn("持有周期")
                         },
                         hide_index=True,
-                        use_container_width=True
+                        width='stretch'
                     )
                 
                 st.markdown("---")
@@ -818,6 +854,17 @@ def display_history_tab():
                         st.markdown("#### 🏆 AI智能评分排名 (TOP10)")
                         
                         df_scoring = pd.DataFrame(scoring_ranking[:10])
+                        # 类型统一，避免Arrow序列化错误
+                        numeric_cols = ['排名','综合评分','资金含金量','净买入额','卖出压力','机构共振','加分项','顶级游资','买方数','净流入']
+                        for col in numeric_cols:
+                            if col in df_scoring.columns:
+                                df_scoring[col] = pd.to_numeric(df_scoring[col], errors='coerce')
+                        text_cols = ['股票名称','股票代码','机构参与']
+                        for col in text_cols:
+                            if col in df_scoring.columns:
+                                df_scoring[col] = df_scoring[col].astype(str)
+                        if '排名' in df_scoring.columns:
+                            df_scoring['排名'] = pd.to_numeric(df_scoring['排名'], errors='coerce').fillna(0).astype(int)
                         
                         # 显示完整的评分表格
                         st.dataframe(
@@ -867,7 +914,7 @@ def display_history_tab():
                                 "净流入": st.column_config.NumberColumn("净流入(元)", format="%.2f")
                             },
                             hide_index=True,
-                            use_container_width=True
+                            width='stretch'
                         )
                         
                         # 显示评分说明
@@ -903,34 +950,88 @@ def display_history_tab():
                     st.markdown("#### 📄 原始分析内容")
                     analysis_content = report_detail.get('analysis_content', '')
                     if analysis_content:
-                        st.text_area("", value=analysis_content[:2000], height=200, disabled=True)
+                        st.text_area("原始分析内容", value=analysis_content[:2000], height=200, disabled=True)
                         if len(analysis_content) > 2000:
                             st.caption("(内容过长，仅显示前2000字符)")
                 
-                # 导出按钮
+                # 操作按钮
                 st.markdown("---")
-                col_export1, col_export2 = st.columns(2)
+                col_export1, col_export2, col_export3 = st.columns(3)
                 
                 with col_export1:
                     if st.button(f"📥 导出为PDF", key=f"export_pdf_{report_id}"):
                         st.info("PDF导出功能开发中...")
                 
                 with col_export2:
-                    if st.button(f"📋 加载到分析页", key=f"load_report_{report_id}"):
+                    # 使用session_state来管理按钮状态，避免需要点击两次的问题
+                    load_key = f"load_report_{report_id}"
+                    if st.button(f"📋 加载到分析页", key=load_key):
                         # 将历史报告加载到当前分析结果中
                         if analysis_content_parsed:
                             # 重建完整的result结构
+                            scoring_data = analysis_content_parsed.get('scoring_ranking', [])
+                            if scoring_data:
+                                df_scoring = pd.DataFrame(scoring_data)
+                                # 类型统一，避免Arrow序列化错误
+                                numeric_cols = ['排名','综合评分','资金含金量','净买入额','卖出压力','机构共振','加分项','顶级游资','买方数','净流入']
+                                for col in numeric_cols:
+                                    if col in df_scoring.columns:
+                                        df_scoring[col] = pd.to_numeric(df_scoring[col], errors='coerce')
+                                text_cols = ['股票名称','股票代码','机构参与']
+                                for col in text_cols:
+                                    if col in df_scoring.columns:
+                                        df_scoring[col] = df_scoring[col].astype(str)
+                                if '排名' in df_scoring.columns:
+                                    df_scoring['排名'] = pd.to_numeric(df_scoring['排名'], errors='coerce').fillna(0).astype(int)
+                            else:
+                                df_scoring = None
+                                
                             loaded_result = {
                                 "success": True,
                                 "timestamp": report_detail.get('analysis_date', ''),
                                 "data_info": analysis_content_parsed.get('data_info', {}),
                                 "agents_analysis": analysis_content_parsed.get('agents_analysis', {}),
-                                "scoring_ranking": pd.DataFrame(analysis_content_parsed.get('scoring_ranking', [])) if analysis_content_parsed.get('scoring_ranking') else None,
+                                "scoring_ranking": df_scoring,
                                 "final_report": analysis_content_parsed.get('final_report', {}),
                                 "recommended_stocks": report_detail.get('recommended_stocks', [])
                             }
                             st.session_state.longhubang_result = loaded_result
+                            # 使用rerun来立即刷新页面状态
                             st.success('✅ 报告已加载到分析页面，请切换到"龙虎榜分析"标签查看')
+                            st.rerun()
+                
+                with col_export3:
+                    # 删除按钮
+                    delete_key = f"delete_report_{report_id}"
+                    if st.button(f"🗑️ 删除报告", key=delete_key, type="secondary"):
+                        # 使用session_state来管理删除确认状态
+                        st.session_state[f"confirm_delete_{report_id}"] = True
+                        st.rerun()
+                
+                # 删除确认对话框
+                if st.session_state.get(f"confirm_delete_{report_id}", False):
+                    st.warning(f"⚠️ 确认删除报告 #{report_id}？此操作不可撤销！")
+                    col_confirm1, col_confirm2 = st.columns(2)
+                    
+                    with col_confirm1:
+                        if st.button(f"✅ 确认删除", key=f"confirm_delete_yes_{report_id}", type="primary"):
+                            try:
+                                # 调用数据库删除方法 - 修复属性名
+                                engine.database.delete_analysis_report(report_id)
+                                st.success(f"✅ 报告 #{report_id} 已成功删除")
+                                # 清除确认状态并刷新页面
+                                if f"confirm_delete_{report_id}" in st.session_state:
+                                    del st.session_state[f"confirm_delete_{report_id}"]
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"❌ 删除失败: {str(e)}")
+                    
+                    with col_confirm2:
+                        if st.button(f"❌ 取消", key=f"confirm_delete_no_{report_id}"):
+                            # 清除确认状态
+                            if f"confirm_delete_{report_id}" in st.session_state:
+                                del st.session_state[f"confirm_delete_{report_id}"]
+                            st.rerun()
         
     except Exception as e:
         st.error(f"❌ 加载历史报告失败: {str(e)}")
@@ -986,7 +1087,7 @@ def display_statistics_tab():
                     "total_net_inflow": st.column_config.NumberColumn("总净流入(元)", format="%.2f")
                 },
                 hide_index=True,
-                use_container_width=True
+                width='stretch'
             )
         
         st.markdown("---")
@@ -1006,7 +1107,7 @@ def display_statistics_tab():
                     "total_net_inflow": st.column_config.NumberColumn("总净流入(元)", format="%.2f")
                 },
                 hide_index=True,
-                use_container_width=True
+                width='stretch'
             )
         
     except Exception as e:
@@ -1026,7 +1127,7 @@ def run_longhubang_batch_analysis():
         # 返回按钮
         col_back, col_clear = st.columns(2)
         with col_back:
-            if st.button("🔙 返回龙虎榜分析", use_container_width=True):
+            if st.button("🔙 返回龙虎榜分析", width='stretch'):
                 # 清除所有批量分析相关状态
                 if 'longhubang_batch_trigger' in st.session_state:
                     del st.session_state.longhubang_batch_trigger
@@ -1037,7 +1138,7 @@ def run_longhubang_batch_analysis():
                 st.rerun()
         
         with col_clear:
-            if st.button("🔄 重新分析", use_container_width=True):
+            if st.button("🔄 重新分析", width='stretch'):
                 # 清除结果，保留触发标志和代码
                 if 'longhubang_batch_results' in st.session_state:
                     del st.session_state.longhubang_batch_results
@@ -1098,11 +1199,11 @@ def run_longhubang_batch_analysis():
     
     start_analysis = False
     with col_confirm:
-        if st.button("🚀 确认开始分析", type="primary", use_container_width=True):
+        if st.button("🚀 确认开始分析", type="primary", width='stretch'):
             start_analysis = True
     
     with col_cancel:
-        if st.button("❌ 取消", type="secondary", use_container_width=True):
+        if st.button("❌ 取消", type="secondary", width='stretch'):
             # 清除所有批量分析相关状态
             if 'longhubang_batch_trigger' in st.session_state:
                 del st.session_state.longhubang_batch_trigger

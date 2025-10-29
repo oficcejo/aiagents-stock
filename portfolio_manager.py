@@ -418,7 +418,18 @@ class PortfolioManager:
             
             # 使用正确的字段名
             rating = final_decision.get("rating", "持有")
-            confidence = final_decision.get("confidence_level", 5.0)
+            # 确保信心度为float类型，避免Arrow序列化错误
+            confidence_raw = final_decision.get("confidence_level", 5.0)
+            try:
+                confidence = float(confidence_raw)
+                # 确保信心度在合理范围内
+                if confidence < 0:
+                    confidence = 0.0
+                elif confidence > 10:
+                    confidence = 10.0
+            except (ValueError, TypeError):
+                # 如果转换失败，使用默认值
+                confidence = 5.0
             current_price = stock_info.get("current_price", 0.0)
             target_price_str = final_decision.get("target_price", "")
             entry_range = final_decision.get("entry_range", "")

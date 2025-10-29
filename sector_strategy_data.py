@@ -8,6 +8,13 @@ import pandas as pd
 from datetime import datetime, timedelta
 import warnings
 import time
+import logging
+import os
+from dotenv import load_dotenv
+from sector_strategy_db import SectorStrategyDatabase
+
+# 加载环境变量
+load_dotenv()
 
 warnings.filterwarnings('ignore')
 
@@ -20,6 +27,18 @@ class SectorStrategyDataFetcher:
         self.max_retries = 3  # 最大重试次数
         self.retry_delay = 2  # 重试延迟（秒）
         self.request_delay = 1  # 请求间隔（秒）
+        
+        # 初始化数据库和日志
+        self.database = SectorStrategyDatabase()
+        self.logger = logging.getLogger(__name__)
+        
+        # 配置日志
+        if not self.logger.handlers:
+            handler = logging.StreamHandler()
+            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+            handler.setFormatter(formatter)
+            self.logger.addHandler(handler)
+            self.logger.setLevel(logging.INFO)
     
     def _safe_request(self, func, *args, **kwargs):
         """安全的请求函数，包含重试机制"""
@@ -101,6 +120,9 @@ class SectorStrategyDataFetcher:
             
             data["success"] = True
             print("[智策] ✓ 板块数据获取完成！")
+            
+            # 保存原始数据到数据库
+            self._save_raw_data_to_db(data)
             
         except Exception as e:
             print(f"[智策] ✗ 数据获取出错: {e}")
@@ -276,39 +298,111 @@ class SectorStrategyDataFetcher:
             return {}
     
     def _get_north_money_flow(self):
-        """获取北向资金流向"""
+        """获取北向资金流向（优先使用Tushare，失败时使用Akshare）"""
+        # 优先使用Tushare获取沪深港通资金流向
+        self.ts_pro = None
+        tushare_token = os.getenv('TUSHARE_TOKEN', '')
         try:
-            # 获取沪深港通资金流向（使用重试机制）
+            # 初始化Tushare（如果尚未初始化）
+            if not hasattr(self, '_tushare_api'):
+                TUSHARE_TOKEN = os.getenv('TUSHARE_TOKEN', '')
+                if TUSHARE_TOKEN:
+                    try:
+                        import tushare as ts
+                        ts.set_token(tushare_token)
+                        self.ts_pro = ts.pro_api()
+                        print("    [Tushare] ✅ 初始化成功")
+                    except Exception as e:
+                        print(f"    [Tushare] 初始化失败: {e}")
+                        self._tushare_api = None
+                else:
+                    print("    [Tushare] 未配置Token")
+                    self._tushare_api = None
+            
+            
+            # 如果Tushare可用，获取数据
+            if hasattr(self, '_tushare_api') and self._tushare_api:
+                print("    [Tushare] 正在获取沪深港通资金流向...")
+                
+                # 获取最近30天的数据
+                end_date = datetime.now()
+                start_date = end_date - timedelta(days=20)
+                
+                df = self._tushare_api.moneyflow_hsgt(
+                    start_date=start_date.strftime('%Y%m%d'),
+                    end_date=end_date.strftime('%Y%m%d')
+                )
+                
+                if df is not None and not df.empty:
+                    print("    [Tushare] ✅ 成功获取数据")
+                    
+                    # 按日期降序排列，获取最新数据
+                    df = df.sort_values('trade_date', ascending=False)
+                    latest = df.iloc[0]
+                    
+                    # 转换数据格式以匹配原有结构
+                    north_flow = {
+                        "date": str(latest['trade_date']),
+                        "north_net_inflow": float(latest['north_money']),
+                        "hgt_net_inflow": float(latest['hgt']),
+                        "sgt_net_inflow": float(latest['sgt']),
+                        "north_total_amount": float(latest['north_money'])  # Tushare没有总成交金额，使用净流入作为近似值
+                    }
+                    
+                    # 获取历史趋势（最近20天）
+                    history = []
+                    for idx, row in df.head(20).iterrows():
+                        history.append({
+                            "date": str(row['trade_date']),
+                            "net_inflow": float(row['north_money'])
+                        })
+                    north_flow["history"] = history
+                    
+                    return north_flow
+                else:
+                    print("    [Tushare] ❌ 未获取到数据")
+            else:
+                print("    [Tushare] 不可用")
+        except Exception as e:
+            print(f"    [Tushare] 获取北向资金失败: {e}")
+        
+        # Tushare失败，尝试使用Akshare
+        try:
+            print("    [Akshare] 正在获取沪深港通资金流向（备用数据源）...")
             df = self._safe_request(ak.stock_hsgt_fund_flow_summary_em)
             
-            if df is None or df.empty:
-                return {}
-            
-            # 获取最新数据
-            latest = df.iloc[0]
-            
-            north_flow = {
-                "date": str(latest.get('日期', '')),
-                "north_net_inflow": latest.get('北向资金-成交净买额', 0),
-                "hgt_net_inflow": latest.get('沪股通-成交净买额', 0),
-                "sgt_net_inflow": latest.get('深股通-成交净买额', 0),
-                "north_total_amount": latest.get('北向资金-成交金额', 0)
-            }
-            
-            # 获取历史趋势（最近10天）
-            history = []
-            for idx, row in df.head(10).iterrows():
-                history.append({
-                    "date": str(row.get('日期', '')),
-                    "net_inflow": row.get('北向资金-成交净买额', 0)
-                })
-            north_flow["history"] = history
-            
-            return north_flow
-            
+            if df is not None and not df.empty:
+                print("    [Akshare] ✅ 成功获取数据")
+                
+                # 获取最新数据
+                latest = df.iloc[0]
+                
+                north_flow = {
+                    "date": str(latest.get('日期', '')),
+                    "north_net_inflow": latest.get('北向资金-成交净买额', 0),
+                    "hgt_net_inflow": latest.get('沪股通-成交净买额', 0),
+                    "sgt_net_inflow": latest.get('深股通-成交净买额', 0),
+                    "north_total_amount": latest.get('北向资金-成交金额', 0)
+                }
+                
+                # 获取历史趋势（最近20天）
+                history = []
+                for idx, row in df.head(20).iterrows():
+                    history.append({
+                        "date": str(row.get('日期', '')),
+                        "net_inflow": row.get('北向资金-成交净买额', 0)
+                    })
+                north_flow["history"] = history
+                
+                return north_flow
+            else:
+                print("    [Akshare] ❌ 未获取到数据")
         except Exception as e:
-            print(f"    获取北向资金失败: {e}")
-            return {}
+            print(f"    [Akshare] 获取北向资金失败: {e}")
+        
+        # 所有数据源都失败
+        print("    ❌ 所有数据源均获取失败")
+        return {}
     
     def _get_financial_news(self):
         """获取财经新闻"""
@@ -438,6 +532,210 @@ class SectorStrategyDataFetcher:
                     text_parts.append(f"   {news['content'][:100]}...")
         
         return "\n".join(text_parts)
+    
+    def _save_raw_data_to_db(self, data):
+        """保存原始数据到数据库"""
+        try:
+            if not data.get("success"):
+                self.logger.warning("[智策数据] 数据获取失败，跳过保存")
+                return
+            
+            # 保存板块数据
+            if data.get("sectors"):
+                # 将字典转换为DataFrame并映射必要列
+                sectors_df = pd.DataFrame([
+                    {
+                        '板块名称': v.get('name', k),
+                        '涨跌幅': v.get('change_pct', 0),
+                        '成交额': 0,
+                        '总市值': v.get('total_market_cap', 0),
+                        '市盈率': v.get('pe_ratio', 0),
+                        '市净率': v.get('pb_ratio', 0),
+                        '最新价': 0,
+                        '成交量': 0,
+                        'turnover': v.get('turnover', 0)  # 兼容保存方法中的fallback
+                    }
+                    for k, v in data["sectors"].items()
+                ])
+                self.database.save_sector_raw_data(
+                    data_date=datetime.now().strftime('%Y-%m-%d'),
+                    data_type="industry",
+                    data_df=sectors_df
+                )
+                self.logger.info(f"[智策数据] 保存行业板块数据: {len(data['sectors'])} 个板块")
+            
+            # 保存概念板块数据
+            if data.get("concepts"):
+                concepts_df = pd.DataFrame([
+                    {
+                        '板块名称': v.get('name', k),
+                        '涨跌幅': v.get('change_pct', 0),
+                        '成交额': 0,
+                        '总市值': v.get('total_market_cap', 0),
+                        '市盈率': v.get('pe_ratio', 0),
+                        '市净率': v.get('pb_ratio', 0),
+                        '最新价': 0,
+                        '成交量': 0,
+                        'turnover': v.get('turnover', 0)
+                    }
+                    for k, v in data["concepts"].items()
+                ])
+                self.database.save_sector_raw_data(
+                    data_date=datetime.now().strftime('%Y-%m-%d'),
+                    data_type="concept",
+                    data_df=concepts_df
+                )
+                self.logger.info(f"[智策数据] 保存概念板块数据: {len(data['concepts'])} 个概念")
+            
+            # 保存资金流向数据
+            if data.get("sector_fund_flow"):
+                flow_today = data["sector_fund_flow"].get("today", [])
+                fund_df = pd.DataFrame([
+                    {
+                        '行业': item.get('sector', ''),
+                        '主力净流入-净额': item.get('main_net_inflow', 0),
+                        '主力净流入-净占比': item.get('main_net_inflow_pct', 0),
+                        '超大单净流入-净额': item.get('super_large_net_inflow', 0),
+                        '超大单净流入-净占比': item.get('super_large_net_inflow_pct', 0),
+                        '大单净流入-净额': item.get('large_net_inflow', 0),
+                        '大单净流入-净占比': item.get('large_net_inflow_pct', 0)
+                    }
+                    for item in flow_today
+                ])
+                if not fund_df.empty:
+                    self.database.save_sector_raw_data(
+                        data_date=datetime.now().strftime('%Y-%m-%d'),
+                        data_type="fund_flow",
+                        data_df=fund_df
+                    )
+                self.logger.info("[智策数据] 保存资金流向数据")
+            
+            # 保存市场概况数据
+            if data.get("market_overview"):
+                market = data["market_overview"]
+                mo_df = pd.DataFrame([
+                    {'名称': '上证指数', '最新价': market.get('sh_index', {}).get('close', 0), '涨跌幅': market.get('sh_index', {}).get('change_pct', 0), '成交量': market.get('sh_index', {}).get('volume', 0), '成交额': market.get('sh_index', {}).get('turnover', 0)},
+                    {'名称': '深证成指', '最新价': market.get('sz_index', {}).get('close', 0), '涨跌幅': market.get('sz_index', {}).get('change_pct', 0), '成交量': market.get('sz_index', {}).get('volume', 0), '成交额': market.get('sz_index', {}).get('turnover', 0)},
+                    {'名称': '创业板指', '最新价': market.get('cyb_index', {}).get('close', 0), '涨跌幅': market.get('cyb_index', {}).get('change_pct', 0), '成交量': market.get('cyb_index', {}).get('volume', 0), '成交额': market.get('cyb_index', {}).get('turnover', 0)}
+                ])
+                self.database.save_sector_raw_data(
+                    data_date=datetime.now().strftime('%Y-%m-%d'),
+                    data_type="market_overview",
+                    data_df=mo_df
+                )
+                self.logger.info("[智策数据] 保存市场概况数据")
+            
+            # 保存北向资金数据
+            # 注：north_flow结构与原始表不一致，此处暂不保存以避免歧义
+            
+            # 保存新闻数据
+            if data.get("news"):
+                self.database.save_news_data(
+                    news_list=data["news"],
+                    news_date=datetime.now().strftime('%Y-%m-%d'),
+                    source="akshare"
+                )
+                self.logger.info(f"[智策数据] 保存财经新闻: {len(data['news'])} 条")
+                
+        except Exception as e:
+            self.logger.error(f"[智策数据] 保存原始数据失败: {e}")
+    
+    def get_cached_data_with_fallback(self):
+        """获取缓存数据，支持回退机制"""
+        try:
+            # 首先尝试获取最新数据
+            print("[智策] 尝试获取最新数据...")
+            fresh_data = self.get_all_sector_data()
+            
+            if fresh_data.get("success"):
+                return fresh_data
+            
+            # 如果获取失败，回退到缓存数据
+            print("[智策] 获取最新数据失败，尝试加载缓存数据...")
+            cached_data = self._load_cached_data()
+            
+            if cached_data:
+                print("[智策] ✓ 成功加载缓存数据")
+                cached_data["from_cache"] = True
+                cached_data["cache_warning"] = "当前显示为缓存数据（24小时内），可能不是最新信息"
+                return cached_data
+            else:
+                print("[智策] ✗ 无可用缓存数据")
+                return {
+                    "success": False,
+                    "error": "无法获取数据且无可用缓存",
+                    "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                }
+                
+        except Exception as e:
+            self.logger.error(f"[智策数据] 获取数据失败: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+    
+    def _load_cached_data(self):
+        """加载缓存数据"""
+        try:
+            # 获取最近的各类数据
+            cached_data = {
+                "success": True,
+                "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                "sectors": {},
+                "concepts": {},
+                "sector_fund_flow": {},
+                "market_overview": {},
+                "north_flow": {},
+                "news": []
+            }
+            
+            # 加载板块数据
+            sectors_data = self.database.get_latest_raw_data("sectors")
+            if sectors_data:
+                cached_data["sectors"] = sectors_data.get("data_content", {})
+            
+            # 加载概念数据
+            concepts_data = self.database.get_latest_raw_data("concepts")
+            if concepts_data:
+                cached_data["concepts"] = concepts_data.get("data_content", {})
+            
+            # 加载资金流向数据
+            fund_flow_data = self.database.get_latest_raw_data("fund_flow")
+            if fund_flow_data:
+                cached_data["sector_fund_flow"] = fund_flow_data.get("data_content", {})
+            
+            # 加载市场概况数据
+            market_data = self.database.get_latest_raw_data("market_overview")
+            if market_data:
+                cached_data["market_overview"] = market_data.get("data_content", {})
+            
+            # 加载北向资金数据
+            north_data = self.database.get_latest_raw_data("north_flow")
+            if north_data:
+                cached_data["north_flow"] = north_data.get("data_content", {})
+            
+            # 加载新闻数据
+            news_data = self.database.get_latest_news_data()
+            if news_data:
+                # 仅传递内容列表给下游分析，避免结构不一致
+                cached_data["news"] = news_data.get("data_content", [])
+            
+            # 检查是否有有效数据
+            has_data = any([
+                cached_data["sectors"],
+                cached_data["concepts"],
+                cached_data["sector_fund_flow"],
+                cached_data["market_overview"],
+                cached_data["north_flow"],
+                cached_data["news"]
+            ])
+            
+            return cached_data if has_data else None
+            
+        except Exception as e:
+            self.logger.error(f"[智策数据] 加载缓存数据失败: {e}")
+            return None
 
 
 # 测试函数

@@ -270,7 +270,7 @@ def display_pdf_export_section(stock_info, agents_results, discussion_result, fi
     with col2:
         # 生成PDF报告按钮（使用股票代码作为key的一部分，确保唯一性）
         button_key = f"pdf_btn_{stock_info.get('symbol', 'unknown')}"
-        if st.button("📄 生成并下载PDF报告", type="primary", use_container_width=True, key=button_key):
+        if st.button("📄 生成并下载PDF报告", type="primary", width='content', key=button_key):
             with st.spinner("正在生成PDF报告..."):
                 try:
                     # 生成PDF内容

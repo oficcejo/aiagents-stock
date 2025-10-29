@@ -267,7 +267,7 @@ def display_pdf_export_section(stock_info, agents_results, discussion_result, fi
     col1, col2, col3 = st.columns([1, 2, 1])
     
     with col2:
-        if st.button("📊 生成并下载报告", type="primary", use_container_width=True, key="generate_report_btn"):
+        if st.button("📊 生成并下载报告", type="primary", width='content', key="generate_report_btn"):
             st.session_state.show_download_links = True
             with st.spinner("正在生成报告..."):
                 success = generate_pdf_report(stock_info, agents_results, discussion_result, final_decision)

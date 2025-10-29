@@ -55,10 +55,10 @@ class StockAnalysisAgents:
         print("💰 资金面分析师正在分析中...")
         
         # 如果有资金流向数据，显示数据来源
-        if fund_flow_data and fund_flow_data.get('query_success'):
-            print("   ✓ 已获取问财资金流向数据")
+        if fund_flow_data and fund_flow_data.get('data_success'):
+            print("   ✓ 已获取资金流向数据（akshare数据源）")
         else:
-            print("   ⚠ 未获取到问财资金流向数据，将基于技术指标分析")
+            print("   ⚠ 未获取到资金流向数据，将基于技术指标分析")
         
         time.sleep(1)
         

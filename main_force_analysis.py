@@ -26,15 +26,19 @@ class MainForceAnalyzer:
         self.raw_stocks = None
         self.final_recommendations = []
     
-    def run_full_analysis(self, start_date: str = None, days_ago: int = 90, 
-                         final_n: int = 5) -> Dict:
+    def run_full_analysis(self, start_date: str = None, days_ago: int = None, 
+                         final_n: int = None, max_range_change: float = None,
+                         min_market_cap: float = None, max_market_cap: float = None) -> Dict:
         """
         运行完整的主力选股分析流程 - 整体批量分析
         
         Args:
             start_date: 开始日期，格式如"2025年10月1日"
-            days_ago: 距今多少天，默认90天
-            final_n: 最终精选N只，默认5只
+            days_ago: 距今多少天
+            final_n: 最终精选N只
+            max_range_change: 最大涨跌幅限制
+            min_market_cap: 最小市值限制
+            max_market_cap: 最大市值限制
             
         Returns:
             分析结果字典
@@ -44,7 +48,15 @@ class MainForceAnalyzer:
             'total_stocks': 0,
             'filtered_stocks': 0,
             'final_recommendations': [],
-            'error': None
+            'error': None,
+            'params': {
+                'start_date': start_date,
+                'days_ago': days_ago,
+                'final_n': final_n,
+                'max_range_change': max_range_change,
+                'min_market_cap': min_market_cap,
+                'max_market_cap': max_market_cap
+            }
         }
         
         try:
@@ -55,7 +67,9 @@ class MainForceAnalyzer:
             # 步骤1: 获取主力资金净流入前100名股票
             success, raw_data, message = self.selector.get_main_force_stocks(
                 start_date=start_date,
-                days_ago=days_ago
+                days_ago=days_ago,
+                min_market_cap=min_market_cap,
+                max_market_cap=max_market_cap
             )
             
             if not success:
@@ -67,9 +81,9 @@ class MainForceAnalyzer:
             # 步骤2: 智能筛选（涨幅、市值等）
             filtered_data = self.selector.filter_stocks(
                 raw_data,
-                max_range_change=30.0,
-                min_market_cap=50.0,
-                max_market_cap=1300.0
+                max_range_change=max_range_change,
+                min_market_cap=min_market_cap,
+                max_market_cap=max_market_cap
             )
             
             result['filtered_stocks'] = len(filtered_data)

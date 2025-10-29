@@ -108,14 +108,26 @@ def display_batch_history():
                             '代码': r.get('symbol', 'N/A'),
                             '名称': stock_info.get('name', stock_info.get('股票名称', 'N/A')),
                             '评级': final_decision.get('rating', final_decision.get('investment_rating', 'N/A')),
-                            '信心度': f"{final_decision.get('confidence_level', 0)}%",
+                            '信心度': final_decision.get('confidence_level', 'N/A'),
                             '进场区间': final_decision.get('entry_range', 'N/A'),
                             '止盈位': final_decision.get('take_profit', 'N/A'),
                             '止损位': final_decision.get('stop_loss', 'N/A')
                         })
                     
                     df = pd.DataFrame(table_data)
-                    st.dataframe(df, use_container_width=True)
+                    
+                    # 类型统一，避免Arrow序列化错误
+                    numeric_cols = ['信心度', '止盈位', '止损位']
+                    for col in numeric_cols:
+                        if col in df.columns:
+                            df[col] = pd.to_numeric(df[col], errors='coerce')
+
+                    text_cols = ['代码', '名称', '评级', '进场区间']
+                    for col in text_cols:
+                        if col in df.columns:
+                            df[col] = df[col].astype(str)
+                    
+                    st.dataframe(df, width='content')
                     
                     # 显示详细分析（可展开）
                     with st.expander("📊 查看详细分析报告"):
@@ -147,7 +159,7 @@ def display_batch_history():
                         })
                     
                     df_fail = pd.DataFrame(fail_data)
-                    st.dataframe(df_fail, use_container_width=True)
+                    st.dataframe(df_fail, width='content')
                 
                 # 操作按钮
                 col_del, col_reload = st.columns([1, 1])
