@@ -267,12 +267,47 @@ def display_pdf_export_section(stock_info, agents_results, discussion_result, fi
     col1, col2, col3 = st.columns([1, 2, 1])
     
     with col2:
-        if st.button("📊 生成并下载报告", type="primary", width='content', key="generate_report_btn"):
+        pdf_button_key = "generate_report_btn"
+        markdown_button_key = "generate_markdown_btn"
+        
+        # 生成PDF报告按钮
+        if st.button("📊 生成并下载报告(PDF/HTML)", type="primary", width='content', key=pdf_button_key):
             st.session_state.show_download_links = True
             with st.spinner("正在生成报告..."):
                 success = generate_pdf_report(stock_info, agents_results, discussion_result, final_decision)
                 if success:
                     st.balloons()
+        
+        # 生成Markdown报告按钮
+        if st.button("📝 生成并下载Markdown报告", type="secondary", width='content', key=markdown_button_key):
+            with st.spinner("正在生成Markdown报告..."):
+                try:
+                    # 生成Markdown内容
+                    markdown_content = generate_markdown_report(stock_info, agents_results, discussion_result, final_decision)
+                    
+                    # 生成文件名
+                    stock_symbol = stock_info.get('symbol', 'unknown')
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    filename = f"股票分析报告_{stock_symbol}_{timestamp}.md"
+                    
+                    st.success("✅ Markdown报告生成成功！")
+                    st.balloons()
+                    
+                    # 显示下载链接
+                    st.markdown("### 📄 报告下载")
+                    
+                    # Markdown下载链接
+                    md_download_link = create_download_link(
+                        markdown_content, 
+                        filename, 
+                        "📝 下载Markdown报告"
+                    )
+                    st.markdown(md_download_link, unsafe_allow_html=True)
+                    
+                    st.info("💡 提示：点击上方按钮即可下载Markdown格式的报告文件")
+                    
+                except Exception as e:
+                    st.error(f"❌ 生成Markdown报告时出错: {str(e)}")
     
     # 如果已经生成了报告，显示下载链接
     if st.session_state.show_download_links:
