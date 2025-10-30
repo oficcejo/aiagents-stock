@@ -7,7 +7,7 @@ services:
       dockerfile: Dockerfile
     container_name: agentsstock1
     ports:
-      - "8503:8501"
+      - "8503:8503"
     volumes:
       # 数据和数据库持久化 - 使用目录挂载而不是文件挂载
       - ./data:/app/data
@@ -20,7 +20,7 @@ services:
     networks:
       - agentsstock-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8503/_stcore/health"]
       interval: 30s
       timeout: 10s
       retries: 3
