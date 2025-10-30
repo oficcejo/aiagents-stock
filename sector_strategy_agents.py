@@ -46,13 +46,19 @@ class SectorStrategyAgents:
 """
             if market_data.get("sh_index"):
                 sh = market_data["sh_index"]
-                market_summary += f"  上证指数: {sh['close']} ({sh['change_pct']:+.2f}%)\n"
+                close_price = sh.get('close', sh.get('最新价', 0))
+                change_pct = sh.get('change_pct', sh.get('涨跌幅', 0))
+                market_summary += f"  上证指数: {close_price} ({change_pct:+.2f}%)\n"
             if market_data.get("sz_index"):
                 sz = market_data["sz_index"]
-                market_summary += f"  深证成指: {sz['close']} ({sz['change_pct']:+.2f}%)\n"
+                close_price = sz.get('close', sz.get('最新价', 0))
+                change_pct = sz.get('change_pct', sz.get('涨跌幅', 0))
+                market_summary += f"  深证成指: {close_price} ({change_pct:+.2f}%)\n"
             if market_data.get("cyb_index"):
                 cyb = market_data["cyb_index"]
-                market_summary += f"  创业板指: {cyb['close']} ({cyb['change_pct']:+.2f}%)\n"
+                close_price = cyb.get('close', cyb.get('最新价', 0))
+                change_pct = cyb.get('change_pct', cyb.get('涨跌幅', 0))
+                market_summary += f"  创业板指: {close_price} ({change_pct:+.2f}%)\n"
             
             if market_data.get("total_stocks"):
                 market_summary += f"""
@@ -143,13 +149,23 @@ class SectorStrategyAgents:
 涨幅榜 TOP15:
 """
             for idx, (name, info) in enumerate(sorted_sectors[:15], 1):
-                sector_summary += f"{idx}. {name}: {info['change_pct']:+.2f}% | 换手率: {info['turnover']:.2f}% | 领涨股: {info['top_stock']} ({info['top_stock_change']:+.2f}%) | 涨跌家数: {info['up_count']}/{info['down_count']}\n"
+                top_stock = info.get('top_stock', info.get('领涨股票', '暂无'))
+                top_stock_change = info.get('top_stock_change', info.get('领涨股票涨跌幅', 0))
+                turnover = info.get('turnover', info.get('换手率', 0))
+                up_count = info.get('up_count', info.get('上涨家数', 0))
+                down_count = info.get('down_count', info.get('下跌家数', 0))
+                sector_summary += f"{idx}. {name}: {info['change_pct']:+.2f}% | 换手率: {turnover:.2f}% | 领涨股: {top_stock} ({top_stock_change:+.2f}%) | 涨跌家数: {up_count}/{down_count}\n"
             
             sector_summary += f"""
 跌幅榜 TOP10:
 """
             for idx, (name, info) in enumerate(sorted_sectors[-10:], 1):
-                sector_summary += f"{idx}. {name}: {info['change_pct']:+.2f}% | 换手率: {info['turnover']:.2f}% | 领跌股: {info['top_stock']} ({info['top_stock_change']:+.2f}%) | 涨跌家数: {info['up_count']}/{info['down_count']}\n"
+                top_stock = info.get('top_stock', info.get('领涨股票', '暂无'))
+                top_stock_change = info.get('top_stock_change', info.get('领涨股票涨跌幅', 0))
+                turnover = info.get('turnover', info.get('换手率', 0))
+                up_count = info.get('up_count', info.get('上涨家数', 0))
+                down_count = info.get('down_count', info.get('下跌家数', 0))
+                sector_summary += f"{idx}. {name}: {info['change_pct']:+.2f}% | 换手率: {turnover:.2f}% | 领跌股: {top_stock} ({top_stock_change:+.2f}%) | 涨跌家数: {up_count}/{down_count}\n"
         
         # 构建概念板块数据
         concept_summary = ""
@@ -162,7 +178,10 @@ class SectorStrategyAgents:
 热门概念 TOP15:
 """
             for idx, (name, info) in enumerate(sorted_concepts[:15], 1):
-                concept_summary += f"{idx}. {name}: {info['change_pct']:+.2f}% | 换手率: {info['turnover']:.2f}% | 领涨股: {info['top_stock']} ({info['top_stock_change']:+.2f}%)\n"
+                top_stock = info.get('top_stock', info.get('领涨股票', '暂无'))
+                top_stock_change = info.get('top_stock_change', info.get('领涨股票涨跌幅', 0))
+                turnover = info.get('turnover', info.get('换手率', 0))
+                concept_summary += f"{idx}. {name}: {info['change_pct']:+.2f}% | 换手率: {turnover:.2f}% | 领涨股: {top_stock} ({top_stock_change:+.2f}%)\n"
         
         prompt = f"""
 你是一名资深的板块分析师，具有CFA资格和深厚的行业研究背景，擅长板块诊断和趋势判断。
@@ -257,7 +276,9 @@ class SectorStrategyAgents:
 主力资金净流入 TOP15:
 """
             for idx, item in enumerate(sorted_inflow[:15], 1):
-                fund_flow_summary += f"{idx}. {item['sector']}: {item['main_net_inflow']:.2f}万 ({item['main_net_inflow_pct']:+.2f}%) | 涨跌: {item['change_pct']:+.2f}% | 超大单: {item['super_large_net_inflow']:.2f}万\n"
+                # 兼容性处理：获取涨跌幅字段
+                change_pct = item.get('change_pct', item.get('今日涨跌幅', 0))
+                fund_flow_summary += f"{idx}. {item['sector']}: {item['main_net_inflow']:.2f}万 ({item['main_net_inflow_pct']:+.2f}%) | 涨跌: {change_pct:+.2f}% | 超大单: {item['super_large_net_inflow']:.2f}万\n"
             
             # 净流出前10
             sorted_outflow = sorted(flow_list, key=lambda x: x["main_net_inflow"])
@@ -265,7 +286,9 @@ class SectorStrategyAgents:
 主力资金净流出 TOP10:
 """
             for idx, item in enumerate(sorted_outflow[:10], 1):
-                fund_flow_summary += f"{idx}. {item['sector']}: {item['main_net_inflow']:.2f}万 ({item['main_net_inflow_pct']:+.2f}%) | 涨跌: {item['change_pct']:+.2f}%\n"
+                # 兼容性处理：获取涨跌幅字段
+                change_pct = item.get('change_pct', item.get('今日涨跌幅', 0))
+                fund_flow_summary += f"{idx}. {item['sector']}: {item['main_net_inflow']:.2f}万 ({item['main_net_inflow_pct']:+.2f}%) | 涨跌: {change_pct:+.2f}%\n"
         
         # 构建北向资金数据
         north_summary = ""
@@ -273,14 +296,14 @@ class SectorStrategyAgents:
             north_summary = f"""
 【北向资金】
 日期: {north_flow_data.get('date', 'N/A')}
-今日北向资金净流入: {north_flow_data.get('north_net_inflow', 0):.2f} 万元
-  沪股通净流入: {north_flow_data.get('hgt_net_inflow', 0):.2f} 万元
-  深股通净流入: {north_flow_data.get('sgt_net_inflow', 0):.2f} 万元
+今日北向资金净流入: {north_flow_data.get('north_net_inflow', 0):.2f} 亿元
+  沪股通净流入: {north_flow_data.get('hgt_net_inflow', 0):.2f} 亿元
+  深股通净流入: {north_flow_data.get('sgt_net_inflow', 0):.2f} 亿元
 """
             if north_flow_data.get('history'):
-                north_summary += "\n近10日北向资金流向:\n"
-                for item in north_flow_data['history'][:10]:
-                    north_summary += f"  {item['date']}: {item['net_inflow']:.2f}万\n"
+                north_summary += "\n近20日北向资金流向:\n"
+                for item in north_flow_data['history'][:20]:
+                    north_summary += f"  {item['date']}: {item['net_inflow']:.2f}亿\n"
         
         prompt = f"""
 你是一名资深的资金流向分析师，拥有15年的市场资金研究经验，擅长从资金流向中洞察主力意图和市场趋势。
@@ -388,13 +411,19 @@ class SectorStrategyAgents:
 """
             if market_data.get("sh_index"):
                 sh = market_data["sh_index"]
-                sentiment_summary += f"  上证指数: {sh['close']} ({sh['change_pct']:+.2f}%)\n"
+                close_price = sh.get('close', sh.get('最新价', 0))
+                change_pct = sh.get('change_pct', sh.get('涨跌幅', 0))
+                sentiment_summary += f"  上证指数: {close_price} ({change_pct:+.2f}%)\n"
             if market_data.get("sz_index"):
                 sz = market_data["sz_index"]
-                sentiment_summary += f"  深证成指: {sz['close']} ({sz['change_pct']:+.2f}%)\n"
+                close_price = sz.get('close', sz.get('最新价', 0))
+                change_pct = sz.get('change_pct', sz.get('涨跌幅', 0))
+                sentiment_summary += f"  深证成指: {close_price} ({change_pct:+.2f}%)\n"
             if market_data.get("cyb_index"):
                 cyb = market_data["cyb_index"]
-                sentiment_summary += f"  创业板指: {cyb['close']} ({cyb['change_pct']:+.2f}%)\n"
+                close_price = cyb.get('close', cyb.get('最新价', 0))
+                change_pct = cyb.get('change_pct', cyb.get('涨跌幅', 0))
+                sentiment_summary += f"  创业板指: {close_price} ({change_pct:+.2f}%)\n"
         
         # 板块热度分析
         hot_sectors = ""
@@ -406,19 +435,30 @@ class SectorStrategyAgents:
 最活跃板块 TOP10:
 """
             for idx, (name, info) in enumerate(sorted_sectors[:10], 1):
-                hot_sectors += f"{idx}. {name}: {info['change_pct']:+.2f}% | 换手率: {info['turnover']:.2f}% | 涨跌家数: {info['up_count']}/{info['down_count']}\n"
+                # 兼容性处理：获取涨跌幅字段
+                change_pct = info.get('change_pct', info.get('涨跌幅', 0))
+                turnover = info.get('turnover', info.get('换手率', 0))
+                up_count = info.get('up_count', info.get('上涨家数', 0))
+                down_count = info.get('down_count', info.get('下跌家数', 0))
+                hot_sectors += f"{idx}. {name}: {change_pct:+.2f}% | 换手率: {turnover:.2f}% | 涨跌家数: {up_count}/{down_count}\n"
         
         # 概念热度
         hot_concepts = ""
         if concepts_data:
-            sorted_concepts = sorted(concepts_data.items(), key=lambda x: abs(x[1]["change_pct"]), reverse=True)
+            # 兼容性处理：排序时使用兼容的字段访问
+            sorted_concepts = sorted(concepts_data.items(), 
+                                   key=lambda x: abs(x[1].get('change_pct', x[1].get('涨跌幅', 0))), 
+                                   reverse=True)
             hot_concepts = f"""
 【概念热度排行】
 
 最热概念 TOP10:
 """
             for idx, (name, info) in enumerate(sorted_concepts[:10], 1):
-                hot_concepts += f"{idx}. {name}: {info['change_pct']:+.2f}% | 换手率: {info['turnover']:.2f}%\n"
+                # 兼容性处理：获取涨跌幅字段
+                change_pct = info.get('change_pct', info.get('涨跌幅', 0))
+                turnover = info.get('turnover', info.get('换手率', 0))
+                hot_concepts += f"{idx}. {name}: {change_pct:+.2f}% | 换手率: {turnover:.2f}%\n"
         
         prompt = f"""
 你是一名资深的市场情绪分析师，拥有心理学和金融学双重背景，擅长从市场数据中解读投资者情绪和市场心理。
@@ -507,10 +547,14 @@ class SectorStrategyAgents:
         text = ""
         if market_data.get("sh_index"):
             sh = market_data["sh_index"]
-            text += f"上证指数: {sh['close']} ({sh['change_pct']:+.2f}%)\n"
+            close_price = sh.get('close', sh.get('最新价', 0))
+            change_pct = sh.get('change_pct', sh.get('涨跌幅', 0))
+            text += f"上证指数: {close_price} ({change_pct:+.2f}%)\n"
         if market_data.get("sz_index"):
             sz = market_data["sz_index"]
-            text += f"深证成指: {sz['close']} ({sz['change_pct']:+.2f}%)\n"
+            close_price = sz.get('close', sz.get('最新价', 0))
+            change_pct = sz.get('change_pct', sz.get('涨跌幅', 0))
+            text += f"深证成指: {close_price} ({change_pct:+.2f}%)\n"
         if market_data.get("total_stocks"):
             text += f"涨跌统计: 上涨{market_data['up_count']}只({market_data['up_ratio']:.1f}%)，下跌{market_data['down_count']}只\n"
         
