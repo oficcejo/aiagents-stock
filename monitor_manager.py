@@ -399,7 +399,7 @@ def display_edit_dialog(stock_id: int):
             quant_enabled = st.checkbox("启用量化自动交易", value=stock.get('quant_enabled', False))
             
             if quant_enabled:
-                quant_config = stock.get('quant_config', {})
+                quant_config = stock.get('quant_config') or {}
                 max_position_pct = st.slider("最大仓位比例", 0.05, 0.5, 
                                             quant_config.get('max_position_pct', 0.2), 0.05)
                 auto_stop_loss = st.checkbox("自动止损", value=quant_config.get('auto_stop_loss', True))

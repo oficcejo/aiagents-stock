@@ -25,7 +25,7 @@ class LonghubangDataFetcher:
         print("[智瞰龙虎] 龙虎榜数据获取器初始化...")
         # self.base_url = "https://api-lhb.zhongdu.net"
         self.base_url = "http://lhb-api.ws4.cn/v1"
-       # self.base_url = "https://www.stockapi.com.cn/v1"
+        # self.base_url = "https://www.stockapi.com.cn/v1"
         self.api_key = api_key
         self.max_retries = 3  # 最大重试次数
         self.retry_delay = 2  # 重试延迟（秒）
@@ -81,7 +81,7 @@ class LonghubangDataFetcher:
         """
         print(f"[智瞰龙虎] 获取 {date} 的龙虎榜数据...")
         
-        # url = f"{self.base_url}"
+        # 使用兼容接口获取指定日期数据
         url = f"{self.base_url}/youzi/all"
         params = {'date': date}
         
@@ -128,12 +128,12 @@ class LonghubangDataFetcher:
         print(f"[智瞰龙虎] ✓ 共获取 {len(all_data)} 条记录")
         return all_data
     
-    def get_recent_days_data(self, days=5):
+    def get_recent_days_data(self, days=3):
         """
         获取最近N个交易日的龙虎榜数据
         
         Args:
-            days: 天数（默认5天）
+            days: 天数（默认3天）
             
         Returns:
             list: 龙虎榜数据列表

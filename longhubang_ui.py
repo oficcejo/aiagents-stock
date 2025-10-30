@@ -131,7 +131,7 @@ def display_analysis_tab():
                 "最近天数",
                 min_value=1,
                 max_value=10,
-                value=1,
+                value=3,
                 help="分析最近N天的龙虎榜数据"
             )
     

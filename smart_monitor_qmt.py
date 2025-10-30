@@ -6,8 +6,14 @@
 
 import logging
 import os
+import sys
 from typing import Dict, List, Optional
 from datetime import datetime
+
+# 确保可以导入config_manager
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 
 class SmartMonitorQMT:
@@ -40,7 +46,7 @@ class SmartMonitorQMT:
         连接miniQMT
         
         Args:
-            account_id: 交易账户ID（可选，从环境变量读取）
+            account_id: 交易账户ID（可选，从环境配置读取）
             
         Returns:
             是否连接成功
@@ -50,25 +56,49 @@ class SmartMonitorQMT:
             self.connected = False
             return False
         
-        # 从配置读取账户ID
-        if account_id is None:
-            account_id = os.getenv('MINIQMT_ACCOUNT_ID', '')
-        
-        if not account_id:
-            self.logger.error("未配置miniQMT账户ID，请在环境配置中设置")
-            self.connected = False
-            return False
-        
         try:
-            # 创建交易对象
-            self.xt_trader = self.xttrader.XtQuantTrader()
+            config = {}
+            try:
+                from config_manager import config_manager
+                config = config_manager.read_env()
+            except Exception as e:
+                self.logger.warning(f"无法读取配置文件，将使用环境变量: {e}")
             
-            # 连接
+            account_id = account_id or config.get('MINIQMT_ACCOUNT_ID', '') or os.getenv('MINIQMT_ACCOUNT_ID', '')
+            
+            if not account_id:
+                self.logger.error("未配置miniQMT账户ID，请在环境配置中设置")
+                self.connected = False
+                return False
+            
+            mini_qmt_path = config.get('MINIQMT_PATH', '') or os.getenv('MINIQMT_PATH', '')
+            if not mini_qmt_path:
+                self.logger.error("未配置miniQMT路径，请在环境配置中设置")
+                self.connected = False
+                return False
+            
+            if mini_qmt_path.endswith('userdata_mini'):
+                full_path = mini_qmt_path
+            else:
+                full_path = os.path.join(mini_qmt_path, 'userdata_mini')
+            
+            if not os.path.exists(full_path):
+                self.logger.error(f"MiniQMT路径不存在: {full_path}")
+                return False
+            
+            import uuid
+            session_id = int(str(uuid.getnode())[:8])
+            
+            self.logger.info(f"连接miniQMT，路径: {full_path}, 账户: {account_id}")
+            
+            self.xt_trader = self.xttrader.XtQuantTrader(path=full_path, session=session_id)
+            
             self.xt_trader.start()
             
-            # 连接账户
-            self.account = self.xttrader.StockAccount(account_id)
+            from xtquant.xttype import StockAccount
+            self.account = StockAccount(account_id)
             connect_result = self.xt_trader.connect()
+
             
             if connect_result == 0:
                 self.connected = True
@@ -80,6 +110,8 @@ class SmartMonitorQMT:
                 
         except Exception as e:
             self.logger.error(f"连接miniQMT失败: {e}")
+            import traceback
+            self.logger.error(f"详细错误: {traceback.format_exc()}")
             return False
     
     def disconnect(self):

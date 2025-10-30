@@ -237,7 +237,7 @@ class StockMonitorService:
                 return
             
             # 获取量化配置
-            quant_config = stock.get('quant_config', {})
+            quant_config = stock.get('quant_config') or {}
             if not quant_config:
                 print(f"股票 {stock['symbol']} 未配置量化参数")
                 return

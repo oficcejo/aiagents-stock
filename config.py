@@ -19,6 +19,7 @@ DEFAULT_INTERVAL = "1d"  # 默认日线数据
 MINIQMT_CONFIG = {
     'enabled': os.getenv("MINIQMT_ENABLED", "false").lower() == "true",
     'account_id': os.getenv("MINIQMT_ACCOUNT_ID", ""),
+    'path': os.getenv("MINIQMT_PATH", "D:\\qmt\\userdata_mini"),
     'host': os.getenv("MINIQMT_HOST", "127.0.0.1"),
     'port': int(os.getenv("MINIQMT_PORT", "58610")),
 }

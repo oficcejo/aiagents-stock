@@ -557,7 +557,36 @@ class QuantStrategyConfig:
 
 
 # 全局MiniQMT接口实例
-miniqmt = MiniQMTInterface()
+miniqmt = None
+
+# 应用启动时初始化MiniQMT
+config = None
+
+try:
+    # 优先从config模块导入配置
+    from config import MINIQMT_CONFIG
+    config = MINIQMT_CONFIG
+except ImportError:
+    # 如果无法导入config模块，则从环境变量读取配置
+    import os
+    config = {
+        'enabled': os.getenv("MINIQMT_ENABLED", "false").lower() == "true",
+        'account_id': os.getenv("MINIQMT_ACCOUNT_ID", ""),
+        'path': os.getenv("MINIQMT_PATH", "D:\\qmt\\userdata_mini"),
+        'host': os.getenv("MINIQMT_HOST", "127.0.0.1"),
+        'port': int(os.getenv("MINIQMT_PORT", "58610")),
+    }
+
+# 初始化MiniQMT实例
+miniqmt = MiniQMTInterface(config)
+
+# 如果启用，尝试连接
+if config.get('enabled', False):
+    success, msg = miniqmt.connect()
+    if success:
+        print(f"✅ MiniQMT已连接: {msg}")
+    else:
+        print(f"⚠️ MiniQMT连接失败: {msg}")
 
 
 def init_miniqmt(config: Dict = None) -> Tuple[bool, str]:
@@ -579,9 +608,13 @@ def init_miniqmt(config: Dict = None) -> Tuple[bool, str]:
                 from config import MINIQMT_CONFIG
                 config = MINIQMT_CONFIG
             except ImportError:
+                import os
                 config = {
-                    'enabled': False,
-                    'account_id': None
+                    'enabled': os.getenv("MINIQMT_ENABLED", "false").lower() == "true",
+                    'account_id': os.getenv("MINIQMT_ACCOUNT_ID", ""),
+                    'path': os.getenv("MINIQMT_PATH", "D:\\qmt\\userdata_mini"),
+                    'host': os.getenv("MINIQMT_HOST", "127.0.0.1"),
+                    'port': int(os.getenv("MINIQMT_PORT", "58610")),
                 }
         
         miniqmt = MiniQMTInterface(config)
