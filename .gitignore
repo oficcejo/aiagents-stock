@@ -10,3 +10,5 @@
 /.cursor
 /openspec
 TradEnv/
+stock_analysis.db
+sector_strategy.db

@@ -68,4 +68,4 @@ EXPOSE 8501
 HEALTHCHECK CMD curl --fail http://localhost:8501/_stcore/health || exit 1
 
 # 启动应用
-CMD ["python", "run.py"]
+CMD ["streamlit", "run", "app.py"]

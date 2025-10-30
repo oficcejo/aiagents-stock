@@ -116,9 +116,12 @@ def display_analysis_tab():
     col1, col2, col3 = st.columns([2, 2, 2])
     
     with col1:
+        # 导入model_config.py中定义的model_options
+        from model_config import model_options as app_model_options
         selected_model = st.selectbox(
-            "选择AI模型",
-            ["deepseek-chat", "deepseek-reasoner"],
+            "AI模型",
+            list(app_model_options.keys()),
+            format_func=lambda x: app_model_options[x],
             help="Reasoner模型提供更强的推理能力"
         )
     
@@ -796,10 +799,10 @@ def display_pdf_export_section(result):
     """显示PDF导出部分"""
     st.subheader("📄 导出报告")
     
-    col1, col2, col3 = st.columns([2, 1, 1])
+    col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
     
     with col1:
-        st.write("将分析报告导出为PDF文件，方便保存和分享")
+        st.write("将分析报告导出为PDF或Markdown文件，方便保存和分享")
     
     with col2:
         if st.button("📥 生成PDF报告", type="primary", width='content'):
@@ -824,6 +827,23 @@ def display_pdf_export_section(result):
                     st.error(f"❌ PDF生成失败: {str(e)}")
     
     with col3:
+        if st.button("📝 生成Markdown", type="secondary", width='content'):
+            with st.spinner("正在生成Markdown报告..."):
+                try:
+                    # 生成Markdown内容
+                    markdown_content = generate_sector_markdown_report(result)
+                    
+                    # 保存到session_state
+                    st.session_state.sector_markdown_data = markdown_content
+                    st.session_state.sector_markdown_filename = f"智策报告_{result.get('timestamp', datetime.now().strftime('%Y%m%d_%H%M%S')).replace(':', '').replace(' ', '_')}.md"
+                    
+                    st.success("✅ Markdown报告生成成功！")
+                    st.rerun()
+                    
+                except Exception as e:
+                    st.error(f"❌ Markdown生成失败: {str(e)}")
+    
+    with col4:
         # 如果已经生成了PDF，显示下载按钮
         if 'sector_pdf_data' in st.session_state:
             st.download_button(
@@ -833,6 +853,197 @@ def display_pdf_export_section(result):
                         mime="application/pdf",
                         width='content'
                     )
+        
+        # 如果已经生成了Markdown，显示下载按钮
+        if 'sector_markdown_data' in st.session_state:
+            st.download_button(
+                        label="💾 下载Markdown",
+                        data=st.session_state.sector_markdown_data,
+                        file_name=st.session_state.sector_markdown_filename,
+                        mime="text/markdown",
+                        width='content'
+                    )
+
+
+def generate_sector_markdown_report(result_data: dict) -> str:
+    """生成智策分析Markdown报告"""
+    
+    # 获取当前时间
+    current_time = datetime.now().strftime("%Y年%m月%d日 %H:%M:%S")
+    
+    # 标题页
+    markdown_content = f"""# 智策板块策略分析报告
+
+**AI驱动的多维度板块投资决策支持系统**
+
+---
+
+## 📊 报告信息
+
+- **生成时间**: {current_time}
+- **分析周期**: 当日市场数据
+- **AI模型**: DeepSeek Multi-Agent System
+- **分析维度**: 宏观·板块·资金·情绪
+
+> ⚠️ 本报告由AI系统自动生成，仅供参考，不构成投资建议。投资有风险，决策需谨慎。
+
+---
+
+## 📈 市场概况
+
+本报告基于{result_data.get('timestamp', 'N/A')}的实时市场数据，
+通过四位AI智能体的多维度分析，为您提供板块投资策略建议。
+
+### 分析师团队:
+
+- **宏观策略师** - 分析宏观经济、政策导向、新闻事件
+- **板块诊断师** - 分析板块走势、估值水平、轮动特征
+- **资金流向分析师** - 分析主力资金、北向资金流向
+- **市场情绪解码员** - 分析市场情绪、热度、赚钱效应
+
+"""
+    
+    # 核心预测
+    predictions = result_data.get('final_predictions', {})
+    
+    if predictions.get('prediction_text'):
+        # 文本格式预测
+        markdown_content += f"""
+## 🎯 核心预测
+
+{predictions.get('prediction_text', '')}
+
+"""
+    else:
+        # JSON格式预测
+        markdown_content += "## 🎯 核心预测\n\n"
+        
+        # 1. 板块多空预测
+        long_short = predictions.get('long_short', {})
+        bullish = long_short.get('bullish', [])
+        bearish = long_short.get('bearish', [])
+        
+        markdown_content += "### 📊 板块多空预测\n\n"
+        
+        if bullish:
+            markdown_content += "#### 🟢 看多板块\n\n"
+            for idx, item in enumerate(bullish, 1):
+                markdown_content += f"{idx}. **{item.get('sector', 'N/A')}** (信心度: {item.get('confidence', 0)}/10)\n"
+                markdown_content += f"   - 理由: {item.get('reason', 'N/A')}\n"
+                markdown_content += f"   - 风险: {item.get('risk', 'N/A')}\n\n"
+        
+        if bearish:
+            markdown_content += "#### 🔴 看空板块\n\n"
+            for idx, item in enumerate(bearish, 1):
+                markdown_content += f"{idx}. **{item.get('sector', 'N/A')}** (信心度: {item.get('confidence', 0)}/10)\n"
+                markdown_content += f"   - 理由: {item.get('reason', 'N/A')}\n"
+                markdown_content += f"   - 风险: {item.get('risk', 'N/A')}\n\n"
+        
+        # 2. 板块轮动预测
+        rotation = predictions.get('rotation', {})
+        current_strong = rotation.get('current_strong', [])
+        potential = rotation.get('potential', [])
+        declining = rotation.get('declining', [])
+        
+        markdown_content += "### 🔄 板块轮动预测\n\n"
+        
+        if current_strong:
+            markdown_content += "#### 💪 当前强势板块\n\n"
+            for item in current_strong:
+                markdown_content += f"- **{item.get('sector', 'N/A')}**\n"
+                markdown_content += f"  - 轮动逻辑: {item.get('logic', 'N/A')}\n"
+                markdown_content += f"  - 时间窗口: {item.get('time_window', 'N/A')}\n"
+                markdown_content += f"  - 操作建议: {item.get('advice', 'N/A')}\n\n"
+        
+        if potential:
+            markdown_content += "#### 🌱 潜力接力板块\n\n"
+            for item in potential:
+                markdown_content += f"- **{item.get('sector', 'N/A')}**\n"
+                markdown_content += f"  - 轮动逻辑: {item.get('logic', 'N/A')}\n"
+                markdown_content += f"  - 时间窗口: {item.get('time_window', 'N/A')}\n"
+                markdown_content += f"  - 操作建议: {item.get('advice', 'N/A')}\n\n"
+        
+        if declining:
+            markdown_content += "#### 📉 衰退板块\n\n"
+            for item in declining:
+                markdown_content += f"- **{item.get('sector', 'N/A')}**\n"
+                markdown_content += f"  - 轮动逻辑: {item.get('logic', 'N/A')}\n"
+                markdown_content += f"  - 时间窗口: {item.get('time_window', 'N/A')}\n"
+                markdown_content += f"  - 操作建议: {item.get('advice', 'N/A')}\n\n"
+        
+        # 3. 板块热度排行
+        heat = predictions.get('heat', {})
+        hottest = heat.get('hottest', [])
+        heating = heat.get('heating', [])
+        cooling = heat.get('cooling', [])
+        
+        markdown_content += "### 🔥 板块热度排行\n\n"
+        
+        if hottest:
+            markdown_content += "#### 最热板块\n\n| 排名 | 板块 | 热度评分 | 趋势 | 持续性 |\n|------|------|----------|------|--------|\n"
+            for idx, item in enumerate(hottest[:10], 1):
+                markdown_content += f"| {idx} | {item.get('sector', 'N/A')} | {item.get('score', 0)} | {item.get('trend', 'N/A')} | {item.get('sustainability', 'N/A')} |\n"
+            markdown_content += "\n"
+        
+        if heating:
+            markdown_content += "#### 升温板块\n\n"
+            for idx, item in enumerate(heating[:5], 1):
+                markdown_content += f"{idx}. {item.get('sector', 'N/A')} (评分: {item.get('score', 0)})\n"
+            markdown_content += "\n"
+        
+        if cooling:
+            markdown_content += "#### 降温板块\n\n"
+            for idx, item in enumerate(cooling[:5], 1):
+                markdown_content += f"{idx}. {item.get('sector', 'N/A')} (评分: {item.get('score', 0)})\n"
+            markdown_content += "\n"
+        
+        # 4. 策略总结
+        summary = predictions.get('summary', {})
+        if summary:
+            markdown_content += "### 📝 策略总结\n\n"
+            
+            if summary.get('market_view'):
+                markdown_content += f"**市场观点:** {summary.get('market_view', '')}\n\n"
+            
+            if summary.get('key_opportunity'):
+                markdown_content += f"**核心机会:** {summary.get('key_opportunity', '')}\n\n"
+            
+            if summary.get('major_risk'):
+                markdown_content += f"**主要风险:** {summary.get('major_risk', '')}\n\n"
+            
+            if summary.get('strategy'):
+                markdown_content += f"**整体策略:** {summary.get('strategy', '')}\n\n"
+    
+    # AI智能体分析
+    agents_analysis = result_data.get('agents_analysis', {})
+    if agents_analysis:
+        markdown_content += "## 🤖 AI智能体分析\n\n"
+        
+        for key, agent_data in agents_analysis.items():
+            agent_name = agent_data.get('agent_name', '未知分析师')
+            agent_role = agent_data.get('agent_role', '')
+            focus_areas = ', '.join(agent_data.get('focus_areas', []))
+            analysis = agent_data.get('analysis', '')
+            
+            markdown_content += f"### {agent_name}\n\n"
+            markdown_content += f"- **职责**: {agent_role}\n"
+            markdown_content += f"- **关注领域**: {focus_areas}\n\n"
+            markdown_content += f"{analysis}\n\n"
+            markdown_content += "---\n\n"
+    
+    # 综合研判
+    comprehensive_report = result_data.get('comprehensive_report', '')
+    if comprehensive_report:
+        markdown_content += "## 📊 综合研判\n\n"
+        markdown_content += f"{comprehensive_report}\n\n"
+    
+    markdown_content += """
+---
+
+*报告由智策AI系统自动生成*
+"""
+    
+    return markdown_content
 
 
 def display_scheduler_settings():

@@ -52,14 +52,14 @@ def main():
     
     # 启动Streamlit应用
     print("🌐 正在启动Web界面...")
-    print("📝 访问地址: http://localhost:8504")
+    print("📝 访问地址: http://localhost:8503")
     print("⏹️  按 Ctrl+C 停止服务")
     print("=" * 50)
     
     try:
         subprocess.run([
             sys.executable, "-m", "streamlit", "run", "app.py",
-            "--server.port", "8504",
+            "--server.port", "8503",
             "--server.address", "127.0.0.1"
         ])
     except KeyboardInterrupt:

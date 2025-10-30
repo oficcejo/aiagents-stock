@@ -136,9 +136,12 @@ def display_analysis_tab():
             )
     
     with col3:
+        # 导入model_config.py中定义的model_options
+        from model_config import model_options as app_model_options
         selected_model = st.selectbox(
             "AI模型",
-            ["deepseek-chat", "deepseek-reasoner"],
+            list(app_model_options.keys()),
+            format_func=lambda x: app_model_options[x],
             help="Reasoner模型提供更强的推理能力"
         )
     
@@ -721,12 +724,12 @@ def display_visualizations(result):
 def display_pdf_export_section(result):
     """显示PDF导出功能"""
     
-    st.markdown("### 📄 导出PDF报告")
+    st.markdown("### 📄 导出报告")
     
-    col1, col2 = st.columns([3, 1])
+    col1, col2, col3 = st.columns([2, 1, 1])
     
     with col1:
-        st.info("💡 点击按钮生成并下载专业的PDF分析报告")
+        st.info("💡 点击按钮生成并下载专业分析报告")
     
     with col2:
         if st.button("📥 生成PDF", type="primary", width='stretch'):
@@ -752,6 +755,154 @@ def display_pdf_export_section(result):
                 
                 except Exception as e:
                     st.error(f"❌ PDF生成失败: {str(e)}")
+    
+    with col3:
+        if st.button("📝 生成Markdown", type="secondary", width='stretch'):
+            with st.spinner("正在生成Markdown报告..."):
+                try:
+                    # 生成Markdown内容
+                    markdown_content = generate_markdown_report(result)
+                    
+                    # 提供下载
+                    st.download_button(
+                        label="📥 下载Markdown报告",
+                        data=markdown_content,
+                        file_name=f"智瞰龙虎报告_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md",
+                        mime="text/markdown",
+                        width='stretch'
+                    )
+                    
+                    st.success("✅ Markdown报告生成成功！")
+                
+                except Exception as e:
+                    st.error(f"❌ Markdown生成失败: {str(e)}")
+
+
+def generate_markdown_report(result_data: dict) -> str:
+    """生成龙虎榜分析Markdown报告"""
+    
+    # 获取当前时间
+    current_time = datetime.now().strftime("%Y年%m月%d日 %H:%M:%S")
+    
+    # 标题页
+    markdown_content = f"""# 智瞰龙虎榜分析报告
+
+**AI驱动的龙虎榜多维度分析系统**
+
+---
+
+## 📊 报告概览
+
+- **生成时间**: {current_time}
+- **数据记录**: {result_data.get('data_info', {}).get('total_records', 0)} 条
+- **涉及股票**: {result_data.get('data_info', {}).get('total_stocks', 0)} 只
+- **涉及游资**: {result_data.get('data_info', {}).get('total_youzi', 0)} 个
+- **AI分析师**: 5位专业分析师团队
+- **分析模型**: DeepSeek AI Multi-Agent System
+
+> ⚠️ 本报告由AI系统基于龙虎榜公开数据自动生成，仅供参考，不构成投资建议。市场有风险，投资需谨慎。
+
+---
+
+## 📈 数据概况
+
+本次分析共涵盖 **{result_data.get('data_info', {}).get('total_records', 0)}** 条龙虎榜记录，
+涉及 **{result_data.get('data_info', {}).get('total_stocks', 0)}** 只股票和 
+**{result_data.get('data_info', {}).get('total_youzi', 0)}** 个游资席位。
+
+"""
+    
+    # 资金概况
+    summary = result_data.get('data_info', {}).get('summary', {})
+    markdown_content += f"""
+### 💰 资金概况
+
+- **总买入金额**: {summary.get('total_buy_amount', 0):,.2f} 元
+- **总卖出金额**: {summary.get('total_sell_amount', 0):,.2f} 元
+- **净流入金额**: {summary.get('total_net_inflow', 0):,.2f} 元
+
+"""
+    
+    # TOP游资
+    if summary.get('top_youzi'):
+        markdown_content += "### 🏆 活跃游资 TOP10\n\n| 排名 | 游资名称 | 净流入金额(元) |\n|------|----------|---------------|\n"
+        for idx, (name, amount) in enumerate(list(summary['top_youzi'].items())[:10], 1):
+            markdown_content += f"| {idx} | {name} | {amount:,.2f} |\n"
+        markdown_content += "\n"
+    
+    # TOP股票
+    if summary.get('top_stocks'):
+        markdown_content += "### 📈 资金净流入 TOP20 股票\n\n| 排名 | 股票代码 | 股票名称 | 净流入金额(元) |\n|------|----------|----------|---------------|\n"
+        for idx, stock in enumerate(summary['top_stocks'][:20], 1):
+            markdown_content += f"| {idx} | {stock['code']} | {stock['name']} | {stock['net_inflow']:,.2f} |\n"
+        markdown_content += "\n"
+    
+    # 热门概念
+    if summary.get('hot_concepts'):
+        markdown_content += "### 🔥 热门概念 TOP15\n\n"
+        for idx, (concept, count) in enumerate(list(summary['hot_concepts'].items())[:15], 1):
+            markdown_content += f"{idx}. {concept} ({count}次)  \n"
+        markdown_content += "\n"
+    
+    # 推荐股票
+    recommended = result_data.get('recommended_stocks', [])
+    if recommended:
+        markdown_content += f"""
+## 🎯 AI推荐股票
+
+基于5位AI分析师的综合分析，系统识别出以下 **{len(recommended)}** 只潜力股票，
+这些股票在资金流向、游资关注度、题材热度等多个维度表现突出。
+
+### 推荐股票清单
+
+| 排名 | 股票代码 | 股票名称 | 净流入金额 | 确定性 | 持有周期 |
+|------|----------|----------|------------|--------|----------|
+"""
+        for stock in recommended[:10]:
+            markdown_content += f"| {stock.get('rank', '-')} | {stock.get('code', '-')} | {stock.get('name', '-')} | {stock.get('net_inflow', 0):,.0f} | {stock.get('confidence', '-')} | {stock.get('hold_period', '-')} |\n"
+        
+        markdown_content += "\n### 推荐理由详解\n\n"
+        for stock in recommended[:5]:  # 只详细展示前5只
+            markdown_content += f"**{stock.get('rank', '-')}. {stock.get('name', '-')} ({stock.get('code', '-')})**\n\n"
+            markdown_content += f"- 推荐理由: {stock.get('reason', '暂无')}\n"
+            markdown_content += f"- 确定性: {stock.get('confidence', '-')}\n"
+            markdown_content += f"- 持有周期: {stock.get('hold_period', '-')}\n\n"
+    
+    # AI分析师报告
+    agents_analysis = result_data.get('agents_analysis', {})
+    if agents_analysis:
+        markdown_content += "## 🤖 AI分析师报告\n\n"
+        markdown_content += "本报告由5位AI专业分析师从不同维度进行分析，综合形成投资建议：\n\n"
+        markdown_content += "- **游资行为分析师** - 分析游资操作特征和意图\n"
+        markdown_content += "- **个股潜力分析师** - 挖掘次日大概率上涨的股票\n"
+        markdown_content += "- **题材追踪分析师** - 识别热点题材和轮动机会\n"
+        markdown_content += "- **风险控制专家** - 识别高风险股票和市场陷阱\n"
+        markdown_content += "- **首席策略师** - 综合研判并给出最终建议\n\n"
+        
+        agent_titles = {
+            'youzi': '游资行为分析师',
+            'stock': '个股潜力分析师',
+            'theme': '题材追踪分析师',
+            'risk': '风险控制专家',
+            'chief': '首席策略师综合研判'
+        }
+        
+        for agent_key, agent_title in agent_titles.items():
+            agent_data = agents_analysis.get(agent_key, {})
+            if agent_data:
+                markdown_content += f"### {agent_title}\n\n"
+                analysis_text = agent_data.get('analysis', '暂无分析')
+                # 处理文本中的换行
+                analysis_text = analysis_text.replace('\n', '\n\n')
+                markdown_content += f"{analysis_text}\n\n"
+    
+    markdown_content += """
+---
+
+*报告由智瞰龙虎AI系统自动生成*
+"""
+    
+    return markdown_content
 
 
 def display_history_tab():

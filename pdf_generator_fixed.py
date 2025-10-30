@@ -133,151 +133,6 @@ def create_html_download_link(content, filename, link_text):
     href = f'<a href="data:text/html;base64,{b64}" download="{filename}" style="display: inline-block; padding: 10px 20px; background-color: #2196F3; color: white; text-decoration: none; border-radius: 5px; margin: 5px;">{link_text}</a>'
     return href
 
-def generate_html_content(markdown_content):
-    """将Markdown转换为HTML"""
-    html_content = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>AI股票分析报告</title>
-    <style>
-        body {{
-            font-family: 'Microsoft YaHei', Arial, sans-serif;
-            line-height: 1.6;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f5f5f5;
-        }}
-        .container {{
-            background-color: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }}
-        h1 {{
-            color: #2c3e50;
-            border-bottom: 3px solid #3498db;
-            padding-bottom: 10px;
-        }}
-        h2 {{
-            color: #34495e;
-            border-left: 4px solid #3498db;
-            padding-left: 15px;
-            margin-top: 30px;
-        }}
-        h3 {{
-            color: #2980b9;
-            margin-top: 25px;
-        }}
-        table {{
-            width: 100%;
-            border-collapse: collapse;
-            margin: 20px 0;
-        }}
-        th, td {{
-            border: 1px solid #ddd;
-            padding: 12px;
-            text-align: left;
-        }}
-        th {{
-            background-color: #3498db;
-            color: white;
-        }}
-        tr:nth-child(even) {{
-            background-color: #f9f9f9;
-        }}
-        .disclaimer {{
-            background-color: #fff3cd;
-            border: 1px solid #ffeaa7;
-            border-radius: 5px;
-            padding: 15px;
-            margin-top: 30px;
-        }}
-        .footer {{
-            text-align: center;
-            margin-top: 30px;
-            color: #7f8c8d;
-            font-style: italic;
-        }}
-        hr {{
-            border: none;
-            height: 2px;
-            background-color: #ecf0f1;
-            margin: 20px 0;
-        }}
-        strong {{
-            color: #2c3e50;
-        }}
-    </style>
-</head>
-<body>
-    <div class="container">
-"""
-    
-    # 简单的Markdown到HTML转换
-    html_body = markdown_content
-    html_body = html_body.replace('\n# ', '\n<h1>').replace('\n## ', '\n<h2>').replace('\n### ', '\n<h3>')
-    html_body = html_body.replace('# ', '<h1>').replace('## ', '<h2>').replace('### ', '<h3>')
-    html_body = html_body.replace('\n---\n', '\n<hr>\n')
-    
-    # 处理粗体文本
-    html_body = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', html_body)
-    
-    # 处理表格
-    lines = html_body.split('\n')
-    in_table = False
-    processed_lines = []
-    
-    for line in lines:
-        if '|' in line and not in_table and line.strip().startswith('|'):
-            processed_lines.append('<table>')
-            in_table = True
-            cells = [cell.strip() for cell in line.split('|')[1:-1]]
-            processed_lines.append('<tr>')
-            for cell in cells:
-                processed_lines.append(f'<th>{cell}</th>')
-            processed_lines.append('</tr>')
-        elif '|' in line and in_table:
-            if '---' not in line:
-                cells = [cell.strip() for cell in line.split('|')[1:-1]]
-                processed_lines.append('<tr>')
-                for cell in cells:
-                    processed_lines.append(f'<td>{cell}</td>')
-                processed_lines.append('</tr>')
-        elif in_table and '|' not in line:
-            processed_lines.append('</table>')
-            processed_lines.append(line)
-            in_table = False
-        else:
-            processed_lines.append(line)
-    
-    if in_table:
-        processed_lines.append('</table>')
-    
-    html_body = '\n'.join(processed_lines)
-    
-    # 处理段落
-    paragraphs = html_body.split('\n\n')
-    processed_paragraphs = []
-    for para in paragraphs:
-        para = para.strip()
-        if para and not para.startswith('<') and not para.startswith('---'):
-            processed_paragraphs.append(f'<p>{para}</p>')
-        else:
-            processed_paragraphs.append(para)
-    
-    html_body = '\n'.join(processed_paragraphs)
-    
-    html_content += html_body + """
-    </div>
-</body>
-</html>
-"""
-    
-    return html_content
-
 def display_pdf_export_section(stock_info, agents_results, discussion_result, final_decision):
     """显示PDF导出区域 - 修复报告生成问题"""
     
@@ -290,8 +145,11 @@ def display_pdf_export_section(stock_info, agents_results, discussion_result, fi
         # 生成报告按钮
         import uuid
         import time
-        button_key = f"generate_report_btn_{int(time.time())}_{uuid.uuid4().hex[:8]}"
-        if st.button("📊 生成并下载报告", type="primary", width='content', key=button_key):
+        pdf_button_key = f"generate_report_btn_{int(time.time())}_{uuid.uuid4().hex[:8]}"
+        markdown_button_key = f"generate_markdown_btn_{int(time.time())}_{uuid.uuid4().hex[:8]}"
+        
+        # 生成PDF和HTML报告按钮
+        if st.button("📊 生成并下载报告(PDF/HTML)", type="primary", width='content', key=pdf_button_key):
             with st.spinner("正在生成报告..."):
                 try:
                     # 生成Markdown内容
@@ -338,3 +196,43 @@ def display_pdf_export_section(stock_info, agents_results, discussion_result, fi
                     st.error(f"❌ 生成报告时出错: {str(e)}")
                     import traceback
                     st.error(f"详细错误信息: {traceback.format_exc()}")
+        
+        # 单独生成Markdown报告按钮
+        if st.button("📝 生成并下载Markdown报告", type="secondary", width='content', key=markdown_button_key):
+            with st.spinner("正在生成Markdown报告..."):
+                try:
+                    # 生成Markdown内容
+                    markdown_content = generate_markdown_report(stock_info, agents_results, discussion_result, final_decision)
+                    
+                    # 生成文件名
+                    stock_symbol = stock_info.get('symbol', 'unknown')
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    filename = f"股票分析报告_{stock_symbol}_{timestamp}.md"
+                    
+                    st.success("✅ Markdown报告生成成功！")
+                    st.balloons()
+                    
+                    # 显示下载链接
+                    st.markdown("### 📄 报告下载")
+                    
+                    # 创建下载链接
+                    md_link = create_download_link(
+                        markdown_content, 
+                        filename, 
+                        "📝 下载Markdown报告"
+                    )
+                    
+                    # 显示下载链接
+                    st.markdown(f"""
+                    <div style="text-align: center; margin: 20px 0;">
+                        {md_link}
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    st.info("💡 提示：点击上方按钮即可下载Markdown格式的报告文件")
+                    
+                except Exception as e:
+                    st.error(f"❌ 生成Markdown报告时出错: {str(e)}")
+                    import traceback
+                    st.error(f"详细错误信息: {traceback.format_exc()}")
+
