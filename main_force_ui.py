@@ -140,8 +140,8 @@ def display_main_force_selector():
     st.markdown("---")
 
     # 开始分析按钮
-    if st.button("🚀 开始主力选股", type="primary", width='content'):
-
+    if st.button("🚀 开始主力选股", type="primary", width='stretch'):
+        
         with st.spinner("正在获取数据并分析，这可能需要几分钟..."):
 
             # 创建分析器
@@ -283,8 +283,8 @@ def display_analysis_results(result: dict, analyzer):
 
         # 显示DataFrame
         display_df = analyzer.raw_stocks[final_cols].copy()
-        st.dataframe(display_df, width='content', height=400)
-
+        st.dataframe(display_df, use_container_width=True, height=400)
+        
         # 显示统计
         st.caption(f"共 {len(display_df)} 只候选股票，显示 {len(final_cols)} 个字段")
 
@@ -864,7 +864,7 @@ def display_main_force_batch_results(batch_results):
             })
 
         df_display = pd.DataFrame(display_data)
-
+        
         # 类型统一，避免Arrow序列化错误
         numeric_cols = ['信心度', '止盈位', '止损位', '目标价']
         for col in numeric_cols:
@@ -875,9 +875,9 @@ def display_main_force_batch_results(batch_results):
         for col in text_cols:
             if col in df_display.columns:
                 df_display[col] = df_display[col].astype(str)
-
+        
         st.dataframe(df_display, width='content', height=400)
-
+        
         # 详细分析结果（可展开）
         st.markdown("---")
         st.markdown("### 📋 详细分析报告")
