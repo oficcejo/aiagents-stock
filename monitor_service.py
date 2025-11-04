@@ -4,17 +4,44 @@ import schedule
 from datetime import datetime, timedelta
 from typing import Dict, List
 import streamlit as st
+import os
+import logging
 
 from monitor_db import monitor_db
 from stock_data import StockDataFetcher
 from miniqmt_interface import miniqmt, get_miniqmt_status
 from notification_service import notification_service
 
+# 导入TDX数据源（如果可用）
+try:
+    from smart_monitor_tdx_data import SmartMonitorTDXDataFetcher
+    TDX_AVAILABLE = True
+except ImportError:
+    TDX_AVAILABLE = False
+    logging.warning("TDX数据源模块未找到，将使用默认数据源")
+
 class StockMonitorService:
     """股票监测服务"""
     
     def __init__(self):
         self.fetcher = StockDataFetcher()
+        
+        # 初始化TDX数据源（如果启用）
+        self.tdx_fetcher = None
+        self.use_tdx = False
+        
+        # 从环境变量获取TDX配置
+        tdx_enabled = os.getenv('TDX_ENABLED', 'false').lower() == 'true'
+        tdx_base_url = os.getenv('TDX_BASE_URL', 'http://192.168.1.222:8181')
+        
+        if tdx_enabled and TDX_AVAILABLE:
+            try:
+                self.tdx_fetcher = SmartMonitorTDXDataFetcher(base_url=tdx_base_url)
+                self.use_tdx = True
+                logging.info(f"✅ TDX数据源已启用: {tdx_base_url}")
+            except Exception as e:
+                logging.warning(f"TDX数据源初始化失败，将使用默认数据源: {e}")
+        
         self.running = False
         self.thread = None
     
@@ -85,14 +112,28 @@ class StockMonitorService:
     def _update_stock_price(self, stock: Dict):
         """更新股票价格并检查条件"""
         symbol = stock['symbol']
+        current_price = None
         
         # 获取最新价格
         try:
-            # 使用get_stock_info获取当前价格
-            stock_info = self.fetcher.get_stock_info(symbol)
-            current_price = stock_info.get('current_price')
+            # 优先使用TDX数据源（如果已启用且为A股）
+            if self.use_tdx and self._is_a_stock(symbol):
+                print(f"🔄 使用TDX数据源获取 {symbol} 行情...")
+                quote = self.tdx_fetcher.get_realtime_quote(symbol)
+                
+                if quote and quote.get('current_price'):
+                    current_price = float(quote['current_price'])
+                    print(f"✅ TDX获取成功: {symbol} 当前价格: ¥{current_price}")
+                else:
+                    # TDX失败，降级到默认数据源
+                    print(f"⚠️ TDX获取失败，降级到默认数据源: {symbol}")
+                    current_price = self._get_price_from_default_source(symbol)
+            else:
+                # 使用默认数据源（AKShare/yfinance）
+                current_price = self._get_price_from_default_source(symbol)
             
-            if current_price and current_price != 'N/A':
+            # 处理获取到的价格
+            if current_price and current_price > 0:
                 try:
                     current_price = float(current_price)
                     # 更新数据库（包括更新last_checked时间）
@@ -117,6 +158,23 @@ class StockMonitorService:
                 monitor_db.update_last_checked(stock['id'])
             except:
                 pass
+    
+    def _is_a_stock(self, symbol: str) -> bool:
+        """判断是否为A股（6位数字）"""
+        return symbol.isdigit() and len(symbol) == 6
+    
+    def _get_price_from_default_source(self, symbol: str) -> float:
+        """从默认数据源获取价格"""
+        try:
+            stock_info = self.fetcher.get_stock_info(symbol)
+            current_price = stock_info.get('current_price')
+            
+            if current_price and current_price != 'N/A':
+                return float(current_price)
+            return None
+        except Exception as e:
+            print(f"默认数据源获取失败: {e}")
+            return None
     
     def _check_trigger_conditions(self, stock: Dict, current_price: float):
         """检查触发条件"""

@@ -22,3 +22,9 @@ MINIQMT_CONFIG = {
     'host': os.getenv("MINIQMT_HOST", "127.0.0.1"),
     'port': int(os.getenv("MINIQMT_PORT", "58610")),
 }
+
+# TDX股票数据API配置项目地址github.com/oficcejo/tdx-api
+TDX_CONFIG = {
+    'enabled': os.getenv("TDX_ENABLED", "false").lower() == "true",
+    'base_url': os.getenv("TDX_BASE_URL", "http://192.168.1.222:8181"),
+}

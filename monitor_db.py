@@ -34,12 +34,20 @@ class StockMonitorDatabase:
                 last_checked TIMESTAMP,
                 check_interval INTEGER DEFAULT 30,  -- 分钟
                 notification_enabled BOOLEAN DEFAULT TRUE,
+                trading_hours_only BOOLEAN DEFAULT TRUE,  -- 仅交易时段监控
                 quant_enabled BOOLEAN DEFAULT FALSE,  -- 量化交易开关
                 quant_config TEXT,  -- 量化配置JSON
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+        
+        # 检查并添加trading_hours_only字段（兼容已有数据库）
+        try:
+            cursor.execute("SELECT trading_hours_only FROM monitored_stocks LIMIT 1")
+        except sqlite3.OperationalError:
+            cursor.execute("ALTER TABLE monitored_stocks ADD COLUMN trading_hours_only BOOLEAN DEFAULT TRUE")
+            print("✅ 已添加trading_hours_only字段")
         
         # 创建价格历史表
         cursor.execute('''
@@ -72,6 +80,7 @@ class StockMonitorDatabase:
                            entry_range: Dict, take_profit: float, 
                            stop_loss: float, check_interval: int = 30, 
                            notification_enabled: bool = True,
+                           trading_hours_only: bool = True,
                            quant_enabled: bool = False,
                            quant_config: Dict = None) -> int:
         """添加监测股票"""
@@ -83,10 +92,10 @@ class StockMonitorDatabase:
         cursor.execute('''
             INSERT INTO monitored_stocks 
             (symbol, name, rating, entry_range, take_profit, stop_loss, check_interval, 
-             notification_enabled, quant_enabled, quant_config)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             notification_enabled, trading_hours_only, quant_enabled, quant_config)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (symbol, name, rating, json.dumps(entry_range), take_profit, stop_loss, 
-              check_interval, notification_enabled, quant_enabled, quant_config_json))
+              check_interval, notification_enabled, trading_hours_only, quant_enabled, quant_config_json))
         
         stock_id = cursor.lastrowid
         conn.commit()
@@ -102,7 +111,7 @@ class StockMonitorDatabase:
         cursor.execute('''
             SELECT id, symbol, name, rating, entry_range, take_profit, stop_loss, 
                    current_price, last_checked, check_interval, notification_enabled,
-                   quant_enabled, quant_config, created_at, updated_at
+                   trading_hours_only, quant_enabled, quant_config, created_at, updated_at
             FROM monitored_stocks
             ORDER BY created_at DESC
         ''')
@@ -110,7 +119,7 @@ class StockMonitorDatabase:
         stocks = []
         for row in cursor.fetchall():
             try:
-                quant_config = json.loads(row[12]) if row[12] else None
+                quant_config = json.loads(row[13]) if row[13] else None
                 entry_range = json.loads(row[4]) if row[4] else None
             except (json.JSONDecodeError, TypeError) as e:
                 print(f"警告: 股票 {row[1]} 的JSON解析失败: {e}")
@@ -129,10 +138,11 @@ class StockMonitorDatabase:
                 'last_checked': row[8],
                 'check_interval': row[9],
                 'notification_enabled': bool(row[10]),
-                'quant_enabled': bool(row[11]),
+                'trading_hours_only': bool(row[11]) if row[11] is not None else True,
+                'quant_enabled': bool(row[12]),
                 'quant_config': quant_config,
-                'created_at': row[13],
-                'updated_at': row[14]
+                'created_at': row[14],
+                'updated_at': row[15]
             })
         
         conn.close()
@@ -318,6 +328,7 @@ class StockMonitorDatabase:
     def update_monitored_stock(self, stock_id: int, rating: str, entry_range: Dict, 
                               take_profit: float, stop_loss: float, 
                               check_interval: int, notification_enabled: bool,
+                              trading_hours_only: bool = None,
                               quant_enabled: bool = None,
                               quant_config: Dict = None):
         """更新监测股票"""
@@ -326,22 +337,35 @@ class StockMonitorDatabase:
         
         if quant_enabled is not None and quant_config is not None:
             quant_config_json = json.dumps(quant_config) if quant_config else None
-            cursor.execute('''
+            trading_hours_sql = ", trading_hours_only = ?" if trading_hours_only is not None else ""
+            params = [rating, json.dumps(entry_range), take_profit, stop_loss, 
+                      check_interval, notification_enabled, quant_enabled, quant_config_json]
+            if trading_hours_only is not None:
+                params.append(trading_hours_only)
+            params.append(stock_id)
+            
+            cursor.execute(f'''
                 UPDATE monitored_stocks 
                 SET rating = ?, entry_range = ?, take_profit = ?, stop_loss = ?, 
                     check_interval = ?, notification_enabled = ?, 
-                    quant_enabled = ?, quant_config = ?,
+                    quant_enabled = ?, quant_config = ?{trading_hours_sql},
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
-            ''', (rating, json.dumps(entry_range), take_profit, stop_loss, 
-                  check_interval, notification_enabled, quant_enabled, quant_config_json, stock_id))
+            ''', tuple(params))
         else:
-            cursor.execute('''
+            trading_hours_sql = ", trading_hours_only = ?" if trading_hours_only is not None else ""
+            params = [rating, json.dumps(entry_range), take_profit, stop_loss, check_interval, notification_enabled]
+            if trading_hours_only is not None:
+                params.append(trading_hours_only)
+            params.append(stock_id)
+            
+            cursor.execute(f'''
                 UPDATE monitored_stocks 
                 SET rating = ?, entry_range = ?, take_profit = ?, stop_loss = ?, 
-                    check_interval = ?, notification_enabled = ?, updated_at = CURRENT_TIMESTAMP
+                    check_interval = ?, notification_enabled = ?{trading_hours_sql}, 
+                    updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
-            ''', (rating, json.dumps(entry_range), take_profit, stop_loss, check_interval, notification_enabled, stock_id))
+            ''', tuple(params))
         
         conn.commit()
         conn.close()
@@ -372,7 +396,7 @@ class StockMonitorDatabase:
         cursor.execute('''
             SELECT id, symbol, name, rating, entry_range, take_profit, stop_loss,
                    current_price, last_checked, check_interval, notification_enabled,
-                   quant_enabled, quant_config
+                   trading_hours_only, quant_enabled, quant_config
             FROM monitored_stocks WHERE id = ?
         ''', (stock_id,))
         
@@ -381,7 +405,7 @@ class StockMonitorDatabase:
         
         if row:
             try:
-                quant_config = json.loads(row[12]) if row[12] else None
+                quant_config = json.loads(row[13]) if row[13] else None
                 entry_range = json.loads(row[4]) if row[4] else None
             except (json.JSONDecodeError, TypeError) as e:
                 print(f"警告: 股票 {row[1]} 的JSON解析失败: {e}")
@@ -400,7 +424,8 @@ class StockMonitorDatabase:
                 'last_checked': row[8],
                 'check_interval': row[9],
                 'notification_enabled': bool(row[10]),
-                'quant_enabled': bool(row[11]),
+                'trading_hours_only': bool(row[11]) if row[11] is not None else True,
+                'quant_enabled': bool(row[12]),
                 'quant_config': quant_config
             }
         return None
@@ -485,6 +510,7 @@ class StockMonitorDatabase:
                 stop_loss = data.get('stop_loss')
                 check_interval = data.get('check_interval', 60)
                 notification_enabled = data.get('notification_enabled', True)
+                trading_hours_only = data.get('trading_hours_only', True)
                 
                 # 验证必需字段
                 if not symbol or not all([entry_min, entry_max, take_profit, stop_loss]):
@@ -507,7 +533,8 @@ class StockMonitorDatabase:
                         take_profit=take_profit,
                         stop_loss=stop_loss,
                         check_interval=check_interval,
-                        notification_enabled=notification_enabled
+                        notification_enabled=notification_enabled,
+                        trading_hours_only=trading_hours_only
                     )
                     updated += 1
                     print(f"[OK] 更新监测: {symbol}")
@@ -521,7 +548,8 @@ class StockMonitorDatabase:
                         take_profit=take_profit,
                         stop_loss=stop_loss,
                         check_interval=check_interval,
-                        notification_enabled=notification_enabled
+                        notification_enabled=notification_enabled,
+                        trading_hours_only=trading_hours_only
                     )
                     added += 1
                     print(f"[OK] 添加监测: {symbol}")

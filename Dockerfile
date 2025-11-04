@@ -62,10 +62,10 @@ COPY . .
 RUN mkdir -p /app/data && chmod 777 /app/data
 
 # 暴露Streamlit默认端口
-EXPOSE 8501
+EXPOSE 8503
 
 # 设置健康检查
-HEALTHCHECK CMD curl --fail http://localhost:8501/_stcore/health || exit 1
+HEALTHCHECK CMD curl --fail http://localhost:8503/_stcore/health || exit 1
 
 # 启动应用
-CMD ["streamlit", "run", "app.py"]
+CMD ["streamlit", "run", "app.py", "--server.port=8503", "--server.address=0.0.0.0"]

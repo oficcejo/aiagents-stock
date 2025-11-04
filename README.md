@@ -1,6 +1,11 @@
 # 🤖 复合多AI智能体股票团队分析系统
 
 - 初心：在股市摸爬滚打多年，自学自编各种指标，花冤枉钱学习了各种战法各种策略，也曾入各种小班，总是赚少赔多，逐渐失去在股市玩的信心。自从去年deepseek上市，一直探索用ai辅助分析，且近日受tradingagents项目启发（感谢原作），多agent结合跟踪主力资金战法（某指每年收费6000rmb），用各种ai辅助编程，拼凑了这么个小程序，根据软件提供的辅助信息，实盘测试盈率还是挺高的，并且逐步形成了自己的交易系统，近一个月来，账户也慢慢在扭亏为盈。开源此软件的目的，就是为了使像我一样的小散，不再迷茫。也许这个软件不能让你发大财，但是他能给你足够的信心。最后提醒：股市有风险，入市需谨慎！
+## 新增ai盯盘、实时监测板块获取股票行情引入本地TDX数据源
+- 项目地址https://github.com/oficcejo/tdx-api，请按照说明配置（默认docker），默认接口http://宿主机ip：8080
+- config.py中配置API接口地址
+
+## 新增按交易时段开启盯盘、监测
 
 ## 🤖 新增--AI盯盘 - AI自动化交易决策系统（NEW！）
 
@@ -20,7 +25,7 @@
 - ✅ **技术指标完整** - 均线/MACD/RSI/KDJ/布林带，AI决策更可靠
 
 - 希望能帮到你！欢迎加微信群讨论
-<img width="300" height="324" alt="image" src="https://www.sd-hn.cn/img/2wm1031.png" />
+<img width="300" height="324" alt="image" src="https://www.sd-hn.cn/img/2wm1104.png" />
 
 ### 基于Python + Streamlit + DeepSeek的智能股票分析系统，模拟证券公司分析师团队，提供全方位的股票投资分析和决策建议。
 <img width="1910" height="923" alt="image" src="https://github.com/user-attachments/assets/fe366e1d-2352-46db-a3cc-6f147ee6d9d9" />
@@ -489,6 +494,9 @@ cp .env.example .env
 ```env
 # DeepSeek API配置（必需）
 DEEPSEEK_API_KEY=your_actual_deepseek_api_key_here
+
+# Tushare配置（可选）- 作为降级数据源
+TUSHARE_TOKEN=your_tushare_token       # 在 https://tushare.pro 注册获取
 
 # 邮件通知配置（可选）- 用于实时监测和智策定时分析
 EMAIL_ENABLED=false
@@ -1221,9 +1229,11 @@ AI股票分析系统
 ### 数据源
 - **美股数据**：Yahoo Finance (yfinance)
 - **A股数据**：AKShare免费接口
+- **TDX本地数据源**：通达信TDX API（本地化部署，响应<50ms，无限制）⭐ 2025-11-04 NEW
 - **主力资金数据**：问财（pywencai）- 主力选股功能 ⭐️
 - **季报数据**：问财（pywencai）- 财务数据补充 ⭐️
 - **技术指标**：TA-Lib技术分析库
+- **降级机制**：TDX → Tushare → AKShare 多层数据源保障
 
 ### AI模型
 - **语言模型**：DeepSeek Chat API
@@ -1354,7 +1364,25 @@ DEFAULT_INTERVAL = "1d"    # 默认数据间隔
      - 查看终端日志了解详细错误信息
    - **详细文档**：查看 `docs/Webhook通知配置指南.md` 获取完整配置教程
 
-11. **智策板块分析问题** ⭐️ 全新功能
+11. **TDX数据源问题** ⭐ 2025-11-04 NEW
+   - **TDX服务无法访问**：
+     - 检查TDX Docker容器是否运行：`docker ps | grep tdx`
+     - 测试接口可用性：`curl "http://localhost:8080/api/quote?code=000001"`
+     - 检查防火墙设置（确保8080端口开放）
+     - 修改`.env`中的`TDX_BASE_URL`为正确的IP地址
+   - **TDX数据源未启用**：
+     - 确认`.env`中已配置：`TDX_ENABLED=true`
+     - 确认`smart_monitor_tdx_data.py`文件存在
+     - 重启应用生效
+   - **频繁降级到其他数据源**：
+     - 系统会自动降级到AKShare，无需干预
+     - 如频繁降级，检查TDX服务状态
+     - 查看日志：`docker logs tdx-api`
+   - **详细文档**：
+     - [TDX数据源快速配置.md](docs/TDX数据源快速配置.md)
+     - [TDX数据源集成完成说明.md](docs/TDX数据源集成完成说明.md)
+
+12. **智策板块分析问题** ⭐️ 全新功能
    - **数据获取失败**：
      - 检查网络连接是否稳定
      - AKShare数据源可能暂时不可用，稍后重试
@@ -1399,6 +1427,11 @@ docker logs -f agentsstock1
 ```
 
 ### 相关文档
+
+**TDX数据源文档** ⭐ 2025-11-04 NEW：
+- [TDX数据源快速配置.md](docs/TDX数据源快速配置.md) - TDX本地化数据源配置指南
+- [TDX数据源集成完成说明.md](docs/TDX数据源集成完成说明.md) - TDX集成技术说明
+- [TDX API项目地址](https://github.com/oficcejo/tdx-api) - 通达信API项目
 
 **通知系统文档** ⭐️：
 - [Webhook通知配置指南.md](docs/Webhook通知配置指南.md) - Webhook完整配置教程

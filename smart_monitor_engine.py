@@ -82,7 +82,8 @@ class SmartMonitorEngine:
     
     def analyze_stock(self, stock_code: str, auto_trade: bool = False,
                      notify: bool = True, has_position: bool = False,
-                     position_cost: float = 0, position_quantity: int = 0) -> Dict:
+                     position_cost: float = 0, position_quantity: int = 0,
+                     trading_hours_only: bool = True) -> Dict:
         """
         分析单只股票并做出决策
         
@@ -93,6 +94,7 @@ class SmartMonitorEngine:
             has_position: 是否已持仓（可选）
             position_cost: 持仓成本（可选）
             position_quantity: 持仓数量（可选）
+            trading_hours_only: 是否仅在交易时段分析（可选，默认True）
             
         Returns:
             分析结果
@@ -103,6 +105,16 @@ class SmartMonitorEngine:
             # 1. 检查交易时段
             session_info = self.deepseek.get_trading_session()
             self.logger.info(f"[{stock_code}] 当前时段: {session_info['session']}")
+            
+            # 如果启用了仅交易时段分析，且当前不在交易时段，则跳过分析
+            if trading_hours_only and not session_info.get('can_trade', False):
+                self.logger.info(f"[{stock_code}] 非交易时段，跳过分析")
+                return {
+                    'success': False,
+                    'error': f"非交易时段（{session_info['session']}），跳过分析",
+                    'session_info': session_info,
+                    'skipped': True
+                }
             
             # 2. 获取市场数据
             market_data = self.data_fetcher.get_comprehensive_data(stock_code)
@@ -398,43 +410,68 @@ class SmartMonitorEngine:
     def _send_notification(self, stock_code: str, stock_name: str,
                           decision: Dict, execution_result: Optional[Dict],
                           market_data: Dict):
-        """发送通知（使用主程序的通知服务）"""
+        """
+        发送通知（使用主程序的通知服务）
+        优化策略：仅在买入或卖出信号时发送通知，持有信号不发送
+        """
         try:
+            action = decision['action'].upper()
+            
+            # 仅在买入或卖出时发送通知，持有信号不发送
+            if action not in ['BUY', 'SELL']:
+                self.logger.info(f"[{stock_code}] 决策为{action}，不发送通知")
+                return
+            
             # 构建通知内容
             action_text = {
-                'BUY': '买入',
-                'SELL': '卖出',
-                'HOLD': '持有'
-            }.get(decision['action'], decision['action'])
+                'BUY': '🟢 买入',
+                'SELL': '🔴 卖出'
+            }.get(action, action)
             
             message = f"{action_text}信号 - {stock_name}({stock_code})"
             
-            # 构建详细内容
+            # 简化的AI决策内容（提取核心信息）
+            reasoning_summary = decision['reasoning'][:150] + '...' if len(decision['reasoning']) > 150 else decision['reasoning']
+            
+            # 提取关键价位信息
+            key_levels = decision.get('key_price_levels', {})
+            support = key_levels.get('support', 'N/A')
+            resistance = key_levels.get('resistance', 'N/A')
+            
+            # 构建简化的详细内容
             content = f"""
-【股票信息】
-代码: {stock_code}
-名称: {stock_name}
-当前价: {market_data.get('current_price', 0):.2f}元
-涨跌幅: {market_data.get('change_pct', 0):+.2f}%
+【{action_text}信号】{stock_name}({stock_code})
 
-【AI决策】
-操作: {action_text}
-信心度: {decision['confidence']}%
-风险等级: {decision.get('risk_level', 'N/A')}
+📊 市场信息
+• 当前价: ¥{market_data.get('current_price', 0):.2f}
+• 涨跌幅: {market_data.get('change_pct', 0):+.2f}%
+• 成交量: {market_data.get('volume', 0):,.0f}手
 
-【决策理由】
-{decision['reasoning'][:200]}...
+🤖 AI决策
+• 操作: {action_text}
+• 信心度: {decision['confidence']}%
+• 风险: {decision.get('risk_level', '中')}
 
-【技术指标】
-MA5: {market_data.get('ma5', 0):.2f} | MA20: {market_data.get('ma20', 0):.2f}
-MACD: {market_data.get('macd', 0):.4f} | RSI(6): {market_data.get('rsi6', 0):.2f}
+💡 核心理由
+{reasoning_summary}
+
+📈 关键价位
+• 支撑位: {support}
+• 阻力位: {resistance}
+• 止盈: {decision.get('take_profit_pct', 'N/A')}%
+• 止损: {decision.get('stop_loss_pct', 'N/A')}%
+
+📉 技术指标
+• MA5: {market_data.get('ma5', 0):.2f} / MA20: {market_data.get('ma20', 0):.2f}
+• RSI(6): {market_data.get('rsi6', 0):.1f}
+• MACD: {market_data.get('macd', 0):.4f}
 """
             
             if execution_result:
                 if execution_result.get('success'):
-                    content += f"\n✅ 操作已自动执行成功"
+                    content += f"\n✅ 操作已自动执行"
                 else:
-                    content += f"\n❌ 执行失败: {execution_result.get('error')}"
+                    content += f"\n⚠️ 执行失败: {execution_result.get('error')}"
             
             content += f"\n\n⏰ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
             
@@ -452,7 +489,7 @@ MACD: {market_data.get('macd', 0):.4f} | RSI(6): {market_data.get('rsi6', 0):.2f
             success = self.notification.send_notification(notification_data)
             
             if success:
-                self.logger.info(f"[{stock_code}] 通知已发送")
+                self.logger.info(f"[{stock_code}] {action_text}通知已发送")
             else:
                 self.logger.warning(f"[{stock_code}] 通知发送失败")
             
@@ -473,7 +510,7 @@ MACD: {market_data.get('macd', 0):.4f} | RSI(6): {market_data.get('rsi6', 0):.2f
     def start_monitor(self, stock_code: str, check_interval: int = 300,
                      auto_trade: bool = False, notify: bool = True,
                      has_position: bool = False, position_cost: float = 0,
-                     position_quantity: int = 0):
+                     position_quantity: int = 0, trading_hours_only: bool = True):
         """
         启动股票监控（在独立线程中运行）
         
@@ -485,6 +522,7 @@ MACD: {market_data.get('macd', 0):.4f} | RSI(6): {market_data.get('rsi6', 0):.2f
             has_position: 是否已持仓
             position_cost: 持仓成本
             position_quantity: 持仓数量
+            trading_hours_only: 是否仅在交易时段监控（默认True）
         """
         if stock_code in self.monitoring_threads:
             self.logger.warning(f"[{stock_code}] 监控已在运行中")
@@ -498,7 +536,7 @@ MACD: {market_data.get('macd', 0):.4f} | RSI(6): {market_data.get('rsi6', 0):.2f
         thread = threading.Thread(
             target=self._monitor_loop,
             args=(stock_code, check_interval, auto_trade, notify, stop_flag,
-                 has_position, position_cost, position_quantity),
+                 has_position, position_cost, position_quantity, trading_hours_only),
             daemon=True
         )
         
@@ -506,7 +544,8 @@ MACD: {market_data.get('macd', 0):.4f} | RSI(6): {market_data.get('rsi6', 0):.2f
         thread.start()
         
         position_info = f"（持仓: {position_quantity}股 @ {position_cost:.2f}元）" if has_position else ""
-        self.logger.info(f"[{stock_code}] 监控已启动，间隔: {check_interval}秒 {position_info}")
+        trading_info = "（仅交易时段）" if trading_hours_only else "（全时段）"
+        self.logger.info(f"[{stock_code}] 监控已启动{trading_info}，间隔: {check_interval}秒 {position_info}")
     
     def stop_monitor(self, stock_code: str):
         """停止股票监控"""
@@ -529,7 +568,7 @@ MACD: {market_data.get('macd', 0):.4f} | RSI(6): {market_data.get('rsi6', 0):.2f
     def _monitor_loop(self, stock_code: str, check_interval: int,
                      auto_trade: bool, notify: bool, stop_flag: threading.Event,
                      has_position: bool = False, position_cost: float = 0,
-                     position_quantity: int = 0):
+                     position_quantity: int = 0, trading_hours_only: bool = True):
         """监控循环（在独立线程中运行）"""
         self.logger.info(f"[{stock_code}] 监控线程已启动")
         
@@ -542,10 +581,14 @@ MACD: {market_data.get('macd', 0):.4f} | RSI(6): {market_data.get('rsi6', 0):.2f
                     notify=notify,
                     has_position=has_position,
                     position_cost=position_cost,
-                    position_quantity=position_quantity
+                    position_quantity=position_quantity,
+                    trading_hours_only=trading_hours_only
                 )
                 
-                if result['success']:
+                if result.get('skipped'):
+                    # 非交易时段跳过，不算错误
+                    self.logger.debug(f"[{stock_code}] {result.get('error')}")
+                elif result['success']:
                     self.logger.info(f"[{stock_code}] 分析完成: {result['decision']['action']}")
                 else:
                     self.logger.error(f"[{stock_code}] 分析失败: {result.get('error')}")
