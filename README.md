@@ -25,7 +25,7 @@
 - ✅ **技术指标完整** - 均线/MACD/RSI/KDJ/布林带，AI决策更可靠
 
 - 希望能帮到你！欢迎加微信讨论(请备注aiagents-stock）
-<img width="290" height="319" alt="image" src="https://github.com/user-attachments/assets/f326eebc-9355-458a-ba27-08f9dcef309d" />
+
 
 
 ### 基于Python + Streamlit + DeepSeek的智能股票分析系统，模拟证券公司分析师团队，提供全方位的股票投资分析和决策建议。
