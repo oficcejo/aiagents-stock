@@ -88,10 +88,12 @@ def display_monitored_stocks():
             display_stock_card(stock)
 
 def display_stock_card(stock: Dict):
-    """显示单个股票监测卡片"""
+    """显示单个股票监测卡片（显示交易时段设置）"""
     
     with st.container():
-        st.markdown(f"### {stock['symbol']} - {stock['name']}")
+        # 标题行：添加交易时段标识
+        trading_badge = "🕒仅交易时段" if stock.get('trading_hours_only', True) else "🌐全时段"
+        st.markdown(f"### {stock['symbol']} - {stock['name']} {trading_badge}")
         
         # 评级和状态
         col1, col2 = st.columns([1, 1])
@@ -119,10 +121,16 @@ def display_stock_card(stock: Dict):
         if stock['stop_loss']:
             st.error(f"**止损位**: ¥{stock['stop_loss']}")
         
-        # 最后更新时间
+        # 最后更新时间和监控模式
         if stock['last_checked']:
             last_checked = datetime.fromisoformat(stock['last_checked'])
             st.caption(f"最后更新: {last_checked.strftime('%m-%d %H:%M')}")
+        
+        # 监控模式提示
+        if stock.get('trading_hours_only', True):
+            st.caption("⏰ 监控模式：交易日 9:30-11:30, 13:00-15:00")
+        else:
+            st.caption("🌐 监控模式：全天候")
         
         # 操作按钮
         col1, col2 = st.columns([1, 1])
@@ -140,7 +148,7 @@ def display_stock_card(stock: Dict):
                 st.rerun()
 
 def add_to_monitor_dialog(stock_info: Dict, analysis_result: Dict):
-    """显示添加到监测的对话框"""
+    """显示添加到监测的对话框（支持交易时段选项）"""
     
     st.markdown("---")
     st.markdown("## 📈 添加到实时监测")
@@ -183,8 +191,20 @@ def add_to_monitor_dialog(stock_info: Dict, analysis_result: Dict):
     
     # 监测设置
     st.subheader("⏰ 监测设置")
-    check_interval = st.slider("监测间隔(分钟)", 5, 120, 30, key=f"check_interval_{session_id}")
-    notification_enabled = st.checkbox("启用提醒", value=True, key=f"notification_enabled_{session_id}")
+    col3, col4 = st.columns([1, 1])
+    
+    with col3:
+        check_interval = st.slider("监测间隔(分钟)", 5, 120, 30, key=f"check_interval_{session_id}")
+        notification_enabled = st.checkbox("启用提醒", value=True, key=f"notification_enabled_{session_id}")
+    
+    with col4:
+        trading_hours_only = st.checkbox(
+            "仅交易时段监控", 
+            value=True, 
+            key=f"trading_hours_only_{session_id}",
+            help="开启后，只在交易日的交易时段（9:30-11:30, 13:00-15:00）进行AI分析和监控"
+        )
+        st.info("💡 推荐开启，节省资源且更高效")
     
     # 添加按钮
     if st.button("✅ 确认加入监测", type="primary", key=f"add_monitor_{session_id}"):
@@ -197,7 +217,9 @@ def add_to_monitor_dialog(stock_info: Dict, analysis_result: Dict):
                 entry_range=entry_range,
                 take_profit=take_profit if take_profit > 0 else None,
                 stop_loss=stop_loss if stop_loss > 0 else None,
-                check_interval=check_interval
+                check_interval=check_interval,
+                notification_enabled=notification_enabled,
+                trading_hours_only=trading_hours_only
             )
             
             st.success(f"✅ 已成功将 {stock_info.get('symbol')} 加入实时监测")

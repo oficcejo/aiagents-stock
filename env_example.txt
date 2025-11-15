@@ -1,0 +1,50 @@
+# ============================================
+# AgentStock1 - 环境配置示例
+# 将此文件重命名为 .env 并填写实际配置
+# ============================================
+
+# DeepSeek API配置
+DEEPSEEK_API_KEY=your_deepseek_api_key_here
+DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
+
+# Tushare数据源配置（备用数据源）
+TUSHARE_TOKEN=your_tushare_token_here
+
+# TDX股票数据API配置（优先数据源）
+# 启用TDX数据源：true=启用，false=禁用（使用AKShare）
+TDX_ENABLED=false
+# TDX接口地址
+TDX_BASE_URL=http://192.168.1.222:8181
+
+# MiniQMT量化交易配置
+# 启用MiniQMT：true=启用真实交易，false=使用模拟交易
+MINIQMT_ENABLED=false
+# MiniQMT账户ID
+MINIQMT_ACCOUNT_ID=your_account_id_here
+# MiniQMT服务地址
+MINIQMT_HOST=127.0.0.1
+MINIQMT_PORT=58610
+
+# 邮件通知配置
+EMAIL_ENABLED=false
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USER=your_email@gmail.com
+EMAIL_PASSWORD=your_email_password
+EMAIL_RECIPIENT=recipient@example.com
+
+# Webhook通知配置
+WEBHOOK_ENABLED=false
+# 钉钉机器人Webhook地址
+DINGTALK_WEBHOOK=https://oapi.dingtalk.com/robot/send?access_token=your_token
+# 企业微信机器人Webhook地址
+WECOM_WEBHOOK=https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=your_key
+# 飞书机器人Webhook地址
+FEISHU_WEBHOOK=https://open.feishu.cn/open-apis/bot/v2/hook/your_token
+
+# 钉钉关键词配置（用于绕过安全验证）
+DINGTALK_KEYWORD=股票
+
+# 数据库配置（可选）
+# DATABASE_URL=sqlite:///./agentsstock1.db
+

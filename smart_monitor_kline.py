@@ -310,7 +310,7 @@ class SmartMonitorKline:
     
     def get_kline_data(self, stock_code: str, days: int = 60, data_fetcher=None) -> Optional[pd.DataFrame]:
         """
-        获取K线数据（带Tushare降级机制）
+        获取K线数据（支持TDX/AKShare/Tushare降级机制）
         
         Args:
             stock_code: 股票代码
@@ -325,11 +325,23 @@ class SmartMonitorKline:
                 from smart_monitor_data import SmartMonitorDataFetcher
                 data_fetcher = SmartMonitorDataFetcher()
             
+            # 方法1: 尝试使用TDX获取（如果启用）
+            if hasattr(data_fetcher, 'use_tdx') and data_fetcher.use_tdx and data_fetcher.tdx_fetcher:
+                try:
+                    df = data_fetcher.tdx_fetcher.get_kline_data(stock_code, kline_type='day', limit=days)
+                    if df is not None and not df.empty:
+                        self.logger.info(f"✅ TDX获取K线数据成功 {stock_code}，共{len(df)}条")
+                        return df
+                    else:
+                        self.logger.warning(f"TDX未返回K线数据 {stock_code}，尝试降级到AKShare")
+                except Exception as e:
+                    self.logger.warning(f"TDX获取K线数据失败 {stock_code}: {type(e).__name__}, 尝试降级到AKShare")
+            
             # 计算日期范围
             end_date = datetime.now().strftime('%Y%m%d')
             start_date = (datetime.now() - timedelta(days=days + 30)).strftime('%Y%m%d')  # 多取30天以确保足够数据
             
-            # 方法1: 尝试使用AKShare获取（只尝试1次，避免IP封禁）
+            # 方法2: 尝试使用AKShare获取（只尝试1次，避免IP封禁）
             try:
                 import akshare as ak
                 df = ak.stock_zh_a_hist(
@@ -350,7 +362,7 @@ class SmartMonitorKline:
             except Exception as e:
                 self.logger.warning(f"AKShare获取K线数据失败 {stock_code}: {type(e).__name__}, 尝试降级到Tushare")
             
-            # 方法2: 降级到Tushare
+            # 方法3: 降级到Tushare
             if data_fetcher and data_fetcher.ts_pro:
                 self.logger.info(f"降级使用Tushare获取K线数据 {stock_code}")
                 df = self._get_kline_from_tushare(stock_code, days, data_fetcher.ts_pro)

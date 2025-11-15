@@ -76,6 +76,12 @@ class SmartMonitorDB:
         except sqlite3.OperationalError:
             pass
         
+        # 添加交易时段监控字段
+        try:
+            cursor.execute("ALTER TABLE monitor_tasks ADD COLUMN trading_hours_only INTEGER DEFAULT 1")
+        except sqlite3.OperationalError:
+            pass
+        
         # 2. AI决策记录表
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS ai_decisions (
@@ -187,10 +193,10 @@ class SmartMonitorDB:
         cursor.execute('''
             INSERT INTO monitor_tasks 
             (task_name, stock_code, stock_name, enabled, check_interval, 
-             auto_trade, position_size_pct, stop_loss_pct, take_profit_pct,
+             auto_trade, trading_hours_only, position_size_pct, stop_loss_pct, take_profit_pct,
              qmt_account_id, notify_email, notify_webhook,
              has_position, position_cost, position_quantity, position_date)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             task_data.get('task_name'),
             task_data.get('stock_code'),
@@ -198,6 +204,7 @@ class SmartMonitorDB:
             task_data.get('enabled', 1),
             task_data.get('check_interval', 300),
             task_data.get('auto_trade', 0),
+            task_data.get('trading_hours_only', 1),
             task_data.get('position_size_pct', 20),
             task_data.get('stop_loss_pct', 5),
             task_data.get('take_profit_pct', 10),
@@ -271,6 +278,10 @@ class SmartMonitorDB:
         if 'auto_trade' in task_data:
             update_fields.append('auto_trade = ?')
             values.append(task_data['auto_trade'])
+        
+        if 'trading_hours_only' in task_data:
+            update_fields.append('trading_hours_only = ?')
+            values.append(task_data['trading_hours_only'])
         
         if 'position_size_pct' in task_data:
             update_fields.append('position_size_pct = ?')

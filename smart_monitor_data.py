@@ -1,6 +1,6 @@
 """
 智能盯盘 - A股数据获取模块
-使用akshare获取实时行情和技术指标
+使用TDX/akshare获取实时行情和技术指标
 支持降级到tushare作为备用数据源
 """
 
@@ -13,10 +13,38 @@ from datetime import datetime, timedelta
 
 
 class SmartMonitorDataFetcher:
-    """A股数据获取器（支持多数据源降级）"""
+    """A股数据获取器（支持多数据源降级：TDX -> AKShare -> Tushare）"""
     
-    def __init__(self):
+    def __init__(self, use_tdx: bool = None, tdx_base_url: str = None):
+        """
+        初始化数据获取器
+        
+        Args:
+            use_tdx: 是否使用TDX数据源（可选，从配置读取）
+            tdx_base_url: TDX接口地址（可选，从配置读取）
+        """
         self.logger = logging.getLogger(__name__)
+        
+        # TDX数据源配置
+        if use_tdx is None:
+            from config import TDX_CONFIG
+            use_tdx = TDX_CONFIG.get('enabled', False)
+        
+        if tdx_base_url is None:
+            from config import TDX_CONFIG
+            tdx_base_url = TDX_CONFIG.get('base_url', 'http://192.168.1.222:8181')
+        
+        self.use_tdx = use_tdx
+        self.tdx_fetcher = None
+        
+        if self.use_tdx:
+            try:
+                from smart_monitor_tdx_data import SmartMonitorTDXDataFetcher
+                self.tdx_fetcher = SmartMonitorTDXDataFetcher(base_url=tdx_base_url)
+                self.logger.info(f"TDX数据源已启用: {tdx_base_url}")
+            except Exception as e:
+                self.logger.warning(f"TDX数据源初始化失败: {e}，将使用AKShare")
+                self.use_tdx = False
         
         # 初始化Tushare（备用数据源）
         self.ts_pro = None
@@ -36,7 +64,7 @@ class SmartMonitorDataFetcher:
     def get_realtime_quote(self, stock_code: str, retry: int = 1) -> Optional[Dict]:
         """
         获取实时行情（带重试和降级机制）
-        优先使用AKShare，失败时降级到Tushare
+        优先使用TDX，失败时降级到AKShare，最后降级到Tushare
         
         Args:
             stock_code: 股票代码（如：600519）
@@ -47,7 +75,18 @@ class SmartMonitorDataFetcher:
         """
         import time
         
-        # 方法1: 组合使用分钟行情 + 基本信息（最可靠）
+        # 方法1: 尝试使用TDX（如果启用）
+        if self.use_tdx and self.tdx_fetcher:
+            try:
+                quote = self.tdx_fetcher.get_realtime_quote(stock_code)
+                if quote:
+                    return quote
+                else:
+                    self.logger.warning(f"TDX获取失败 {stock_code}，尝试降级到AKShare")
+            except Exception as e:
+                self.logger.warning(f"TDX获取异常 {stock_code}: {e}，尝试降级到AKShare")
+        
+        # 方法2: 组合使用AKShare分钟行情 + 基本信息
         for attempt in range(retry):
             try:
                 # 1.1 获取股票基本信息（名称）
@@ -139,19 +178,30 @@ class SmartMonitorDataFetcher:
     def get_technical_indicators(self, stock_code: str, period: str = 'daily', retry: int = 1) -> Optional[Dict]:
         """
         计算技术指标（带降级机制）
-        优先使用AKShare，失败时降级到Tushare
+        优先使用TDX，失败时降级到AKShare，最后降级到Tushare
         
         Args:
             stock_code: 股票代码
             period: 周期（daily/weekly/monthly）
-            retry: 重试次数（默认2次）
+            retry: 重试次数（默认1次）
             
         Returns:
             技术指标数据
         """
         import time
         
-        # 方法1: 尝试使用AKShare
+        # 方法1: 尝试使用TDX（如果启用）
+        if self.use_tdx and self.tdx_fetcher:
+            try:
+                indicators = self.tdx_fetcher.get_technical_indicators(stock_code, period)
+                if indicators:
+                    return indicators
+                else:
+                    self.logger.warning(f"TDX计算技术指标失败 {stock_code}，尝试降级到AKShare")
+            except Exception as e:
+                self.logger.warning(f"TDX计算技术指标异常 {stock_code}: {e}，尝试降级到AKShare")
+        
+        # 方法2: 尝试使用AKShare
         for attempt in range(retry):
             try:
                 # 获取历史数据（最近200个交易日，用于计算指标）
@@ -187,7 +237,7 @@ class SmartMonitorDataFetcher:
                     self.logger.warning(f"AKShare获取历史数据失败 {stock_code}（已重试{retry}次），尝试降级到Tushare")
                     break
         
-        # 方法2: 降级到Tushare
+        # 方法3: 降级到Tushare
         if self.ts_pro:
             self.logger.info(f"降级到Tushare获取 {stock_code} 历史数据...")
             return self._get_technical_indicators_from_tushare(stock_code, period)

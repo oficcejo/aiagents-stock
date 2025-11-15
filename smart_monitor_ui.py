@@ -349,6 +349,11 @@ def render_monitor_tasks():
             with col2:
                 auto_trade = st.checkbox("自动交易", value=False,
                                         help="AI决策后自动执行交易")
+                trading_hours_only = st.checkbox(
+                    "仅交易时段监控", 
+                    value=True,
+                    help="开启后，只在交易日的交易时段（9:30-11:30, 13:00-15:00）进行AI分析"
+                )
                 position_size = st.slider("仓位百分比(%)", 5, 50, 20,
                                          help="新建仓位时使用的资金比例")
                 notify_email = st.text_input("通知邮箱（可选）")
@@ -379,6 +384,7 @@ def render_monitor_tasks():
                             'enabled': 0,  # 关键修改：初始状态为禁用，不自动启动
                             'check_interval': check_interval,
                             'auto_trade': 1 if auto_trade else 0,
+                            'trading_hours_only': 1 if trading_hours_only else 0,
                             'position_size_pct': position_size,
                             'notify_email': notify_email,
                             'has_position': 1 if has_position else 0,
@@ -450,8 +456,9 @@ def render_monitor_tasks():
             with col2:
                 status = "✅ 已启用" if task['enabled'] else "⏸️ 已禁用"
                 auto_trade_status = "🤖 自动交易" if task['auto_trade'] else "👀 仅监控"
+                trading_mode = "🕒 仅交易时段" if task.get('trading_hours_only', 1) else "🌐 全时段"
                 st.write(status)
-                st.caption(auto_trade_status)
+                st.caption(f"{auto_trade_status} | {trading_mode}")
                 
                 # 显示持仓状态
                 if has_position:
@@ -492,7 +499,8 @@ def render_monitor_tasks():
                             notify=True,
                             has_position=has_position == 1,
                             position_cost=position_cost,
-                            position_quantity=position_quantity
+                            position_quantity=position_quantity,
+                            trading_hours_only=task.get('trading_hours_only', 1) == 1
                         )
                         # 启动时更新数据库状态为启用
                         db.update_monitor_task(task['stock_code'], {'enabled': 1})
