@@ -10,6 +10,7 @@ import warnings
 import time
 import logging
 import os
+import random
 from dotenv import load_dotenv
 from sector_strategy_db import SectorStrategyDatabase
 
@@ -81,6 +82,7 @@ class SectorStrategyDataFetcher:
         if sectors_data:
             data["sectors"] = sectors_data
             print(f"    ✓ 成功获取 {len(sectors_data)} 个行业板块数据")
+        self._random_stage_wait(20)
         
         # 2. 获取概念板块数据
         print("  [2/6] 获取概念板块行情...")
@@ -88,6 +90,7 @@ class SectorStrategyDataFetcher:
         if concept_data:
             data["concepts"] = concept_data
             print(f"    ✓ 成功获取 {len(concept_data)} 个概念板块数据")
+        self._random_stage_wait(20)
         
         # 3. 获取板块资金流向
         print("  [3/6] 获取行业资金流向...")
@@ -95,6 +98,7 @@ class SectorStrategyDataFetcher:
         if fund_flow_data:
             data["sector_fund_flow"] = fund_flow_data
             print(f"    ✓ 成功获取资金流向数据")
+        self._random_stage_wait(20)
         
         # 4. 获取市场总体情况
         print("  [4/6] 获取市场总体情况...")
@@ -102,6 +106,7 @@ class SectorStrategyDataFetcher:
         if market_data:
             data["market_overview"] = market_data
             print(f"    ✓ 成功获取市场概况")
+        self._random_stage_wait(20)
         
         # 5. 获取北向资金流向
         print("  [5/6] 获取北向资金流向...")
@@ -109,6 +114,7 @@ class SectorStrategyDataFetcher:
         if north_flow:
             data["north_flow"] = north_flow
             print(f"    ✓ 成功获取北向资金数据")
+        self._random_stage_wait(20)
         
         # 6. 获取财经新闻
         print("  [6/6] 获取财经新闻...")
@@ -138,41 +144,98 @@ class SectorStrategyDataFetcher:
         return data
     
     def _get_sector_performance(self):
-        """获取行业板块表现"""
+        """获取行业板块表现 —— 优先使用 ak.stock_board_industry_name_em（东方财富），备用 ak.stock_board_industry_summary_ths（同花顺）"""
         try:
-            # 获取行业板块实时行情（使用重试机制）
+            # === 主接口：东方财富行业板块（ak.stock_board_industry_name_em）===
+            print("    尝试主接口 ak.stock_board_industry_name_em...")
             df = self._safe_request(ak.stock_board_industry_name_em)
-            
+
+            # 如果主接口无数据，尝试备用接口
             if df is None or df.empty:
-                # 尝试从缓存加载数据
+                print("    主接口无数据，尝试备用接口 ak.stock_board_industry_summary_ths...")
+                try:
+                    df = self._safe_request(ak.stock_board_industry_summary_ths)
+                except Exception as backup_error:
+                    print(f"    备用接口调用失败: {backup_error}")
+                    df = None
+
+            # 若两接口均无数据，尝试缓存
+            if df is None or df.empty:
                 print("    [缓存] 尝试从缓存加载行业板块数据...")
                 cached_data = self.database.get_latest_raw_data("sectors")
                 if cached_data:
                     print("    [缓存] ✓ 成功加载行业板块缓存数据")
                     return cached_data.get("data_content", {})
                 return {}
-            
-            # 转换为字典格式
+
+            # === 统一字段映射（兼容两个数据源）===
             sectors = {}
             for idx, row in df.iterrows():
-                sector_name = row.get('板块名称', '')
-                if sector_name:
-                    sectors[sector_name] = {
-                        "name": sector_name,
-                        "change_pct": row.get('涨跌幅', 0),
-                        "turnover": row.get('换手率', 0),
-                        "total_market_cap": row.get('总市值', 0),
-                        "top_stock": row.get('领涨股票', ''),
-                        "top_stock_change": row.get('领涨股票涨跌幅', 0),
-                        "up_count": row.get('上涨家数', 0),
-                        "down_count": row.get('下跌家数', 0)
-                    }
-            
+                # 行业名称字段兼容
+                sector_name = (
+                    row.get('板块名称') or 
+                    row.get('板块') or 
+                    row.get('行业') or 
+                    ''
+                )
+                if not sector_name:
+                    continue
+
+                # 字段映射：优先取实际存在的列
+                sectors[sector_name] = {
+                    "name": sector_name,
+                    "change_pct": row.get('涨跌幅', row.get('涨幅', 0)),
+                    "turnover": row.get('换手率', 0),
+                    "total_market_cap": row.get('总市值', 0),
+                    "top_stock": (
+                        row.get('领涨股') or 
+                        row.get('领涨股票') or 
+                        row.get('上涨股') or 
+                        ''
+                    ),
+                    "top_stock_change": (
+                        row.get('领涨股-涨跌幅') or 
+                        row.get('领涨股票涨跌幅') or 
+                        row.get('领涨股涨幅') or 
+                        row.get('涨跌幅', 0)
+                    ),
+                    "up_count": row.get('上涨家数', row.get('上涨', 0)),
+                    "down_count": row.get('下跌家数', row.get('下跌', 0))
+                }
+
             return sectors
-            
+
         except Exception as e:
             print(f"    获取行业板块数据失败: {e}")
-            # 尝试从缓存加载数据
+
+            # 异常时尝试备用接口（顺序：先 EM，再 THS）
+            for api_name, api_func in [
+                ("ak.stock_board_industry_name_em", ak.stock_board_industry_name_em),
+                ("ak.stock_board_industry_summary_ths", ak.stock_board_industry_summary_ths)
+            ]:
+                try:
+                    print(f"    异常后尝试接口 {api_name}...")
+                    df = self._safe_request(api_func)
+                    if df is not None and not df.empty:
+                        sectors = {}
+                        for idx, row in df.iterrows():
+                            sector_name = row.get('板块名称') or row.get('板块') or ''
+                            if sector_name:
+                                sectors[sector_name] = {
+                                    "name": sector_name,
+                                    "change_pct": row.get('涨跌幅', 0),
+                                    "turnover": row.get('换手率', 0),
+                                    "total_market_cap": row.get('总市值', 0),
+                                    "top_stock": row.get('领涨股') or row.get('领涨股票') or '',
+                                    "top_stock_change": row.get('领涨股-涨跌幅') or row.get('领涨股票涨跌幅') or 0,
+                                    "up_count": row.get('上涨家数', 0),
+                                    "down_count": row.get('下跌家数', 0)
+                                }
+                        return sectors
+                except Exception as backup_error:
+                    print(f"    接口 {api_name} 调用失败: {backup_error}")
+
+            # 最终尝试缓存
             print("    [缓存] 尝试从缓存加载行业板块数据...")
             try:
                 cached_data = self.database.get_latest_raw_data("sectors")
@@ -180,8 +243,18 @@ class SectorStrategyDataFetcher:
                     print("    [缓存] ✓ 成功加载行业板块缓存数据")
                     return cached_data.get("data_content", {})
             except Exception as cache_error:
-                print(f"    [缓存] 加载行业板块缓存数据失败: {cache_error}")
+                print(f"    [缓存] 加载缓存失败: {cache_error}")
+
             return {}
+
+    def _random_stage_wait(self, max_seconds: int = 20):
+        """在采集环节间随机等待以降低请求频率"""
+        try:
+            delay = random.uniform(0, max_seconds)
+            print(f"    [节流] 随机等待 {delay:.1f} 秒后继续下一环节")
+            time.sleep(delay)
+        except Exception:
+            pass
     
     def _get_concept_performance(self):
         """获取概念板块表现"""
@@ -235,8 +308,17 @@ class SectorStrategyDataFetcher:
             # 获取行业资金流向（使用重试机制）
             df = self._safe_request(ak.stock_sector_fund_flow_rank, indicator="今日")
             
+            # 主接口无数据则尝试备用接口（同花顺行业资金流）
             if df is None or df.empty:
-                # 尝试从缓存加载数据
+                print("    主接口无数据，尝试备用接口 stock_fund_flow_industry...")
+                try:
+                    df = self._safe_request(ak.stock_fund_flow_industry, symbol="即时")
+                except Exception as backup_error:
+                    print(f"    备用接口调用失败: {backup_error}")
+                    df = None
+            
+            # 若两接口均无数据，尝试缓存
+            if df is None or df.empty:
                 print("    [缓存] 尝试从缓存加载行业资金流向数据...")
                 cached_data = self.database.get_latest_raw_data("fund_flow")
                 if cached_data:
@@ -251,21 +333,73 @@ class SectorStrategyDataFetcher:
             }
             
             for idx, row in df.head(50).iterrows():  # 取前50个
+                # 兼容两数据源的字段映射
+                sector_name = row.get('名称', row.get('行业', ''))
+                main_net_inflow = row.get('今日主力净流入-净额', row.get('净额', 0))
+                main_inflow_pct = row.get('今日主力净流入-净占比', None)
+                if main_inflow_pct is None:
+                    inflow = row.get('流入资金', None)
+                    outflow = row.get('流出资金', None)
+                    if inflow is not None and outflow is not None and (inflow + outflow) not in [None, 0]:
+                        try:
+                            main_inflow_pct = round(main_net_inflow / (inflow + outflow) * 100, 2)
+                        except Exception:
+                            main_inflow_pct = 0
+                    else:
+                        main_inflow_pct = 0
+                
                 fund_flow["today"].append({
-                    "sector": row.get('名称', ''),
-                    "main_net_inflow": row.get('今日主力净流入-净额', 0),
-                    "main_net_inflow_pct": row.get('今日主力净流入-净占比', 0),
+                    "sector": sector_name,
+                    "main_net_inflow": main_net_inflow,
+                    "main_net_inflow_pct": main_inflow_pct,
                     "super_large_net_inflow": row.get('今日超大单净流入-净额', 0),
                     "large_net_inflow": row.get('今日大单净流入-净额', 0),
                     "medium_net_inflow": row.get('今日中单净流入-净额', 0),
                     "small_net_inflow": row.get('今日小单净流入-净额', 0),
-                    "change_pct": row.get('今日涨跌幅', 0)
+                    "change_pct": row.get('今日涨跌幅', row.get('行业-涨跌幅', 0))
                 })
             
             return fund_flow
             
         except Exception as e:
             print(f"    获取行业资金流向失败: {e}")
+            # 异常后尝试备用接口
+            try:
+                print("    异常后尝试备用接口 stock_fund_flow_industry...")
+                df = self._safe_request(ak.stock_fund_flow_industry, symbol="即时")
+                if df is not None and not df.empty:
+                    fund_flow = {
+                        "today": [],
+                        "update_time": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    }
+                    for idx, row in df.head(50).iterrows():
+                        sector_name = row.get('名称', row.get('行业', ''))
+                        main_net_inflow = row.get('今日主力净流入-净额', row.get('净额', 0))
+                        main_inflow_pct = row.get('今日主力净流入-净占比', None)
+                        if main_inflow_pct is None:
+                            inflow = row.get('流入资金', None)
+                            outflow = row.get('流出资金', None)
+                            if inflow is not None and outflow is not None and (inflow + outflow) not in [None, 0]:
+                                try:
+                                    main_inflow_pct = round(main_net_inflow / (inflow + outflow) * 100, 2)
+                                except Exception:
+                                    main_inflow_pct = 0
+                            else:
+                                main_inflow_pct = 0
+                        fund_flow["today"].append({
+                            "sector": sector_name,
+                            "main_net_inflow": main_net_inflow,
+                            "main_net_inflow_pct": main_inflow_pct,
+                            "super_large_net_inflow": row.get('今日超大单净流入-净额', 0),
+                            "large_net_inflow": row.get('今日大单净流入-净额', 0),
+                            "medium_net_inflow": row.get('今日中单净流入-净额', 0),
+                            "small_net_inflow": row.get('今日小单净流入-净额', 0),
+                            "change_pct": row.get('今日涨跌幅', row.get('行业-涨跌幅', 0))
+                        })
+                    return fund_flow
+            except Exception as backup_error:
+                print(f"    备用接口调用失败: {backup_error}")
+            
             # 尝试从缓存加载数据
             print("    [缓存] 尝试从缓存加载行业资金流向数据...")
             try:
@@ -285,7 +419,11 @@ class SectorStrategyDataFetcher:
             
             # 涨跌家数
             try:
-                df_stat = self._safe_request(ak.stock_zh_a_spot_em)
+                # 主接口：新浪 A 股实时
+                df_stat = self._safe_request(ak.stock_zh_a_spot)
+                # 备用接口：东方财富 A 股实时
+                if df_stat is None or df_stat.empty:
+                    df_stat = self._safe_request(ak.stock_zh_a_spot_em)
                 if df_stat is not None and not df_stat.empty:
                     total_count = len(df_stat)
                     up_count = len(df_stat[df_stat['涨跌幅'] > 0])
@@ -308,38 +446,104 @@ class SectorStrategyDataFetcher:
             
             # 大盘指数
             try:
-                # 上证指数
-                df_sh = ak.stock_zh_index_spot_em(symbol="上证指数")
-                if df_sh is not None and not df_sh.empty:
-                    overview["sh_index"] = {
-                        "code": "000001",
-                        "name": "上证指数",
-                        "close": df_sh.iloc[0].get('最新价', 0),
-                        "change_pct": df_sh.iloc[0].get('涨跌幅', 0),
-                        "change": df_sh.iloc[0].get('涨跌额', 0)
-                    }
-                
-                # 深证成指
-                df_sz = self._safe_request(ak.stock_zh_index_spot_em, symbol="深证成指")
-                if df_sz is not None and not df_sz.empty:
-                    overview["sz_index"] = {
-                        "code": "399001",
-                        "name": "深证成指",
-                        "close": df_sz.iloc[0].get('最新价', 0),
-                        "change_pct": df_sz.iloc[0].get('涨跌幅', 0),
-                        "change": df_sz.iloc[0].get('涨跌额', 0)
-                    }
-                
-                # 创业板指
-                df_cyb = self._safe_request(ak.stock_zh_index_spot_em, symbol="创业板指")
-                if df_cyb is not None and not df_cyb.empty:
-                    overview["cyb_index"] = {
-                        "code": "399006",
-                        "name": "创业板指",
-                        "close": df_cyb.iloc[0].get('最新价', 0),
-                        "change_pct": df_cyb.iloc[0].get('涨跌幅', 0),
-                        "change": df_cyb.iloc[0].get('涨跌额', 0)
-                    }
+                # 主接口：新浪所有指数，按名称筛选
+                df_index = self._safe_request(ak.stock_zh_index_spot_sina)
+                if df_index is not None and not df_index.empty:
+                    # 上证指数
+                    df_sh = df_index[df_index['名称'] == '上证指数']
+                    if df_sh is not None and not df_sh.empty:
+                        row = df_sh.iloc[0]
+                        overview["sh_index"] = {
+                            "code": row.get('代码', '000001'),
+                            "name": "上证指数",
+                            "close": row.get('最新价', 0),
+                            "change_pct": row.get('涨跌幅', 0),
+                            "change": row.get('涨跌额', 0)
+                        }
+                    else:
+                        # 备用接口：东方财富按名称获取
+                        df_sh_em = self._safe_request(ak.stock_zh_index_spot_em, symbol="上证指数")
+                        if df_sh_em is not None and not df_sh_em.empty:
+                            overview["sh_index"] = {
+                                "code": "000001",
+                                "name": "上证指数",
+                                "close": df_sh_em.iloc[0].get('最新价', 0),
+                                "change_pct": df_sh_em.iloc[0].get('涨跌幅', 0),
+                                "change": df_sh_em.iloc[0].get('涨跌额', 0)
+                            }
+
+                    # 深证成指
+                    df_sz = df_index[df_index['名称'] == '深证成指']
+                    if df_sz is not None and not df_sz.empty:
+                        row = df_sz.iloc[0]
+                        overview["sz_index"] = {
+                            "code": row.get('代码', '399001'),
+                            "name": "深证成指",
+                            "close": row.get('最新价', 0),
+                            "change_pct": row.get('涨跌幅', 0),
+                            "change": row.get('涨跌额', 0)
+                        }
+                    else:
+                        df_sz_em = self._safe_request(ak.stock_zh_index_spot_em, symbol="深证成指")
+                        if df_sz_em is not None and not df_sz_em.empty:
+                            overview["sz_index"] = {
+                                "code": "399001",
+                                "name": "深证成指",
+                                "close": df_sz_em.iloc[0].get('最新价', 0),
+                                "change_pct": df_sz_em.iloc[0].get('涨跌幅', 0),
+                                "change": df_sz_em.iloc[0].get('涨跌额', 0)
+                            }
+
+                    # 创业板指
+                    df_cyb = df_index[df_index['名称'] == '创业板指']
+                    if df_cyb is not None and not df_cyb.empty:
+                        row = df_cyb.iloc[0]
+                        overview["cyb_index"] = {
+                            "code": row.get('代码', '399006'),
+                            "name": "创业板指",
+                            "close": row.get('最新价', 0),
+                            "change_pct": row.get('涨跌幅', 0),
+                            "change": row.get('涨跌额', 0)
+                        }
+                    else:
+                        df_cyb_em = self._safe_request(ak.stock_zh_index_spot_em, symbol="创业板指")
+                        if df_cyb_em is not None and not df_cyb_em.empty:
+                            overview["cyb_index"] = {
+                                "code": "399006",
+                                "name": "创业板指",
+                                "close": df_cyb_em.iloc[0].get('最新价', 0),
+                                "change_pct": df_cyb_em.iloc[0].get('涨跌幅', 0),
+                                "change": df_cyb_em.iloc[0].get('涨跌额', 0)
+                            }
+                else:
+                    # 主接口无数据，直接使用备用接口
+                    df_sh_em = self._safe_request(ak.stock_zh_index_spot_em, symbol="上证指数")
+                    if df_sh_em is not None and not df_sh_em.empty:
+                        overview["sh_index"] = {
+                            "code": "000001",
+                            "name": "上证指数",
+                            "close": df_sh_em.iloc[0].get('最新价', 0),
+                            "change_pct": df_sh_em.iloc[0].get('涨跌幅', 0),
+                            "change": df_sh_em.iloc[0].get('涨跌额', 0)
+                        }
+                    df_sz_em = self._safe_request(ak.stock_zh_index_spot_em, symbol="深证成指")
+                    if df_sz_em is not None and not df_sz_em.empty:
+                        overview["sz_index"] = {
+                            "code": "399001",
+                            "name": "深证成指",
+                            "close": df_sz_em.iloc[0].get('最新价', 0),
+                            "change_pct": df_sz_em.iloc[0].get('涨跌幅', 0),
+                            "change": df_sz_em.iloc[0].get('涨跌额', 0)
+                        }
+                    df_cyb_em = self._safe_request(ak.stock_zh_index_spot_em, symbol="创业板指")
+                    if df_cyb_em is not None and not df_cyb_em.empty:
+                        overview["cyb_index"] = {
+                            "code": "399006",
+                            "name": "创业板指",
+                            "close": df_cyb_em.iloc[0].get('最新价', 0),
+                            "change_pct": df_cyb_em.iloc[0].get('涨跌幅', 0),
+                            "change": df_cyb_em.iloc[0].get('涨跌额', 0)
+                        }
             except:
                 pass
             
@@ -376,9 +580,7 @@ class SectorStrategyDataFetcher:
                 return self._process_manual_north_data()
             except Exception as e:
                 print(f"    [手动数据] 处理失败: {e}")
-                # 继续尝试其他数据源
-        
-        # 检查session state中的手动数据（用于Streamlit界面）
+
         try:
             import streamlit as st
             if hasattr(st, 'session_state') and 'manual_north_data' in st.session_state:
@@ -389,117 +591,6 @@ class SectorStrategyDataFetcher:
         except Exception as e:
             print(f"    [手动数据] 从界面获取数据失败: {e}")
         
-        # 优先使用Tushare获取沪深港通资金流向（无法获取近期数据，改用手动输入）
-        # try:
-        #     # 初始化Tushare（如果尚未初始化）
-        #     if not hasattr(self, 'ts_pro') or self.ts_pro is None:
-        #         tushare_token = os.getenv('TUSHARE_TOKEN', '')
-        #         if tushare_token:
-        #             try:
-        #                 import tushare as ts
-        #                 ts.set_token(tushare_token)
-        #                 self.ts_pro = ts.pro_api()
-        #                 print("    [Tushare] ✅ 初始化成功")
-        #             except Exception as e:
-        #                 print(f"    [Tushare] 初始化失败: {e}")
-        #                 self.ts_pro = None
-        #         else:
-        #             print("    [Tushare] 未配置Token")
-        #             self.ts_pro = None
-            
-        #     # 如果Tushare可用，获取数据
-        #     if hasattr(self, 'ts_pro') and self.ts_pro is not None:
-        #         print("    [Tushare] 正在获取沪深港通资金流向...")
-                
-        #         # 直接请求过去一个月的数据范围
-        #         end_date = datetime.now()
-        #         # 如果当前时间在00:00-21:00之间，将end_date设为前一天，避免当日数据未更新
-        #         if 0 <= end_date.hour < 21:
-        #             end_date = end_date - timedelta(days=1)
-        #         start_date = end_date - timedelta(days=30)  # 过去30天（一个月）
-                
-        #         # 格式化日期用于日志输出
-        #         start_date_str = start_date.strftime('%Y%m%d')
-        #         end_date_str = end_date.strftime('%Y%m%d')
-                
-        #         # 添加日志显示格式化后的日期
-        #         print(f"    [Tushare] 请求日期范围: {start_date_str} 至 {end_date_str}")
-                
-        #         # 尝试多种查询策略
-        #         df = None
-                
-        #         # 策略1：范围查询
-        #         try:
-        #             df = self.ts_pro.moneyflow_hsgt(
-        #                 start_date=start_date.strftime('%Y%m%d'),
-        #                 end_date=end_date.strftime('%Y%m%d')
-        #             )
-        #             if df is not None and not df.empty:
-        #                 print(f"    [Tushare] ✅ 范围查询成功，共 {len(df)} 条记录")
-        #             else:
-        #                 print("    [Tushare] ❌ 范围查询未获取到数据")
-        #         except Exception as range_error:
-        #             print(f"    [Tushare] 范围查询失败: {range_error}")
-        #             df = None
-                
-        #         # 策略2：如果范围查询失败，尝试单日查询（最近几个交易日）
-        #         if df is None or df.empty:
-        #             print("    [Tushare] 尝试单日查询...")
-        #             for i in range(10):  # 尝试最近10天
-        #                 test_date = (end_date - timedelta(days=i)).strftime('%Y%m%d')
-        #                 try:
-        #                     df_single = self.ts_pro.moneyflow_hsgt(trade_date=test_date)
-        #                     if df_single is not None and not df_single.empty:
-        #                         print(f"    [Tushare] ✅ 单日查询成功 ({test_date})，共 {len(df_single)} 条记录")
-        #                         df = df_single
-        #                         break
-        #                 except Exception as single_error:
-        #                     continue
-                
-        #         # 处理获取到的数据
-        #         if df is not None and not df.empty:
-        #             # 确保必要的列存在
-        #             required_columns = ['trade_date', 'north_money', 'hgt', 'sgt']
-        #             for col in required_columns:
-        #                 if col not in df.columns:
-        #                     print(f"    [Tushare] ❌ 缺少必要列: {col}")
-        #                     df = None
-        #                     break
-                    
-        #             if df is not None:
-        #                 # 按日期降序排列，获取最新数据
-        #                 df = df.sort_values('trade_date', ascending=False)
-        #                 latest = df.iloc[0]
-                        
-        #                 # 转换数据格式以匹配原有结构
-        #                 north_flow = {
-        #                     "date": str(latest['trade_date']),
-        #                     "north_net_inflow": float(latest['north_money']) if pd.notna(latest['north_money']) else 0.0,
-        #                     "hgt_net_inflow": float(latest['hgt']) if pd.notna(latest['hgt']) else 0.0,
-        #                     "sgt_net_inflow": float(latest['sgt']) if pd.notna(latest['sgt']) else 0.0,
-        #                     "north_total_amount": float(latest['north_money']) if pd.notna(latest['north_money']) else 0.0  # Tushare没有总成交金额，使用净流入作为近似值
-        #                 }
-                        
-        #                 # 获取历史趋势（最近20天）
-        #                 history = []
-        #                 for idx, row in df.head(20).iterrows():
-        #                     history.append({
-        #                         "date": str(row['trade_date']),
-        #                         "net_inflow": float(row['north_money']) if pd.notna(row['north_money']) else 0.0
-        #                     })
-        #                 north_flow["history"] = history
-                        
-        #                 return north_flow
-                
-        #         print("    [Tushare] ❌ 未获取到数据（可能是非交易时间、积分不足或访问频率超限）")
-        #     else:
-        #         print("    [Tushare] 不可用")
-        # except Exception as api_error:
-        #     print(f"    [Tushare] API调用失败: {api_error}")
-        #     import traceback
-        #     traceback.print_exc()
-        
-        # Tushare失败，尝试使用Akshare
         try:
             print("    [Akshare] 正在获取沪深港通资金流向（备用数据源）...")
             # 延迟导入akshare，避免不必要的依赖

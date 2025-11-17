@@ -283,7 +283,7 @@ def display_analysis_results(result: dict, analyzer):
 
         # 显示DataFrame
         display_df = analyzer.raw_stocks[final_cols].copy()
-        st.dataframe(display_df, use_container_width=True, height=400)
+        st.dataframe(display_df, width='stretch', height=400)
         
         # 显示统计
         st.caption(f"共 {len(display_df)} 只候选股票，显示 {len(final_cols)} 个字段")

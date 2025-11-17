@@ -23,6 +23,24 @@ from sector_strategy_ui import display_sector_strategy
 from longhubang_ui import display_longhubang
 from smart_monitor_ui import smart_monitor_ui
 
+import streamlit as st
+import traceback
+
+_original_plotly_chart = st.plotly_chart
+
+def debug_plotly_chart(*args, **kwargs):
+    # 检查是否有非法关键字参数
+    illegal_keys = {'use_container_width', 'displayModeBar', 'responsive', 'scrollZoom'}
+    bad_keys = illegal_keys & set(kwargs.keys())
+    if bad_keys:
+        print("⚠️ 发现非法 Plotly 参数:", bad_keys)
+        print("".join(traceback.format_stack()))
+    return _original_plotly_chart(*args, **kwargs)
+
+st.plotly_chart = debug_plotly_chart
+
+
+
 # 页面配置
 st.set_page_config(
     page_title="复合多AI智能体股票团队分析系统",
@@ -1426,7 +1444,7 @@ def display_stock_chart(stock_data, stock_info):
 
     # 生成唯一的key
     chart_key = f"main_stock_chart_{stock_info.get('symbol', 'unknown')}_{int(time.time())}"
-    st.plotly_chart(fig, use_container_width=True, config={'responsive': True}, key=chart_key)
+    st.plotly_chart(fig, width='stretch', config={'responsive': True}, key=chart_key)
     
     # 成交量图
     if 'Volume' in stock_data.columns:
@@ -1445,9 +1463,9 @@ def display_stock_chart(stock_data, stock_info):
             height=200
         )
 
-        # 生成唯一的key
+        # 生成唯一的 key
         volume_key = f"volume_chart_{stock_info.get('symbol', 'unknown')}_{int(time.time())}"
-        st.plotly_chart(fig_volume, use_container_width=True, config={'responsive': True}, key=volume_key)
+        st.plotly_chart(fig_volume, width='stretch', config={'responsive': True}, key=volume_key)
 
 def display_agents_analysis(agents_results):
     """显示各分析师报告"""

@@ -720,79 +720,89 @@ def display_visualizations(predictions):
     if not predictions or predictions.get("prediction_text"):
         st.info("暂无可视化数据")
         return
-    
-    # 1. 板块多空雷达图
+
+    # 1. 板块多空信心度对比
     st.markdown("### 📊 板块多空信心度对比")
-    
+
     bullish = predictions.get("long_short", {}).get("bullish", [])
     bearish = predictions.get("long_short", {}).get("bearish", [])
-    
+
     if bullish or bearish:
         # 准备数据
         sectors = []
         confidence = []
         types = []
-        
+
         for item in bullish[:5]:
             sectors.append(item.get('sector', 'N/A'))
             confidence.append(item.get('confidence', 0))
             types.append('看多')
-        
+
         for item in bearish[:5]:
             sectors.append(item.get('sector', 'N/A'))
             confidence.append(-item.get('confidence', 0))  # 负值表示看空
             types.append('看空')
-        
-        # 创建条形图
+
+        # 创建 DataFrame 和图表
         df = pd.DataFrame({
             '板块': sectors,
             '信心度': confidence,
             '类型': types
         })
-        
-        fig = px.bar(df, x='板块', y='信心度', color='类型',
-                     color_discrete_map={'看多': '#4caf50', '看空': '#f44336'},
-                     title='板块多空信心度对比')
-        
+
+        fig = px.bar(
+            df,
+            x='板块',
+            y='信心度',
+            color='类型',
+            color_discrete_map={'看多': '#4caf50', '看空': '#f44336'},
+            title='板块多空信心度对比'
+        )
         fig.update_layout(height=400)
-    st.plotly_chart(fig, use_container_width=True, config={'responsive': True}, key="sector_confidence")
+
+        st.plotly_chart(fig, width='stretch', config={'responsive': True}, key="sector_confidence")
+    else:
+        st.info("暂无板块多空数据")
     
     st.markdown("---")
-    
+
     # 2. 板块热度分布
     st.markdown("### 🔥 板块热度分布")
-    
+
     heat = predictions.get("heat", {})
     hottest = heat.get("hottest", [])
     heating = heat.get("heating", [])
-    
+
     if hottest or heating:
         sectors = []
         scores = []
         trends = []
-        
+
         for item in hottest:
             sectors.append(item.get('sector', 'N/A'))
             scores.append(item.get('score', 0))
             trends.append('最热')
-        
+
         for item in heating:
             sectors.append(item.get('sector', 'N/A'))
             scores.append(item.get('score', 0))
             trends.append('升温')
-        
+
         df = pd.DataFrame({
             '板块': sectors,
             '热度': scores,
             '趋势': trends
         })
-        
+
         fig = px.scatter(df, x='板块', y='热度', size='热度', color='趋势',
                         color_discrete_map={'最热': '#ff5722', '升温': '#ff9800'},
                         title='板块热度分布图')
         
         fig.update_layout(height=400)
-    st.plotly_chart(fig, use_container_width=True, config={'responsive': True}, key="sector_heat")
+        
+        st.plotly_chart(fig, width='stretch', config={'responsive': True}, key="sector_heat")
+    else:
+        st.info("暂无板块热度数据")
 
 
 def display_pdf_export_section(result):
@@ -1195,11 +1205,11 @@ def display_north_data_input():
     
     with col1:
         st.markdown("**数据输入表格**")
-        # 使用data_editor进行数据编辑
+        # 使用 data_editor 进行数据编辑
         edited_data = st.data_editor(
             st.session_state.north_data_input,
             num_rows="dynamic",
-            use_container_width=True,
+            width='stretch', 
             key="north_data_editor"
         )
         

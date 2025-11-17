@@ -807,9 +807,9 @@ def _render_task_kline_and_decisions(task: Dict, db: SmartMonitorDB, engine):
                     show_ma=True,
                     height=500
                 )
-                
+
                 # 显示图表
-                st.plotly_chart(fig, use_container_width=True, config={'responsive': True})
+                st.plotly_chart(fig, width='stretch', config={'responsive': True})
                 
                 st.caption(f"📅 数据时间范围：{kline_data['日期'].min()} ~ {kline_data['日期'].max()}")
             else:
