@@ -768,5 +768,5 @@ def display_history_record(record: Dict):
             st.markdown("**分析摘要**")
             st.info(summary)
         
-        st.caption(f"置信度: {confidence}%")
+        st.caption(f"置信度: {confidence * 10:.0f}%")
 

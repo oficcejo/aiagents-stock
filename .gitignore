@@ -7,6 +7,15 @@
 /__pycache__
 # 环境变量文件
 .env
+.db
 /.cursor
 /openspec
 TradEnv/
+stock_analysis.db
+sector_strategy.db
+longhubang.db
+main_force_batch.db
+portfolio_stocks.db
+smart_monitor.db
+stock_monitor.db
+pazq_qmt/

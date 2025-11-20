@@ -23,6 +23,24 @@ from sector_strategy_ui import display_sector_strategy
 from longhubang_ui import display_longhubang
 from smart_monitor_ui import smart_monitor_ui
 
+import streamlit as st
+import traceback
+
+_original_plotly_chart = st.plotly_chart
+
+def debug_plotly_chart(*args, **kwargs):
+    # 检查是否有非法关键字参数
+    illegal_keys = {'use_container_width', 'displayModeBar', 'responsive', 'scrollZoom'}
+    bad_keys = illegal_keys & set(kwargs.keys())
+    if bad_keys:
+        print("⚠️ 发现非法 Plotly 参数:", bad_keys)
+        print("".join(traceback.format_stack()))
+    return _original_plotly_chart(*args, **kwargs)
+
+st.plotly_chart = debug_plotly_chart
+
+
+
 # 页面配置
 st.set_page_config(
     page_title="复合多AI智能体股票团队分析系统",
@@ -1426,8 +1444,8 @@ def display_stock_chart(stock_data, stock_info):
 
     # 生成唯一的key
     chart_key = f"main_stock_chart_{stock_info.get('symbol', 'unknown')}_{int(time.time())}"
-    st.plotly_chart(fig, use_container_width=True, config={'responsive': True}, key=chart_key)
-
+    st.plotly_chart(fig, width='stretch', config={'responsive': True}, key=chart_key)
+    
     # 成交量图
     if 'Volume' in stock_data.columns:
         fig_volume = go.Figure()
@@ -1445,9 +1463,9 @@ def display_stock_chart(stock_data, stock_info):
             height=200
         )
 
-        # 生成唯一的key
+        # 生成唯一的 key
         volume_key = f"volume_chart_{stock_info.get('symbol', 'unknown')}_{int(time.time())}"
-        st.plotly_chart(fig_volume, use_container_width=True, config={'responsive': True}, key=volume_key)
+        st.plotly_chart(fig_volume, width='stretch', config={'responsive': True}, key=volume_key)
 
 def display_agents_analysis(agents_results):
     """显示各分析师报告"""
@@ -1679,14 +1697,19 @@ def display_history_records():
                 st.write(f"**投资评级:** **{rating}**")
 
             with col3:
+                # 使用局部状态控制详情显示，而不是全局状态
+                detail_key = f"show_detail_{record['id']}"
                 if st.button("👀 查看详情", key=f"view_{record['id']}"):
-                    st.session_state.viewing_record_id = record['id']
-
+                    # 切换详情显示状态
+                    if detail_key in st.session_state:
+                        del st.session_state[detail_key]
+                    else:
+                        st.session_state[detail_key] = True
+            
             with col4:
                 if st.button("➕ 监测", key=f"add_monitor_{record['id']}"):
                     st.session_state.add_to_monitor_id = record['id']
-                    st.session_state.viewing_record_id = record['id']
-
+            
             # 删除按钮（新增一行）
             col5, _, _, _ = st.columns(4)
             with col5:
@@ -1696,10 +1719,12 @@ def display_history_records():
                         st.rerun()
                     else:
                         st.error("❌ 删除失败")
-
-    # 查看详细记录
-    if 'viewing_record_id' in st.session_state:
-        display_record_detail(st.session_state.viewing_record_id)
+            
+            # 在当前记录下方直接显示详情，而不是在所有记录之后
+            if detail_key in st.session_state:
+                st.markdown("---")
+                st.markdown("#### 详细分析记录")
+                display_record_detail(record['id'])
 
 def display_add_to_monitor_dialog(record):
     """显示加入监测的对话框"""
@@ -1879,9 +1904,8 @@ def display_add_to_monitor_dialog(record):
 
 def display_record_detail(record_id):
     """显示单条记录的详细信息"""
-    st.markdown("---")
-    st.subheader("📋 详细分析记录")
-
+    # 移除顶部的分隔线和标题，因为已经在调用处添加
+    
     record = db.get_record_by_id(record_id)
     if not record:
         st.error("❌ 记录不存在")
@@ -2029,15 +2053,8 @@ def display_record_detail(record_id):
             if st.button("➕ 加入监测", type="primary", width='stretch'):
                 st.session_state.add_to_monitor_id = record_id
                 st.rerun()
-
-    # 返回按钮
-    st.markdown("---")
-    if st.button("⬅️ 返回历史记录列表"):
-        if 'viewing_record_id' in st.session_state:
-            del st.session_state.viewing_record_id
-        if 'add_to_monitor_id' in st.session_state:
-            del st.session_state.add_to_monitor_id
-        st.rerun()
+    
+    # 移除返回按钮，用户可以通过关闭详情区域来返回
 
 def display_config_manager():
     """显示环境配置管理界面"""
