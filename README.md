@@ -1280,51 +1280,67 @@ DEFAULT_INTERVAL = "1d"    # 默认数据间隔
 
 ### 常见问题
 
-1. **API Key错误**
+1. **macOS py_mini_racer错误 (AttributeError: dlsym symbol not found)** ⭐ 常见
+   - **问题**：在macOS（特别是Apple Silicon）上运行时出现 `dlsym(xxx, mr_eval_context): symbol not found` 错误
+   - **原因**：akshare依赖的旧版 `py-mini-racer` 包已停止维护，与macOS不兼容
+   - **解决方案**：
+     ```bash
+     # 卸载旧版本（如果已安装）
+     pip uninstall py-mini-racer py_mini_racer -y
+
+     # 安装新版本（项目已包含在requirements.txt中）
+     pip install mini-racer>=0.12.0
+
+     # 或重新安装所有依赖
+     pip install -r requirements.txt
+     ```
+   - **说明**：新的 `mini-racer` 包（注意没有"py-"前缀）是2024年复活的项目，完全兼容macOS Apple Silicon，且导入语句保持不变
+
+2. **API Key错误**
    - 检查.env文件中的DEEPSEEK_API_KEY设置
    - 确保.env文件存在且格式正确
    - 确保API Key有效且有足够余额
 
-2. **股票数据获取失败**
+3. **股票数据获取失败**
    - 检查网络连接
    - 确认股票代码格式正确（A股6位数字，美股字母代码）
    - 可能是数据源临时不可用，稍后重试
 
-3. **财务数据获取失败**
+4. **财务数据获取失败**
    - 部分新股可能没有完整财务数据
    - 网络问题可能导致数据获取超时
    - 系统会自动处理，继续进行其他分析
 
-4. **依赖包安装失败**
+5. **依赖包安装失败**
    - 使用 `pip install -r requirements.txt`
    - 如有问题，尝试手动安装单个包
    - 确保Python版本为3.8+
 
-5. **页面加载缓慢**
+6. **页面加载缓慢**
    - 首次运行需要下载数据，请耐心等待
    - 系统有5分钟缓存，重复查询会更快
    - 财务数据获取较慢，约需10-20秒
 
-6. **分析过程中出错**
+7. **分析过程中出错**
    - 检查网络连接是否稳定
    - 查看终端输出的详细错误信息
    - 尝试重新启动应用
 
-7. **MiniQMT连接失败**
+8. **MiniQMT连接失败**
    - 确认MiniQMT客户端已启动
    - 检查账户已登录
    - 验证账户ID配置正确
    - 确认网络连接正常
    - 查看 `docs/MINIQMT_INTEGRATION_GUIDE.md` 详细指南
 
-8. **量化交易未执行**
+9. **量化交易未执行**
    - 确认量化功能已启用
    - 检查MiniQMT连接状态
    - 验证监测服务是否运行
    - 查看通知记录中的错误信息
    - 确认交易时间在交易日内
 
-9. **Docker部署问题** 🐳
+10. **Docker部署问题** 🐳
    - **容器启动失败**：
      - 检查Docker是否正常运行：`docker ps`
      - 查看容器日志：`docker-compose logs -f`
@@ -1342,7 +1358,7 @@ DEFAULT_INTERVAL = "1d"    # 默认数据间隔
      - 进入容器检查：`docker exec -it agentsstock1 bash`
    - **详细文档**：查看 `docs/DOCKER_DEPLOYMENT.md` 获取完整的故障排除指南
 
-10. **Webhook通知问题** ⭐️ 新增
+11. **Webhook通知问题** ⭐️ 新增
    - **未收到Webhook消息**：
      - 检查 `WEBHOOK_ENABLED=true` 是否已设置
      - 验证Webhook URL是否完整正确
@@ -1365,7 +1381,7 @@ DEFAULT_INTERVAL = "1d"    # 默认数据间隔
      - 查看终端日志了解详细错误信息
    - **详细文档**：查看 `docs/Webhook通知配置指南.md` 获取完整配置教程
 
-11. **TDX数据源问题** ⭐ 2025-11-04 NEW
+12. **TDX数据源问题** ⭐ 2025-11-04 NEW
    - **TDX服务无法访问**：
      - 检查TDX Docker容器是否运行：`docker ps | grep tdx`
      - 测试接口可用性：`curl "http://localhost:8080/api/quote?code=000001"`
@@ -1383,7 +1399,7 @@ DEFAULT_INTERVAL = "1d"    # 默认数据间隔
      - [TDX数据源快速配置.md](docs/TDX数据源快速配置.md)
      - [TDX数据源集成完成说明.md](docs/TDX数据源集成完成说明.md)
 
-12. **智策板块分析问题** ⭐️ 全新功能
+13. **智策板块分析问题** ⭐️ 全新功能
    - **数据获取失败**：
      - 检查网络连接是否稳定
      - AKShare数据源可能暂时不可用，稍后重试
