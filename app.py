@@ -22,6 +22,7 @@ from main_force_ui import display_main_force_selector
 from sector_strategy_ui import display_sector_strategy
 from longhubang_ui import display_longhubang
 from smart_monitor_ui import smart_monitor_ui
+from momentum_filter_ui import display_momentum_filter
 
 # 页面配置
 st.set_page_config(
@@ -294,7 +295,7 @@ def main():
         if st.button("🏠 股票分析", width='stretch', key="nav_home", help="返回首页，进行单只股票的深度分析"):
             # 清除所有功能页面标志
             for key in ['show_history', 'show_monitor', 'show_config', 'show_main_force',
-                       'show_sector_strategy', 'show_longhubang', 'show_portfolio']:
+                       'show_sector_strategy', 'show_longhubang', 'show_portfolio', 'show_momentum_filter']:
                 if key in st.session_state:
                     del st.session_state[key]
 
@@ -307,7 +308,14 @@ def main():
             if st.button("💰 主力选股", width='stretch', key="nav_main_force", help="基于主力资金流向的选股策略"):
                 st.session_state.show_main_force = True
                 for key in ['show_history', 'show_monitor', 'show_config', 'show_sector_strategy',
-                           'show_longhubang', 'show_portfolio']:
+                           'show_longhubang', 'show_portfolio', 'show_momentum_filter']:
+                    if key in st.session_state:
+                        del st.session_state[key]
+
+            if st.button("🚀 一进二策略", width='stretch', key="nav_momentum_filter", help="捕捉首板涨停后续二板机会"):
+                st.session_state.show_momentum_filter = True
+                for key in ['show_history', 'show_monitor', 'show_config', 'show_sector_strategy',
+                           'show_longhubang', 'show_portfolio', 'show_main_force']:
                     if key in st.session_state:
                         del st.session_state[key]
 
@@ -318,14 +326,14 @@ def main():
             if st.button("🎯 智策板块", width='stretch', key="nav_sector_strategy", help="AI板块策略分析"):
                 st.session_state.show_sector_strategy = True
                 for key in ['show_history', 'show_monitor', 'show_config', 'show_main_force',
-                           'show_longhubang', 'show_portfolio', 'show_smart_monitor']:
+                           'show_longhubang', 'show_portfolio', 'show_smart_monitor', 'show_momentum_filter']:
                     if key in st.session_state:
                         del st.session_state[key]
 
             if st.button("🐉 智瞰龙虎", width='stretch', key="nav_longhubang", help="龙虎榜深度分析"):
                 st.session_state.show_longhubang = True
                 for key in ['show_history', 'show_monitor', 'show_config', 'show_main_force',
-                           'show_sector_strategy', 'show_portfolio', 'show_smart_monitor']:
+                           'show_sector_strategy', 'show_portfolio', 'show_smart_monitor', 'show_momentum_filter']:
                     if key in st.session_state:
                         del st.session_state[key]
 
@@ -336,21 +344,21 @@ def main():
             if st.button("📊 持仓分析", width='stretch', key="nav_portfolio", help="投资组合分析与定时跟踪"):
                 st.session_state.show_portfolio = True
                 for key in ['show_history', 'show_monitor', 'show_config', 'show_main_force',
-                           'show_sector_strategy', 'show_longhubang', 'show_smart_monitor']:
+                           'show_sector_strategy', 'show_longhubang', 'show_smart_monitor', 'show_momentum_filter']:
                     if key in st.session_state:
                         del st.session_state[key]
 
             if st.button("🤖 AI盯盘", width='stretch', key="nav_smart_monitor", help="DeepSeek AI自动盯盘决策交易（支持A股T+1）"):
                 st.session_state.show_smart_monitor = True
                 for key in ['show_history', 'show_monitor', 'show_config', 'show_main_force',
-                           'show_sector_strategy', 'show_longhubang', 'show_portfolio']:
+                           'show_sector_strategy', 'show_longhubang', 'show_portfolio', 'show_momentum_filter']:
                     if key in st.session_state:
                         del st.session_state[key]
 
             if st.button("📡 实时监测", width='stretch', key="nav_monitor", help="价格监控与预警提醒"):
                 st.session_state.show_monitor = True
                 for key in ['show_history', 'show_main_force', 'show_longhubang', 'show_portfolio',
-                           'show_config', 'show_sector_strategy', 'show_smart_monitor']:
+                           'show_config', 'show_sector_strategy', 'show_smart_monitor', 'show_momentum_filter']:
                     if key in st.session_state:
                         del st.session_state[key]
 
@@ -360,7 +368,7 @@ def main():
         if st.button("📖 历史记录", width='stretch', key="nav_history", help="查看历史分析记录"):
             st.session_state.show_history = True
             for key in ['show_monitor', 'show_longhubang', 'show_portfolio', 'show_config',
-                       'show_main_force', 'show_sector_strategy']:
+                       'show_main_force', 'show_sector_strategy', 'show_momentum_filter']:
                 if key in st.session_state:
                     del st.session_state[key]
 
@@ -368,7 +376,7 @@ def main():
         if st.button("⚙️ 环境配置", width='stretch', key="nav_config", help="系统设置与API配置"):
             st.session_state.show_config = True
             for key in ['show_history', 'show_monitor', 'show_main_force', 'show_sector_strategy',
-                       'show_longhubang', 'show_portfolio']:
+                       'show_longhubang', 'show_portfolio', 'show_momentum_filter']:
                 if key in st.session_state:
                     del st.session_state[key]
 
@@ -459,6 +467,11 @@ def main():
     # 检查是否显示主力选股
     if 'show_main_force' in st.session_state and st.session_state.show_main_force:
         display_main_force_selector()
+        return
+
+    # 检查是否显示一进二策略
+    if 'show_momentum_filter' in st.session_state and st.session_state.show_momentum_filter:
+        display_momentum_filter()
         return
 
     # 检查是否显示智策板块
