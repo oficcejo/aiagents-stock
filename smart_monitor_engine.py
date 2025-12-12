@@ -482,7 +482,19 @@ class SmartMonitorEngine:
                 'type': '智能盯盘',
                 'message': message,
                 'details': content,
-                'triggered_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                'triggered_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                # 新增实时市场数据
+                'current_price': market_data.get('current_price', 'N/A'),
+                'change_pct': f"{market_data.get('change_pct', 0):+.2f}" if market_data.get('change_pct') else 'N/A',
+                'change_amount': f"{market_data.get('change_amount', 0):+.2f}" if market_data.get('change_amount') else 'N/A',
+                'volume': market_data.get('volume', 'N/A'),
+                'turnover_rate': f"{market_data.get('turnover_rate', 0):.2f}" if market_data.get('turnover_rate') else 'N/A',
+                # 持仓信息
+                'position_status': '已持仓' if has_position else '未持仓',
+                'position_cost': f"{position_cost:.2f}" if has_position and position_cost else 'N/A',
+                'profit_loss_pct': f"{((market_data.get('current_price', 0) - position_cost) / position_cost * 100):+.2f}" if has_position and position_cost else 'N/A',
+                # 交易时段信息
+                'trading_session': session_info.get('session', '未知')
             }
             
             # 直接调用主程序的通知服务发送

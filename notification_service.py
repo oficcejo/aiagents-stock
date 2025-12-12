@@ -318,25 +318,42 @@ class NotificationService:
             title_prefix = f"{keyword} - " if keyword else ""
             content_prefix = f"### {keyword} - " if keyword else "### "
             
-            data = {
-                "msgtype": "markdown",
-                "markdown": {
-                    "title": f"{title_prefix}{notification['symbol']} {notification['name']}",
-                    "text": f"""{content_prefix}股票监测提醒
+            # 构建增强的消息内容
+            message_text = f"""{content_prefix}股票监测提醒
 
 **股票代码**: {notification['symbol']}
 
 **股票名称**: {notification['name']}
 
-**提醒类型**: {notification['type']}
+**📊 实时行情**:
+- 当前价格: {notification.get('current_price', 'N/A')}元
+- 涨跌幅: {notification.get('change_pct', 'N/A')}%
+- 涨跌额: {notification.get('change_amount', 'N/A')}元
+- 成交量: {notification.get('volume', 'N/A')}手
+- 换手率: {notification.get('turnover_rate', 'N/A')}%
 
-**提醒内容**: {notification['message']}
+**🎯 AI决策**: {notification['type']}
 
-**触发时间**: {notification['triggered_at']}
+**📝 分析内容**: {notification['message']}
+
+**💰 持仓信息**:
+- 持仓状态: {notification.get('position_status', '未知')}
+- 持仓成本: {notification.get('position_cost', 'N/A')}元
+- 浮动盈亏: {notification.get('profit_loss_pct', 'N/A')}%
+
+**⏰ 触发时间**: {notification['triggered_at']}
+
+**🕐 交易时段**: {notification.get('trading_session', '未知')}
 
 ---
 
 _此消息由AI股票分析系统自动发送_"""
+            
+            data = {
+                "msgtype": "markdown",
+                "markdown": {
+                    "title": f"{title_prefix}{notification['symbol']} {notification['name']}",
+                    "text": message_text
                 }
             }
             
@@ -757,3 +774,10 @@ _此消息由AI股票分析系统自动发送_"""
 
 # 全局通知服务实例
 notification_service = NotificationService()
+
+
+
+
+
+
+

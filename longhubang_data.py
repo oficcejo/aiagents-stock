@@ -23,7 +23,9 @@ class LonghubangDataFetcher:
             api_key: StockAPI的API密钥（可选，普通请求每日免费1000次）
         """
         print("[智瞰龙虎] 龙虎榜数据获取器初始化...")
-        self.base_url = "https://www.stockapi.com.cn/v1"
+        # self.base_url = "https://api-lhb.zhongdu.net"
+        self.base_url = "http://lhb-api.ws4.cn/v1"
+       # self.base_url = "https://www.stockapi.com.cn/v1"
         self.api_key = api_key
         self.max_retries = 3  # 最大重试次数
         self.retry_delay = 2  # 重试延迟（秒）
@@ -79,6 +81,7 @@ class LonghubangDataFetcher:
         """
         print(f"[智瞰龙虎] 获取 {date} 的龙虎榜数据...")
         
+        # url = f"{self.base_url}"
         url = f"{self.base_url}/youzi/all"
         params = {'date': date}
         
