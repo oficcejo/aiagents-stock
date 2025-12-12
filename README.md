@@ -24,8 +24,9 @@
 - ✅ **统一配置** - 使用主程序的配置管理系统（miniQMT、邮件、Webhook）
 - ✅ **技术指标完整** - 均线/MACD/RSI/KDJ/布林带，AI决策更可靠
 
-- 希望能帮到你！欢迎加微信群讨论
-<img width="300" height="324" alt="image" src="https://www.sd-hn.cn/img/2wm1104.png" />
+- 希望能帮到你！欢迎加微信讨论(请备注aiagents-stock）
+
+
 
 ### 基于Python + Streamlit + DeepSeek的智能股票分析系统，模拟证券公司分析师团队，提供全方位的股票投资分析和决策建议。
 <img width="1910" height="923" alt="image" src="https://github.com/user-attachments/assets/fe366e1d-2352-46db-a3cc-6f147ee6d9d9" />
