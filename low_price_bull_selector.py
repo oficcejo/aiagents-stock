@@ -29,7 +29,7 @@ class LowPriceBullSelector:
         - 非ST
         - 非科创板
         - 非创业板
-        - 深圳A股
+        - 沪深A股
         - 成交额由小至大排名
         
         Args:
@@ -42,7 +42,7 @@ class LowPriceBullSelector:
             print(f"\n{'='*60}")
             print(f"🐂 低价擒牛选股 - 数据获取中")
             print(f"{'='*60}")
-            print(f"策略: 股价<10元 + 净利润增长率≥100% + 深圳A股")
+            print(f"策略: 股价<10元 + 净利润增长率≥100% + 沪深A股")
             print(f"目标: 筛选前{top_n}只股票")
             
             # 构建查询语句（按成交额由小至大排名）
@@ -52,7 +52,7 @@ class LowPriceBullSelector:
                 "非st，"
                 "非科创板，"
                 "非创业板，"
-                "深圳A股，"
+                "沪深A股，"
                 "成交额由小至大排名"
             )
             

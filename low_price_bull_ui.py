@@ -51,7 +51,7 @@ def display_low_price_bull():
     - ✅ 非ST股票
     - ✅ 非科创板
     - ✅ 非创业板
-    - ✅ 深圳A股
+    - ✅ 沪深A股
     - ✅ 按成交额由小至大排名
     
     **量化交易策略**：
@@ -501,7 +501,7 @@ def send_dingtalk_notification(stocks_df: pd.DataFrame, top_n: int):
         keyword = notification_service.config.get('webhook_keyword', 'aiagents通知')
         
         message_text = f"### {keyword} - 低价擒牛选股完成\n\n"
-        message_text += f"**筛选策略**: 股价<10元 + 净利润增长率≥100% + 深圳A股\n\n"
+        message_text += f"**筛选策略**: 股价<10元 + 净利润增长率≥100% + 沪深A股\n\n"
         message_text += f"**筛选数量**: {len(stocks_df)} 只\n\n"
         message_text += f"**精选股票**:\n\n"
         
