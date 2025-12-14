@@ -314,7 +314,14 @@ def main():
             if st.button("🐂 低价擒牛", width='stretch', key="nav_low_price_bull", help="低价高成长股票筛选策略"):
                 st.session_state.show_low_price_bull = True
                 for key in ['show_history', 'show_monitor', 'show_config', 'show_sector_strategy',
-                           'show_longhubang', 'show_portfolio', 'show_main_force']:
+                           'show_longhubang', 'show_portfolio', 'show_main_force', 'show_small_cap']:
+                    if key in st.session_state:
+                        del st.session_state[key]
+            
+            if st.button("📊 小市值策略", width='stretch', key="nav_small_cap", help="小盘高成长股票筛选策略"):
+                st.session_state.show_small_cap = True
+                for key in ['show_history', 'show_monitor', 'show_config', 'show_sector_strategy',
+                           'show_longhubang', 'show_portfolio', 'show_main_force', 'show_low_price_bull']:
                     if key in st.session_state:
                         del st.session_state[key]
 
@@ -472,6 +479,12 @@ def main():
     if 'show_low_price_bull' in st.session_state and st.session_state.show_low_price_bull:
         from low_price_bull_ui import display_low_price_bull
         display_low_price_bull()
+        return
+    
+    # 检查是否显示小市值策略
+    if 'show_small_cap' in st.session_state and st.session_state.show_small_cap:
+        from small_cap_ui import display_small_cap
+        display_small_cap()
         return
 
     # 检查是否显示智策板块
