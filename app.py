@@ -314,14 +314,21 @@ def main():
             if st.button("🐂 低价擒牛", width='stretch', key="nav_low_price_bull", help="低价高成长股票筛选策略"):
                 st.session_state.show_low_price_bull = True
                 for key in ['show_history', 'show_monitor', 'show_config', 'show_sector_strategy',
-                           'show_longhubang', 'show_portfolio', 'show_main_force', 'show_small_cap']:
+                           'show_longhubang', 'show_portfolio', 'show_main_force', 'show_small_cap', 'show_profit_growth']:
                     if key in st.session_state:
                         del st.session_state[key]
             
             if st.button("📊 小市值策略", width='stretch', key="nav_small_cap", help="小盘高成长股票筛选策略"):
                 st.session_state.show_small_cap = True
                 for key in ['show_history', 'show_monitor', 'show_config', 'show_sector_strategy',
-                           'show_longhubang', 'show_portfolio', 'show_main_force', 'show_low_price_bull']:
+                           'show_longhubang', 'show_portfolio', 'show_main_force', 'show_low_price_bull', 'show_profit_growth']:
+                    if key in st.session_state:
+                        del st.session_state[key]
+            
+            if st.button("📈 净利增长", width='stretch', key="nav_profit_growth", help="净利润增长稳健股票筛选策略"):
+                st.session_state.show_profit_growth = True
+                for key in ['show_history', 'show_monitor', 'show_config', 'show_sector_strategy',
+                           'show_longhubang', 'show_portfolio', 'show_main_force', 'show_low_price_bull', 'show_small_cap']:
                     if key in st.session_state:
                         del st.session_state[key]
 
@@ -485,6 +492,12 @@ def main():
     if 'show_small_cap' in st.session_state and st.session_state.show_small_cap:
         from small_cap_ui import display_small_cap
         display_small_cap()
+        return
+    
+    # 检查是否显示净利增长策略
+    if 'show_profit_growth' in st.session_state and st.session_state.show_profit_growth:
+        from profit_growth_ui import display_profit_growth
+        display_profit_growth()
         return
 
     # 检查是否显示智策板块
