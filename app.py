@@ -1718,6 +1718,8 @@ def display_history_records():
                 st.write(f"**投资评级:** **{rating}**")
 
             with col3:
+                # 使用局部状态控制详情显示，而不是全局状态
+                detail_key = f"show_detail_{record['id']}"
                 if st.button("👀 查看详情", key=f"view_{record['id']}"):
                     st.session_state.viewing_record_id = record['id']
 
@@ -1739,6 +1741,12 @@ def display_history_records():
     # 查看详细记录
     if 'viewing_record_id' in st.session_state:
         display_record_detail(st.session_state.viewing_record_id)
+            
+        # 在当前记录下方直接显示详情，而不是在所有记录之后
+        if detail_key in st.session_state:
+            st.markdown("---")
+            st.markdown("#### 详细分析记录")
+            display_record_detail(record['id'])
 
 def display_add_to_monitor_dialog(record):
     """显示加入监测的对话框"""
@@ -1921,6 +1929,8 @@ def display_record_detail(record_id):
     st.markdown("---")
     st.subheader("📋 详细分析记录")
 
+    # 移除顶部的分隔线和标题，因为已经在调用处添加
+    
     record = db.get_record_by_id(record_id)
     if not record:
         st.error("❌ 记录不存在")
@@ -2077,6 +2087,7 @@ def display_record_detail(record_id):
         if 'add_to_monitor_id' in st.session_state:
             del st.session_state.add_to_monitor_id
         st.rerun()
+    
 
 def display_config_manager():
     """显示环境配置管理界面"""
