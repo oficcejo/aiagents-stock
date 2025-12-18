@@ -31,6 +31,7 @@ class PortfolioScheduler:
         self.selected_agents = None  # None表示全部分析师
         self.notification_service = NotificationService()
         self.max_workers = 3  # 并行模式的线程数
+        self.task_lock = threading.Lock()  # 添加执行锁
     
     # 兼容旧代码的属性
     @property
@@ -189,6 +190,10 @@ class PortfolioScheduler:
             print("[OK] 选择分析师: 全部")
     
     def _scheduled_job(self):
+        # 尝试获取锁，若失败则跳过执行
+        if not self.task_lock.acquire(blocking=False):
+            print("⚠️ 任务正在执行中，跳过本次调度")
+            return
         """定时任务执行的作业"""
         print("\n" + "="*60)
         print(f"定时分析开始: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
@@ -249,6 +254,9 @@ class PortfolioScheduler:
             if self.notification_enabled:
                 self._send_error_notification(str(e))
             
+            self.last_run_time = datetime.now()
+        finally:
+            self.task_lock.release()  # 释放锁
             self.last_run_time = datetime.now()
     
     def _sync_to_monitor(self, analysis_results: dict) -> dict:
