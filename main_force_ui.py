@@ -140,8 +140,13 @@ def display_main_force_selector():
     st.markdown("---")
 
     # 开始分析按钮
+<<<<<<< HEAD
     if st.button("🚀 开始主力选股", type="primary", width='content'):
 
+=======
+    if st.button("🚀 开始主力选股", type="primary", width='stretch'):
+        
+>>>>>>> 3554818 (更新界面布局“)
         with st.spinner("正在获取数据并分析，这可能需要几分钟..."):
 
             # 创建分析器

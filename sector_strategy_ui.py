@@ -1301,7 +1301,7 @@ def display_north_data_input():
         
         # 显示数据预览
         with st.expander("查看已保存数据"):
-            st.dataframe(saved_data.head(10), use_container_width=True)
+            st.dataframe(saved_data.head(10), width='stretch')
 
 
 def validate_north_data(data):
