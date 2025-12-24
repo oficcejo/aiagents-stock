@@ -13,22 +13,22 @@ from enum import Enum
 
 class TradeAction(Enum):
     """交易动作枚举"""
-    BUY = "buy"  # 买入
-    SELL = "sell"  # 卖出
-    HOLD = "hold"  # 持有
+    BUY = "买入" 
+    SELL = "卖出"
+    HOLD = "持有"
     
 class OrderType(Enum):
     """订单类型枚举"""
-    MARKET = "market"  # 市价单
-    LIMIT = "limit"  # 限价单
-    STOP = "stop"  # 止损单
-    STOP_LIMIT = "stop_limit"  # 止损限价单
+    MARKET = "市价单"
+    LIMIT = "限价单"
+    STOP = "止损单"
+    STOP_LIMIT = "止损限价单"
 
 class PositionSide(Enum):
     """持仓方向枚举"""
-    LONG = "long"  # 多头
-    SHORT = "short"  # 空头
-    NONE = "none"  # 无持仓
+    LONG = "多头"
+    SHORT = "空头"
+    NONE = "无持仓"
 
 class MiniQMTInterface:
     """

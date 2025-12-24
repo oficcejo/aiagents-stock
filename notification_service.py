@@ -54,6 +54,11 @@ class NotificationService:
         if os.getenv('WEBHOOK_KEYWORD'):
             config['webhook_keyword'] = os.getenv('WEBHOOK_KEYWORD')
         
+        # 自动启用逻辑：如果配置了webhook_url，自动启用webhook通知
+        if config['webhook_url'] and not os.getenv('WEBHOOK_ENABLED'):
+            config['webhook_enabled'] = True
+            print("[自动启用] Webhook通知已根据WEBHOOK_URL配置自动启用")
+        
         return config
     
     def send_notifications(self):

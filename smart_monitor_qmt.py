@@ -38,8 +38,11 @@ class SmartMonitorQMT:
             self.xtdata = xtdata
             self.logger.info("miniQMT模块加载成功")
         except ImportError as e:
-            self.logger.warning(f"miniQMT模块未安装: {e}")
-            self.logger.warning("将使用模拟模式（不实际下单）")
+            self.logger.error(f"miniQMT模块未安装: {e}")
+            self.logger.error("将使用模拟模式（不实际下单）")
+        except Exception as e:
+            self.logger.error(f"加载miniQMT模块失败: {e}")
+            self.logger.error("将使用模拟模式（不实际下单）")
     
     def connect(self, account_id: str = None) -> bool:
         """
@@ -84,12 +87,22 @@ class SmartMonitorQMT:
             
             if not os.path.exists(full_path):
                 self.logger.error(f"MiniQMT路径不存在: {full_path}")
+                self.logger.error(f"请检查配置中的MINIQMT_PATH是否正确设置")
+                self.logger.error(f"正确的路径应该指向MiniQMT的userdata_mini文件夹")
                 return False
             
             import uuid
             session_id = int(str(uuid.getnode())[:8])
             
-            self.logger.info(f"连接miniQMT，路径: {full_path}, 账户: {account_id}")
+            self.logger.info(f"连接miniQMT，路径: {full_path}, 账户: {account_id}, 会话ID: {session_id}")
+            
+            # 首先尝试停止可能存在的旧连接
+            if hasattr(self, 'xt_trader') and self.xt_trader:
+                try:
+                    self.xt_trader.stop()
+                    self.logger.info("已停止旧的miniQMT连接")
+                except:
+                    pass  # 忽略停止旧连接的错误
             
             self.xt_trader = self.xttrader.XtQuantTrader(path=full_path, session=session_id)
             
@@ -97,6 +110,11 @@ class SmartMonitorQMT:
             
             from xtquant.xttype import StockAccount
             self.account = StockAccount(account_id)
+            
+            # 添加延迟确保客户端完全启动
+            import time
+            time.sleep(2)  # 等待2秒确保客户端启动
+            
             connect_result = self.xt_trader.connect()
 
             
@@ -106,6 +124,21 @@ class SmartMonitorQMT:
                 return True
             else:
                 self.logger.error(f"miniQMT连接失败，错误码: {connect_result}")
+                self.logger.error("请检查以下问题：")
+                self.logger.error("1. MiniQMT客户端是否已启动并完全加载")
+                self.logger.error("2. MINIQMT_PATH路径是否正确")
+                self.logger.error("3. MINIQMT_ACCOUNT_ID是否正确")
+                self.logger.error("4. MiniQMT客户端是否正常运行且未被其他程序占用")
+                self.logger.error("5. 确保同一时间只有一个Python程序连接到MiniQMT")
+                
+                # 尝试连接其他账户以测试连接性
+                try:
+                    test_account = StockAccount(account_id + "_test")  # 创建测试账户
+                    test_result = self.xt_trader.connect()
+                    self.logger.info(f"连接测试结果: {test_result}")
+                except:
+                    pass
+                
                 return False
                 
         except Exception as e:
