@@ -26,6 +26,12 @@ class ConfigManager:
                 "required": False,
                 "type": "text"
             },
+            "DEEPSEEK_MODEL_NAME": {
+                "value": "deepseek-chat",
+                "description": "DeepSeek模型名称",
+                "required": False,
+                "type": "text"
+            },
             "TUSHARE_TOKEN": {
                 "value": "",
                 "description": "Tushare数据接口Token（可选）",
@@ -172,6 +178,7 @@ class ConfigManager:
             lines.append("# ========== DeepSeek API配置 ==========")
             lines.append(f'DEEPSEEK_API_KEY="{config.get("DEEPSEEK_API_KEY", "")}"')
             lines.append(f'DEEPSEEK_BASE_URL="{config.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")}"')
+            lines.append(f'DEEPSEEK_MODEL_NAME="{config.get("DEEPSEEK_MODEL_NAME", "deepseek-chat")}"')
             lines.append("")
             
             # Tushare配置

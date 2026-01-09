@@ -13,14 +13,23 @@ import json
 class SmartMonitorDB:
     """智能盯盘数据库"""
     
-    def __init__(self, db_file: str = 'smart_monitor.db'):
+    def __init__(self, db_file: str = None):
         """
         初始化数据库
         
         Args:
-            db_file: 数据库文件路径
+            db_file: 数据库文件路径，如果为None，则使用data目录下的smart_monitor.db（确保持久化）
         """
-        self.db_file = db_file
+        # 如果没有指定路径，使用data目录下的数据库文件（确保容器重启后数据不丢失）
+        if db_file is None:
+            import os
+            data_dir = os.path.join(os.path.dirname(__file__), 'data')
+            if not os.path.exists(data_dir):
+                os.makedirs(data_dir, exist_ok=True)
+            self.db_file = os.path.join(data_dir, 'smart_monitor.db')
+        else:
+            self.db_file = db_file
+        print(f"[SmartMonitorDB] 数据库文件路径: {self.db_file}")
         self.logger = logging.getLogger(__name__)
         self._init_database()
     

@@ -18,6 +18,7 @@ from sector_strategy_engine import SectorStrategyEngine
 from sector_strategy_pdf import SectorStrategyPDFGenerator
 from sector_strategy_db import SectorStrategyDatabase
 from sector_strategy_scheduler import sector_strategy_scheduler
+import config
 
 
 def _parse_json_field(value, default):
@@ -261,8 +262,12 @@ def display_report_detail(report_id):
     st.info("当前版本仅提供报告摘要，详细页面已移除。")
 
 
-def run_sector_strategy_analysis(model="deepseek-chat"):
+def run_sector_strategy_analysis(model=None):
     """运行智策分析"""
+    
+    # 如果没有传入model，则使用配置文件中的默认模型
+    if model is None:
+        model = config.DEEPSEEK_MODEL_NAME
     
     # 进度显示
     progress_bar = st.progress(0)

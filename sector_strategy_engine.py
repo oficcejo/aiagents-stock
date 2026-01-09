@@ -11,20 +11,28 @@ import time
 import json
 import pandas as pd
 import logging
+import config
 
 
 class SectorStrategyEngine:
     """板块策略综合研判引擎"""
     
-    def __init__(self, model="deepseek-chat"):
-        self.model = model
-        self.agents = SectorStrategyAgents(model=model)
-        self.deepseek_client = DeepSeekClient(model=model)
+    def __init__(self, model=None):
+        # 强制使用配置文件中的默认模型
+        # 如果传入的是 None、空字符串或旧的默认值 "deepseek-chat"，都使用配置文件的值
+        if model is None or model == "" or model == "deepseek-chat":
+            self.model = config.DEEPSEEK_MODEL_NAME
+            if model == "deepseek-chat":
+                print(f"[智策引擎] ⚠️ 检测到传入的模型是旧的默认值 'deepseek-chat'，强制使用配置文件中的模型: {self.model}")
+        else:
+            self.model = model
+        self.agents = SectorStrategyAgents(model=self.model)
+        self.deepseek_client = DeepSeekClient(model=self.model)
         self.database = SectorStrategyDatabase()
         self.logger = logging.getLogger(__name__)
         if not self.logger.handlers:
             logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s %(name)s: %(message)s')
-        print(f"[智策引擎] 初始化完成 (模型: {model})")
+        print(f"[智策引擎] 初始化完成 - 最终使用的模型: {self.model} (传入参数: {model}, 配置默认: {config.DEEPSEEK_MODEL_NAME})")
     
     def save_raw_data_with_fallback(self, data_type, data_df, data_date=None):
         """

@@ -18,6 +18,10 @@ DEEPSEEK_API_KEY=your_actual_deepseek_api_key_here
 # DeepSeek API基础URL（可选，使用默认值即可）
 DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
 
+# DeepSeek模型名称（可选，默认：deepseek-chat）
+# 可选模型：deepseek-chat、deepseek-reasoner等
+DEEPSEEK_MODEL_NAME=deepseek-chat
+
 
 # ========== Tushare数据接口（可选）==========
 # Tushare Token（可选，用于获取更多金融数据）

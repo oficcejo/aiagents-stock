@@ -9,8 +9,12 @@ from datetime import datetime
 from typing import List, Dict, Optional, Tuple
 import os
 
-# 数据库文件路径
-DB_PATH = "portfolio_stocks.db"
+# 数据库文件路径（使用data目录确保持久化）
+_data_dir = os.path.join(os.path.dirname(__file__), 'data')
+if not os.path.exists(_data_dir):
+    os.makedirs(_data_dir, exist_ok=True)
+DB_PATH = os.path.join(_data_dir, "portfolio_stocks.db")
+print(f"[PortfolioDB] 数据库文件路径: {DB_PATH}")
 
 
 class PortfolioDB:
