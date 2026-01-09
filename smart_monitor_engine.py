@@ -15,7 +15,6 @@ from smart_monitor_qmt import SmartMonitorQMT, SmartMonitorQMTSimulator
 from smart_monitor_db import SmartMonitorDB
 from notification_service import notification_service  # 复用主程序的通知服务
 from config_manager import config_manager  # 复用主程序的配置管理器
-import config  # 导入config模块以使用DEEPSEEK_BASE_URL和DEEPSEEK_MODEL_NAME
 
 
 class SmartMonitorEngine:
@@ -34,30 +33,23 @@ class SmartMonitorEngine:
         self.logger = logging.getLogger(__name__)
         
         # 从配置管理器读取配置
-        env_config = config_manager.read_env()
+        config = config_manager.read_env()
         
         # DeepSeek API
         if deepseek_api_key is None:
-            deepseek_api_key = env_config.get('DEEPSEEK_API_KEY', '')
+            deepseek_api_key = config.get('DEEPSEEK_API_KEY', '')
         
         # MiniQMT配置
         if qmt_account_id is None:
-            qmt_account_id = env_config.get('MINIQMT_ACCOUNT_ID', '')
+            qmt_account_id = config.get('MINIQMT_ACCOUNT_ID', '')
         
         if use_simulator is None:
             # 如果MINIQMT_ENABLED=false，则使用模拟器
-            miniqmt_enabled = env_config.get('MINIQMT_ENABLED', 'false').lower() == 'true'
+            miniqmt_enabled = config.get('MINIQMT_ENABLED', 'false').lower() == 'true'
             use_simulator = not miniqmt_enabled
         
         # 初始化各个模块
-        # 从config模块读取 base_url 和 model（从.env文件加载的配置）
-        deepseek_base_url = config.DEEPSEEK_BASE_URL
-        deepseek_model = config.DEEPSEEK_MODEL_NAME
-        self.deepseek = SmartMonitorDeepSeek(
-            api_key=deepseek_api_key,
-            base_url=deepseek_base_url,
-            model=deepseek_model
-        )
+        self.deepseek = SmartMonitorDeepSeek(deepseek_api_key)
         self.data_fetcher = SmartMonitorDataFetcher()
         self.db = SmartMonitorDB()
         self.notification = notification_service  # 使用主程序的通知服务

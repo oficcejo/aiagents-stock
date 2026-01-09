@@ -6,26 +6,15 @@
 from deepseek_client import DeepSeekClient
 from typing import Dict, Any
 import time
-import config
 
 
 class SectorStrategyAgents:
     """板块策略AI智能体集合"""
     
-    def __init__(self, model=None):
-        # 强制使用配置文件中的默认模型
-        # 如果传入的是 None、空字符串或旧的默认值 "deepseek-chat"，都使用配置文件的值
-        if model is None or model == "" or model == "deepseek-chat":
-            self.model = config.DEEPSEEK_MODEL_NAME
-            if model == "deepseek-chat":
-                print(f"[智策] ⚠️ 检测到传入的模型是旧的默认值 'deepseek-chat'，强制使用配置文件中的模型: {self.model}")
-            else:
-                print(f"[智策] AI智能体系统初始化 - 使用配置文件中的默认模型: {self.model}")
-        else:
-            self.model = model
-            print(f"[智策] AI智能体系统初始化 - 使用传入的模型参数: {self.model}")
-        self.deepseek_client = DeepSeekClient(model=self.model)
-        print(f"[智策] AI智能体系统初始化完成 - 最终使用的模型: {self.model}")
+    def __init__(self, model="deepseek-chat"):
+        self.model = model
+        self.deepseek_client = DeepSeekClient(model=model)
+        print(f"[智策] AI智能体系统初始化 (模型: {model})")
     
     def macro_strategist_agent(self, market_data: Dict, news_data: list) -> Dict[str, Any]:
         """

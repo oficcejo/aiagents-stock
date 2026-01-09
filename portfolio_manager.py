@@ -13,30 +13,17 @@ from datetime import datetime
 from portfolio_db import portfolio_db
 
 
-import config
-
 class PortfolioManager:
     """持仓管理器类"""
     
-    def __init__(self, model=None):
+    def __init__(self, model="deepseek-chat"):
         """
         初始化持仓管理器
         
         Args:
-            model: AI模型（如果不传入，则使用配置文件中的默认模型）
+            model: AI模型（deepseek-chat 或 deepseek-reasoner）
         """
-        # 强制使用配置文件中的默认模型
-        # 如果传入的是 None、空字符串或旧的默认值 "deepseek-chat"，都使用配置文件的值
-        if model is None or model == "" or model == "deepseek-chat":
-            self.model = config.DEEPSEEK_MODEL_NAME
-            if model == "deepseek-chat":
-                print(f"[PortfolioManager] ⚠️ 检测到传入的模型是旧的默认值 'deepseek-chat'，强制使用配置文件中的模型: {self.model}")
-            else:
-                print(f"[PortfolioManager] 使用配置文件中的默认模型: {self.model}")
-        else:
-            self.model = model
-            print(f"[PortfolioManager] 使用传入的模型参数: {self.model}")
-        print(f"[PortfolioManager] ✅ 最终使用的模型: {self.model}")
+        self.model = model
         self.db = portfolio_db
     
     # ==================== 持仓股票管理 ====================

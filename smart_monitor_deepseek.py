@@ -7,43 +7,25 @@ import logging
 from typing import Dict, List, Optional
 from datetime import datetime, time
 import pytz
-import config
 
 
 class SmartMonitorDeepSeek:
     """A股智能盯盘 - DeepSeek AI决策引擎"""
 
-    def __init__(self, api_key: str, base_url: str = None, model: str = None):
+    def __init__(self, api_key: str):
         """
         初始化DeepSeek客户端
         
         Args:
             api_key: DeepSeek API密钥
-            base_url: API基础URL（可选，默认使用配置文件的值）
-            model: 模型名称（可选，默认使用配置文件的值）
         """
         self.api_key = api_key
-        # 如果没有传入base_url，则使用配置文件中的默认值
-        if base_url is None or base_url == "":
-            self.base_url = config.DEEPSEEK_BASE_URL
-        else:
-            self.base_url = base_url
-        # 强制使用配置文件中的默认模型
-        # 如果传入的是 None、空字符串或旧的默认值 "deepseek-chat"，都使用配置文件的值
-        if model is None or model == "" or model == "deepseek-chat":
-            self.model = config.DEEPSEEK_MODEL_NAME
-            if model == "deepseek-chat":
-                self.logger.warning(f"[SmartMonitorDeepSeek] ⚠️ 检测到传入的模型是旧的默认值 'deepseek-chat'，强制使用配置文件中的模型: {self.model}")
-                print(f"[SmartMonitorDeepSeek] ⚠️ 检测到传入的模型是旧的默认值 'deepseek-chat'，强制使用配置文件中的模型: {self.model}")
-        else:
-            self.model = model
+        self.base_url = "https://api.deepseek.com/v1"
         self.headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
         }
         self.logger = logging.getLogger(__name__)
-        self.logger.info(f"[SmartMonitorDeepSeek] 初始化完成 - 模型: {self.model}, API地址: {self.base_url}")
-        print(f"[SmartMonitorDeepSeek] 初始化完成 - 模型: {self.model}, API地址: {self.base_url}")
 
     def is_trading_time(self) -> bool:
         """
@@ -156,14 +138,14 @@ class SmartMonitorDeepSeek:
                 'can_trade': False
             }
 
-    def chat_completion(self, messages: List[Dict], model: str = None,
+    def chat_completion(self, messages: List[Dict], model: str = "deepseek-chat",
                        temperature: float = 0.7, max_tokens: int = 2000) -> Dict:
         """
         调用DeepSeek API
         
         Args:
             messages: 对话消息列表
-            model: 模型名称（如果不传入，则使用配置文件中的默认模型）
+            model: 模型名称
             temperature: 温度参数
             max_tokens: 最大token数
             
@@ -172,39 +154,8 @@ class SmartMonitorDeepSeek:
         """
         import requests
         
-        # 如果没有传入model，则使用配置文件中的默认模型
-        model_to_use = model or self.model
-        
-        # 计算输入消息的token估算（简单估算：字符数/4）
-        total_chars = sum(len(str(msg.get('content', ''))) for msg in messages)
-        estimated_tokens = total_chars // 4
-        
-        # 准备消息摘要（安全处理）
-        message_summaries = []
-        for msg in messages[:3]:
-            role = msg.get('role', 'unknown')
-            content = str(msg.get('content', ''))
-            if len(content) > 50:
-                content = content[:50] + '...'
-            message_summaries.append(f"{role}:{content}")
-        
-        # 输出模型调用信息（同时输出到日志和控制台）
-        log_msg = f"""
-{'=' * 60}
-[SmartMonitorDeepSeek] 准备调用API
-  模型名称: {model_to_use}
-  API地址: {self.base_url}
-  消息数量: {len(messages)}
-  估算输入Token: ~{estimated_tokens}
-  温度参数: {temperature}
-  最大输出Token: {max_tokens}
-  消息摘要: {message_summaries}
-{'=' * 60}"""
-        self.logger.info(log_msg)
-        print(log_msg)  # 同时输出到控制台，方便调试
-        
         payload = {
-            "model": model_to_use,
+            "model": model,
             "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens
@@ -218,23 +169,9 @@ class SmartMonitorDeepSeek:
                 timeout=60
             )
             response.raise_for_status()
-            result = response.json()
-            
-            # 输出响应信息
-            if result and 'usage' in result:
-                usage = result['usage']
-                usage_info = f"""
-[SmartMonitorDeepSeek] API调用成功
-  实际输入Token: {usage.get('prompt_tokens', 'N/A')}
-  实际输出Token: {usage.get('completion_tokens', 'N/A')}
-  总Token: {usage.get('total_tokens', 'N/A')}"""
-                self.logger.info(usage_info)
-                print(usage_info)  # 同时输出到控制台
-            
-            return result
+            return response.json()
         except Exception as e:
-            self.logger.error(f"[SmartMonitorDeepSeek] API调用失败: {e}")
-            self.logger.error(f"  模型: {model_to_use}, API地址: {self.base_url}")
+            self.logger.error(f"DeepSeek API调用失败: {e}")
             raise
 
     def analyze_stock_and_decide(self, stock_code: str, market_data: Dict,

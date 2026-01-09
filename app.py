@@ -18,7 +18,6 @@ from monitor_manager import display_monitor_manager, get_monitor_summary
 from monitor_service import monitor_service
 from notification_service import notification_service
 from config_manager import config_manager
-import config
 from main_force_ui import display_main_force_selector
 from sector_strategy_ui import display_sector_strategy
 from longhubang_ui import display_longhubang
@@ -38,22 +37,11 @@ def model_selector():
     st.sidebar.markdown("---")
     st.sidebar.subheader("🤖 AI模型选择")
 
-    # 获取配置文件中的默认模型
-    default_model = config.DEEPSEEK_MODEL_NAME
-    
-    # 如果配置的模型不在选项中，使用列表第一个
-    if default_model not in model_options:
-        default_model = list(model_options.keys())[0]
-    
-    # 如果 session_state 中已有值，且该值在选项中，使用它；否则使用配置的默认值
-    current_model = st.session_state.get('selected_model', default_model)
-    if current_model not in model_options:
-        current_model = default_model
+
 
     selected_model = st.sidebar.selectbox(
         "选择AI模型",
         options=list(model_options.keys()),
-        index=list(model_options.keys()).index(current_model) if current_model in model_options else 0,
         format_func=lambda x: model_options[x],
         help="DeepSeek Reasoner提供更强的推理能力，但响应时间可能更长"
     )
@@ -289,10 +277,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 def main():
-    # 初始化：检查配置文件中的默认模型，如果session_state中没有或值无效，使用配置文件的值
-    if 'selected_model' not in st.session_state or st.session_state.get('selected_model') not in model_options:
-        st.session_state.selected_model = config.DEEPSEEK_MODEL_NAME if config.DEEPSEEK_MODEL_NAME in model_options else list(model_options.keys())[0]
-    
     # 顶部标题栏
     st.markdown("""
     <div class="top-nav">
@@ -426,19 +410,7 @@ def main():
 
         # 模型选择器
         selected_model = model_selector()
-        
-        # 如果配置文件中的默认模型发生了变化，且用户没有主动选择其他模型，更新为配置文件的值
-        config_default_model = config.DEEPSEEK_MODEL_NAME
-        if config_default_model in model_options:
-            # 如果 session_state 中的值不在有效选项中，或者配置文件的值与当前选择不同且用户未手动选择过，使用配置文件的值
-            if (selected_model not in model_options) or \
-               (st.session_state.get('selected_model') not in model_options):
-                selected_model = config_default_model
-                st.session_state.selected_model = selected_model
-            else:
-                st.session_state.selected_model = selected_model
-        else:
-            st.session_state.selected_model = selected_model
+        st.session_state.selected_model = selected_model
 
         st.markdown("---")
 
@@ -840,20 +812,7 @@ def parse_stock_list(stock_input):
 
     return unique_list
 
-def analyze_single_stock_for_batch(symbol, period, enabled_analysts_config=None, selected_model=None):
-    # 强制使用配置文件中的默认模型（忽略传入的旧值）
-    # 如果传入的是 None、空字符串或旧的默认值 "deepseek-chat"，都使用配置文件的值
-    config_model = config.DEEPSEEK_MODEL_NAME
-    if selected_model is None or selected_model == "" or selected_model == "deepseek-chat":
-        selected_model = config_model
-        print(f"[analyze_single_stock_for_batch] 强制使用配置文件中的模型: {selected_model} (传入值被忽略)")
-    else:
-        # 如果传入的模型在选项中，使用传入的值；否则使用配置文件的值
-        if selected_model not in model_options:
-            selected_model = config_model
-            print(f"[analyze_single_stock_for_batch] 传入的模型不在选项中，使用配置文件中的模型: {selected_model}")
-        else:
-            print(f"[analyze_single_stock_for_batch] 使用传入的模型: {selected_model}")
+def analyze_single_stock_for_batch(symbol, period, enabled_analysts_config=None, selected_model='deepseek-chat'):
     """单个股票分析（用于批量分析）
 
     Args:
@@ -1011,14 +970,7 @@ def run_batch_analysis(stock_list, period, batch_mode="顺序分析"):
         'sentiment': st.session_state.get('enable_sentiment', False),
         'news': st.session_state.get('enable_news', False)
     }
-    # 强制使用配置文件中的默认模型（忽略 session_state 中的旧值）
-    config_model = config.DEEPSEEK_MODEL_NAME
-    if config_model in model_options:
-        selected_model = config_model
-    else:
-        selected_model = list(model_options.keys())[0]
-    
-    print(f"[run_batch_analysis] 使用模型: {selected_model} (来自配置文件: {config_model})")
+    selected_model = st.session_state.get('selected_model', 'deepseek-chat')
 
     # 创建进度显示
     st.subheader(f"📊 批量分析进行中 ({batch_mode})")
@@ -1290,17 +1242,8 @@ def run_stock_analysis(symbol, period):
 
         # 6. 初始化AI分析系统
         status_text.text("🤖 正在初始化AI分析系统...")
-        # 获取模型，强制使用配置文件中的默认模型（忽略 session_state 中的旧值）
-        # 如果配置文件中的模型不在选项中，则使用第一个选项
-        config_model = config.DEEPSEEK_MODEL_NAME
-        if config_model in model_options:
-            selected_model = config_model
-        else:
-            selected_model = list(model_options.keys())[0]
-        
-        print(f"[run_stock_analysis] 使用模型: {selected_model} (来自配置文件: {config_model})")
-        print(f"[run_stock_analysis] session_state中的selected_model: {st.session_state.get('selected_model', 'None')}")
-        
+        # 使用选择的模型
+        selected_model = st.session_state.get('selected_model', 'deepseek-chat')
         agents = StockAnalysisAgents(model=selected_model)
         progress_bar.progress(55)
 
@@ -2198,21 +2141,6 @@ def display_config_manager():
         )
         st.session_state.temp_config["DEEPSEEK_BASE_URL"] = new_base_url
 
-        st.markdown("---")
-
-        # DeepSeek Model Name
-        default_model_name = config.DEEPSEEK_MODEL_NAME
-        model_name_info = config_info.get("DEEPSEEK_MODEL_NAME", {"value": default_model_name, "description": "DeepSeek模型名称", "required": False, "type": "text"})
-        current_model_name = st.session_state.temp_config.get("DEEPSEEK_MODEL_NAME", model_name_info.get("value", default_model_name))
-
-        new_model_name = st.text_input(
-            f"🤖 {model_name_info['description']}",
-            value=current_model_name,
-            help="配置要使用的模型名称，如：deepseek-chat、deepseek-reasoner等",
-            key="input_deepseek_model_name"
-        )
-        st.session_state.temp_config["DEEPSEEK_MODEL_NAME"] = new_model_name
-
         st.info("💡 如何获取DeepSeek API密钥？\n\n1. 访问 https://platform.deepseek.com\n2. 注册/登录账号\n3. 进入API密钥管理页面\n4. 创建新的API密钥\n5. 复制密钥并粘贴到上方输入框")
 
     with tab2:
@@ -2552,7 +2480,6 @@ def display_config_manager():
 # ========== DeepSeek API配置 ==========
 DEEPSEEK_API_KEY="{current_config.get('DEEPSEEK_API_KEY', '')}"
 DEEPSEEK_BASE_URL="{current_config.get('DEEPSEEK_BASE_URL', '')}"
-DEEPSEEK_MODEL_NAME="{current_config.get('DEEPSEEK_MODEL_NAME', config.DEEPSEEK_MODEL_NAME)}"
 
 # ========== Tushare数据接口（可选）==========
 TUSHARE_TOKEN="{current_config.get('TUSHARE_TOKEN', '')}"

@@ -16,24 +16,15 @@ import os
 class LowPriceBullMonitor:
     """低价擒牛策略监控器"""
     
-    def __init__(self, db_path: str = None):
+    def __init__(self, db_path: str = "low_price_bull_monitor.db"):
         """
         初始化监控器
         
         Args:
-            db_path: 数据库文件路径，如果为None，则使用data目录下的low_price_bull_monitor.db（确保持久化）
+            db_path: 数据库文件路径
         """
         self.logger = logging.getLogger(__name__)
-        # 如果没有指定路径，使用data目录下的数据库文件（确保容器重启后数据不丢失）
-        if db_path is None:
-            import os
-            data_dir = os.path.join(os.path.dirname(__file__), 'data')
-            if not os.path.exists(data_dir):
-                os.makedirs(data_dir, exist_ok=True)
-            self.db_path = os.path.join(data_dir, 'low_price_bull_monitor.db')
-        else:
-            self.db_path = db_path
-        print(f"[LowPriceBullMonitor] 数据库文件路径: {self.db_path}")
+        self.db_path = db_path
         self._init_database()
     
     def _init_database(self):

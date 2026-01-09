@@ -10,7 +10,6 @@ from main_force_analysis import MainForceAnalyzer
 from main_force_pdf_generator import display_report_download_section
 from main_force_history_ui import display_batch_history
 import pandas as pd
-import config
 
 def display_main_force_selector():
     """显示主力选股界面"""
@@ -614,7 +613,7 @@ def run_main_force_batch_analysis():
             'sentiment': False,  # 禁用以提升速度
             'news': False  # 禁用以提升速度
         }
-        selected_model = config.DEEPSEEK_MODEL_NAME
+        selected_model = 'deepseek-chat'
         period = '1y'
 
         # 创建进度显示

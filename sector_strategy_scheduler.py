@@ -11,7 +11,6 @@ from sector_strategy_data import SectorStrategyDataFetcher
 from sector_strategy_engine import SectorStrategyEngine
 from notification_service import notification_service
 import json
-import config
 
 
 class SectorStrategyScheduler:
@@ -129,7 +128,7 @@ class SectorStrategyScheduler:
             
             # 2. 运行AI分析
             print("[智策定时] [2/3] AI智能体分析中...")
-            engine = SectorStrategyEngine(model=config.DEEPSEEK_MODEL_NAME)
+            engine = SectorStrategyEngine(model="deepseek-chat")
             result = engine.run_comprehensive_analysis(data)
             
             if not result.get("success"):

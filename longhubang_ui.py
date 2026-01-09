@@ -13,7 +13,6 @@ import base64
 
 from longhubang_engine import LonghubangEngine
 from longhubang_pdf import LonghubangPDFGenerator
-import config
 
 
 def display_longhubang():
@@ -184,12 +183,8 @@ def display_analysis_tab():
             st.error(f"❌ 分析失败: {result.get('error', '未知错误')}")
 
 
-def run_longhubang_analysis(model=None, date=None, days=1):
+def run_longhubang_analysis(model="deepseek-chat", date=None, days=1):
     """运行龙虎榜分析"""
-    
-    # 如果没有传入model，则使用配置文件中的默认模型
-    if model is None:
-        model = config.DEEPSEEK_MODEL_NAME
     
     # 进度显示
     progress_bar = st.progress(0)
@@ -1402,7 +1397,7 @@ def run_longhubang_batch_analysis():
                             'sentiment': False,
                             'news': False
                         },
-                        selected_model=config.DEEPSEEK_MODEL_NAME
+                        selected_model='deepseek-chat'
                     )
                     
                     results.append({
@@ -1433,7 +1428,7 @@ def run_longhubang_batch_analysis():
                             'sentiment': False,
                             'news': False
                         },
-                        selected_model=config.DEEPSEEK_MODEL_NAME
+                        selected_model='deepseek-chat'
                     )
                     return {"code": code, "result": result}
                 except Exception as e:

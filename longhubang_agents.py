@@ -6,26 +6,15 @@
 from deepseek_client import DeepSeekClient
 from typing import Dict, Any, List
 import time
-import config
 
 
 class LonghubangAgents:
     """龙虎榜AI分析师集合"""
     
-    def __init__(self, model=None):
-        # 强制使用配置文件中的默认模型
-        # 如果传入的是 None、空字符串或旧的默认值 "deepseek-chat"，都使用配置文件的值
-        if model is None or model == "" or model == "deepseek-chat":
-            self.model = config.DEEPSEEK_MODEL_NAME
-            if model == "deepseek-chat":
-                print(f"[智瞰龙虎] ⚠️ 检测到传入的模型是旧的默认值 'deepseek-chat'，强制使用配置文件中的模型: {self.model}")
-            else:
-                print(f"[智瞰龙虎] AI分析师系统初始化 - 使用配置文件中的默认模型: {self.model}")
-        else:
-            self.model = model
-            print(f"[智瞰龙虎] AI分析师系统初始化 - 使用传入的模型参数: {self.model}")
-        self.deepseek_client = DeepSeekClient(model=self.model)
-        print(f"[智瞰龙虎] AI分析师系统初始化完成 - 最终使用的模型: {self.model}")
+    def __init__(self, model="deepseek-chat"):
+        self.model = model
+        self.deepseek_client = DeepSeekClient(model=model)
+        print(f"[智瞰龙虎] AI分析师系统初始化 (模型: {model})")
     
     def youzi_behavior_analyst(self, longhubang_data: str, summary: Dict) -> Dict[str, Any]:
         """

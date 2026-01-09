@@ -13,23 +13,9 @@ import pandas as pd
 class MainForceBatchDatabase:
     """主力选股批量分析历史数据库管理类"""
     
-    def __init__(self, db_path: str = None):
-        """
-        初始化数据库连接
-        
-        Args:
-            db_path: 数据库文件路径，如果为None，则使用data目录下的main_force_batch.db（确保持久化）
-        """
-        # 如果没有指定路径，使用data目录下的数据库文件（确保容器重启后数据不丢失）
-        if db_path is None:
-            import os
-            data_dir = os.path.join(os.path.dirname(__file__), 'data')
-            if not os.path.exists(data_dir):
-                os.makedirs(data_dir, exist_ok=True)
-            self.db_path = os.path.join(data_dir, 'main_force_batch.db')
-        else:
-            self.db_path = db_path
-        print(f"[MainForceBatchDatabase] 数据库文件路径: {self.db_path}")
+    def __init__(self, db_path: str = "main_force_batch.db"):
+        """初始化数据库连接"""
+        self.db_path = db_path
         self._init_database()
     
     def _init_database(self):
