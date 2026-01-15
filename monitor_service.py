@@ -193,7 +193,7 @@ class StockMonitorService:
                     message = f"股票 {stock['symbol']} ({stock['name']}) 价格 {current_price} 进入进场区间 [{entry_range['min']}-{entry_range['max']}]"
                     monitor_db.add_notification(stock['id'], 'entry', message)
                     
-                    # 立即发送通知（包括邮件）
+                    # 立即发送通知（包括邮件和Webhook）
                     notification_service.send_notifications()
                 
                 # 如果启用量化交易，执行自动交易
@@ -207,7 +207,7 @@ class StockMonitorService:
                 message = f"股票 {stock['symbol']} ({stock['name']}) 价格 {current_price} 达到止盈位 {take_profit}"
                 monitor_db.add_notification(stock['id'], 'take_profit', message)
                 
-                # 立即发送通知（包括邮件）
+                # 立即发送通知（包括邮件和Webhook）
                 notification_service.send_notifications()
             
             # 如果启用量化交易，执行自动交易
@@ -221,7 +221,7 @@ class StockMonitorService:
                 message = f"股票 {stock['symbol']} ({stock['name']}) 价格 {current_price} 达到止损位 {stop_loss}"
                 monitor_db.add_notification(stock['id'], 'stop_loss', message)
                 
-                # 立即发送通知（包括邮件）
+                # 立即发送通知（包括邮件和Webhook）
                 notification_service.send_notifications()
             
             # 如果启用量化交易，执行自动交易
@@ -237,7 +237,7 @@ class StockMonitorService:
                 return
             
             # 获取量化配置
-            quant_config = stock.get('quant_config', {})
+            quant_config = stock.get('quant_config') or {}
             if not quant_config:
                 print(f"股票 {stock['symbol']} 未配置量化参数")
                 return

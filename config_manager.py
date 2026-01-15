@@ -56,6 +56,12 @@ class ConfigManager:
                 "required": False,
                 "type": "text"
             },
+            "MINIQMT_PATH": {
+                "value": "",
+                "description": "MiniQMT安装路径（例如：C:\\国金证券QMT\\userdata_mini）",
+                "required": False,
+                "type": "text"
+            },
             "EMAIL_ENABLED": {
                 "value": "false",
                 "description": "启用邮件通知",
@@ -185,6 +191,7 @@ class ConfigManager:
             lines.append(f'MINIQMT_ACCOUNT_ID="{config.get("MINIQMT_ACCOUNT_ID", "")}"')
             lines.append(f'MINIQMT_HOST="{config.get("MINIQMT_HOST", "127.0.0.1")}"')
             lines.append(f'MINIQMT_PORT="{config.get("MINIQMT_PORT", "58610")}"')
+            lines.append(f'MINIQMT_PATH="{config.get("MINIQMT_PATH", "")}"')
             lines.append("")
             
             # 邮件通知配置

@@ -60,6 +60,7 @@ class SmartMonitorEngine:
             self.qmt.connect(qmt_account_id or "simulator")
             self.logger.info("使用模拟交易模式")
         else:
+            self.logger.info("尝试连接miniQMT...")
             self.qmt = SmartMonitorQMT()
             if qmt_account_id:
                 success = self.qmt.connect(qmt_account_id)
@@ -209,7 +210,10 @@ class SmartMonitorEngine:
                     stock_name=market_data.get('name'),
                     decision=decision,
                     execution_result=execution_result,
-                    market_data=market_data
+                    market_data=market_data,
+                    has_position=has_position,
+                    position_cost=position_cost,
+                    session_info=session_info
                 )
             
             return {
@@ -409,7 +413,8 @@ class SmartMonitorEngine:
     
     def _send_notification(self, stock_code: str, stock_name: str,
                           decision: Dict, execution_result: Optional[Dict],
-                          market_data: Dict):
+                          market_data: Dict, has_position: bool = False,
+                          position_cost: float = 0, session_info: Optional[Dict] = None):
         """
         发送通知（使用主程序的通知服务）
         优化策略：仅在买入或卖出信号时发送通知，持有信号不发送
@@ -494,7 +499,7 @@ class SmartMonitorEngine:
                 'position_cost': f"{position_cost:.2f}" if has_position and position_cost else 'N/A',
                 'profit_loss_pct': f"{((market_data.get('current_price', 0) - position_cost) / position_cost * 100):+.2f}" if has_position and position_cost else 'N/A',
                 # 交易时段信息
-                'trading_session': session_info.get('session', '未知')
+                'trading_session': session_info.get('session', '未知') if session_info else '未知'
             }
             
             # 直接调用主程序的通知服务发送

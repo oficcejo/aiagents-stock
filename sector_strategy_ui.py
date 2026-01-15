@@ -133,13 +133,26 @@ def display_analysis_tab():
     with col3:
         st.write("")
         st.write("")
-        if st.button("🔄 清除结果", width='content'):
-            if 'sector_strategy_result' in st.session_state:
-                del st.session_state.sector_strategy_result
-            st.success("已清除分析结果")
-            st.rerun()
+        # 创建两个子列来放置按钮
+        sub_col1, sub_col2 = st.columns(2)
+        with sub_col1:
+            input_data_button = st.button("📊 输入北向数据", width='content')
+        with sub_col2:
+            if st.button("🔄 清除结果", width='content'):
+                if 'sector_strategy_result' in st.session_state:
+                    del st.session_state.sector_strategy_result
+                st.success("已清除分析结果")
+                st.rerun()
     
     st.markdown("---")
+    
+    # 处理输入北向数据按钮
+    if input_data_button:
+        st.session_state.show_north_data_input = True
+    
+    # 显示北向数据输入界面
+    if st.session_state.get('show_north_data_input', False):
+        display_north_data_input()
     
     # 开始分析
     if analyze_button:
@@ -274,6 +287,12 @@ def run_sector_strategy_analysis(model="deepseek-chat"):
         progress_bar.progress(10)
         
         fetcher = SectorStrategyDataFetcher()
+        
+        # 检查是否有手动输入的北向资金数据
+        if 'manual_north_data' in st.session_state and st.session_state.manual_north_data is not None:
+            fetcher.set_manual_north_data(st.session_state.manual_north_data)
+            st.info("📝 使用手动输入的北向资金数据进行分析")
+        
         # 使用带缓存回退的获取逻辑
         data = fetcher.get_cached_data_with_fallback()
         
@@ -342,10 +361,13 @@ def display_data_summary(data):
     with col1:
         if market.get("sh_index"):
             sh = market["sh_index"]
+            # 兼容不同的字段名
+            close_price = sh.get('close', sh.get('最新价', 0))
+            change_pct = sh.get('change_pct', sh.get('涨跌幅', 0))
             st.metric(
                 "上证指数",
-                f"{sh['close']:.2f}",
-                f"{sh['change_pct']:+.2f}%"
+                f"{close_price:.2f}",
+                f"{change_pct:+.2f}%"
             )
     
     with col2:
@@ -1152,6 +1174,180 @@ def test_email_notification():
         st.error(f"❌ 发送测试邮件时出错: {str(e)}")
         import traceback
         st.code(traceback.format_exc())
+
+
+def display_north_data_input():
+    """显示北向数据输入界面"""
+    st.markdown("### 📊 北向资金数据输入")
+    st.markdown("请在下方表格中输入或上传北向资金数据，数据格式应包含：日期、北向成交总额、沪股通、深股通。数据来源：https://data.eastmoney.com/hsgtV2/hsgtDetail/scgk.html")
+    
+    # 创建示例数据结构
+    if 'north_data_input' not in st.session_state:
+        st.session_state.north_data_input = pd.DataFrame({
+            '日期': [''],
+            '北向成交总额': [''],
+            '沪股通': [''],
+            '深股通': ['']
+        })
+    
+    # 数据输入区域
+    col1, col2 = st.columns([3, 1])
+    
+    with col1:
+        st.markdown("**数据输入表格**")
+        # 使用data_editor进行数据编辑
+        edited_data = st.data_editor(
+            st.session_state.north_data_input,
+            num_rows="dynamic",
+            use_container_width=True,
+            key="north_data_editor"
+        )
+        
+        # 更新session state
+        st.session_state.north_data_input = edited_data
+    
+    with col2:
+        st.markdown("**操作**")
+        
+        # 保存数据按钮
+        if st.button("💾 保存数据", type="primary"):
+            try:
+                # 验证数据格式
+                if validate_north_data(edited_data):
+                    # 保存到session state
+                    st.session_state.manual_north_data = process_north_data(edited_data)
+                    st.success("✅ 数据保存成功！")
+                    st.info(f"已保存 {len(edited_data)} 条记录")
+                else:
+                    st.error("❌ 数据格式验证失败，请检查数据格式")
+            except Exception as e:
+                st.error(f"❌ 保存数据时出错: {str(e)}")
+        
+        # 清空数据按钮
+        if st.button("🗑️ 清空数据"):
+            st.session_state.north_data_input = pd.DataFrame({
+                '日期': [],
+                '北向成交总额': [],
+                '沪股通': [],
+                '深股通': []
+            })
+            st.rerun()
+        
+        # 关闭输入界面按钮
+        if st.button("❌ 关闭"):
+            st.session_state.show_north_data_input = False
+            st.rerun()
+        
+        # 从Excel导入按钮
+        st.markdown("---")
+        uploaded_file = st.file_uploader(
+            "📁 从Excel导入",
+            type=['xlsx', 'xls'],
+            help="上传包含北向资金数据的Excel文件"
+        )
+        
+        if uploaded_file is not None:
+            try:
+                # 读取Excel文件
+                df = pd.read_excel(uploaded_file)
+                
+                # 处理Excel数据（跳过标题行）
+                if len(df) > 1:
+                    # 从第2行开始读取数据（跳过标题行，索引1开始）
+                    data_rows = df.iloc[1:]
+                    
+                    # 提取关键列
+                    processed_data = pd.DataFrame({
+                        '日期': data_rows.iloc[:, 0],  # 第1列：日期
+                        '北向成交总额': data_rows.iloc[:, 1],  # 第2列：北向成交总额
+                        '沪股通': data_rows.iloc[:, 2],  # 第3列：沪股通
+                        '深股通': data_rows.iloc[:, 7]   # 第8列：深股通
+                    })
+                    
+                    # 过滤有效数据（排除标题行和空值）
+                    # 过滤掉日期列为字符串"日期"的行（标题行）
+                    valid_mask = (
+                        processed_data['日期'].notna() & 
+                        (processed_data['日期'].astype(str) != '日期') &
+                        (processed_data['日期'].astype(str) != 'nan')
+                    )
+                    processed_data = processed_data[valid_mask]
+                    
+                    if len(processed_data) > 0:
+                        st.session_state.north_data_input = processed_data
+                        # 自动保存导入的数据
+                        if validate_north_data(processed_data):
+                            st.session_state.manual_north_data = process_north_data(processed_data)
+                            st.success(f"✅ 成功导入并保存 {len(processed_data)} 条记录")
+                            st.info("💡 数据已自动保存，可以关闭输入界面开始分析")
+                        else:
+                            st.success(f"✅ 成功导入 {len(processed_data)} 条记录")
+                            st.warning("⚠️ 请点击'保存数据'按钮完成保存")
+                        # 数据导入成功后，不需要立即刷新页面，避免无限循环
+                    else:
+                        st.error("❌ Excel文件中没有找到有效数据")
+                else:
+                    st.error("❌ Excel文件数据不足")
+                    
+            except Exception as e:
+                st.error(f"❌ 导入Excel文件失败: {str(e)}")
+    
+    # 显示当前保存的数据状态
+    if 'manual_north_data' in st.session_state:
+        st.markdown("---")
+        st.markdown("**📋 当前已保存的数据**")
+        saved_data = st.session_state.manual_north_data
+        st.info(f"✅ 已保存 {len(saved_data)} 条北向资金数据，可用于智策分析")
+        
+        # 显示数据预览
+        with st.expander("查看已保存数据"):
+            st.dataframe(saved_data.head(10), width='stretch')
+
+
+def validate_north_data(data):
+    """验证北向数据格式"""
+    try:
+        if data.empty:
+            return False
+        
+        # 检查必要的列
+        required_columns = ['日期', '北向成交总额', '沪股通', '深股通']
+        for col in required_columns:
+            if col not in data.columns:
+                return False
+        
+        # 检查是否有有效数据
+        valid_rows = data[data['日期'].notna()]
+        return len(valid_rows) > 0
+        
+    except Exception:
+        return False
+
+
+def process_north_data(data):
+    """处理北向数据，转换为标准格式"""
+    try:
+        # 过滤有效数据
+        valid_data = data[data['日期'].notna()].copy()
+        
+        # 转换日期格式
+        valid_data['日期'] = pd.to_datetime(valid_data['日期'])
+        
+        # 处理金额数据（去除"亿元"等单位）
+        for col in ['北向成交总额', '沪股通', '深股通']:
+            if col in valid_data.columns:
+                valid_data[col] = valid_data[col].astype(str).str.replace('亿元', '').str.replace(',', '')
+                # 转换为数值类型
+                valid_data[col] = pd.to_numeric(valid_data[col], errors='coerce')
+        
+        # 按日期排序
+        valid_data = valid_data.sort_values('日期', ascending=False)
+        
+        return valid_data
+        
+    except Exception as e:
+        st.error(f"处理数据时出错: {str(e)}")
+        return pd.DataFrame()
 
 
 # 主入口

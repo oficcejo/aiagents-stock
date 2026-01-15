@@ -391,6 +391,8 @@ class SectorStrategyEngine:
 2. 分析要基于前期的多维度研判
 3. 给出的建议要具体、可操作
 4. 预测要客观、理性，避免过度乐观或悲观
+5. 请确保只输出JSON格式内容，不要包含任何其他文字说明
+6. 确保JSON格式完全正确，没有语法错误
 """
         
         messages = [
@@ -402,17 +404,106 @@ class SectorStrategyEngine:
         
         # 尝试解析JSON
         try:
-            import re
-            json_match = re.search(r'\{.*\}', response, re.DOTALL)
-            if json_match:
-                predictions = json.loads(json_match.group())
-                print("  ✓ 预测报告生成成功（JSON格式）")
-                return predictions
-            else:
-                print("  ⚠ 未能解析JSON，返回文本格式")
+            # 确保响应是字符串格式
+            if not isinstance(response, str):
+                response = str(response)
+            
+            # 首先尝试直接解析整个响应
+            try:
+                predictions = json.loads(response)
+                if isinstance(predictions, dict):
+                    print("  ✓ 直接解析JSON成功")
+                    return predictions
+            except json.JSONDecodeError:
+                pass
+            
+            # 改进的JSON提取逻辑：找到完整的JSON对象
+            # 查找第一个'{'的位置
+            start_pos = response.find('{')
+            if start_pos == -1:
+                print("  ⚠ 未找到JSON开始标记 '{'，返回文本格式")
+                self.logger.warning(f"[智策引擎] 未找到JSON开始标记 '{{', 响应内容长度: {len(response)}, 前100字符: {response[:100]}...")
                 return {"prediction_text": response}
+            
+            # 从开始位置向后查找完整的JSON结构
+            brace_count = 0
+            end_pos = -1
+            for i in range(start_pos, len(response)):
+                if response[i] == '{':
+                    brace_count += 1
+                elif response[i] == '}':
+                    brace_count -= 1
+                    if brace_count == 0:
+                        end_pos = i + 1
+                        break
+            
+            if end_pos == -1:
+                print("  ⚠ 未找到完整的JSON结构，返回文本格式")
+                self.logger.warning(f"[智策引擎] 未找到完整的JSON结构，响应长度: {len(response)}, 开始位置: {start_pos}, 最后100字符: {response[-100:]}...")
+                return {"prediction_text": response}
+            
+            # 提取完整的JSON字符串
+            json_str = response[start_pos:end_pos]
+            
+            # 增强的JSON字符串清理
+            import re
+            
+            # 移除控制字符
+            json_str = re.sub(r'[\u0000-\u001F\u007F-\u009F]', '', json_str)
+            
+            # 移除可能的BOM字符
+            if json_str.startswith('\ufeff'):
+                json_str = json_str[1:]
+            
+            # 修复可能的编码问题
+            try:
+                json_str = json_str.encode('utf-8').decode('utf-8')
+            except UnicodeEncodeError:
+                # 如果编码失败，使用更安全的处理方式
+                json_str = ''.join([c if ord(c) < 128 else ' ' for c in json_str])
+            
+            # 验证JSON格式
+            try:
+                predictions = json.loads(json_str)
+            except json.JSONDecodeError:
+                # 尝试更严格的清理：移除所有非JSON字符
+                json_str = re.sub(r'[^\x20-\x7E\{\}\[\]"\\,:\-0-9.a-zA-Z]', '', json_str)
+                # 再次尝试解析
+                try:
+                    predictions = json.loads(json_str)
+                except json.JSONDecodeError as e2:
+                    # 记录详细的清理失败信息
+                    self.logger.error(f"[智策引擎] JSON清理后仍解析失败: {e2}，清理后JSON前100字符: {json_str[:100]}...")
+                    raise
+            
+            # 检查必要的JSON结构
+            if not isinstance(predictions, dict):
+                print("  ⚠ JSON不是有效的对象格式，返回文本格式")
+                return {"prediction_text": response}
+            
+            print("  ✓ 预测报告生成成功（JSON格式）")
+            return predictions
+        except json.JSONDecodeError as e:
+            # 记录错误位置上下文
+            error_pos = e.pos
+            context = response[max(0, error_pos-50):min(len(response), error_pos+50)]
+            # 计算行号和列号，使用chr(10)避免f-string中的反斜杠错误
+            newline_char = chr(10)
+            line_count = response[:error_pos].count(newline_char) + 1
+            if newline_char in response[:error_pos]:
+                column_count = error_pos - response.rfind(newline_char, 0, error_pos)
+            else:
+                column_count = error_pos + 1
+            line_info = f"行号: {line_count}, 列号: {column_count}"
+            print(f"  ⚠ JSON解析失败: {e}，{line_info}，返回文本格式")
+            self.logger.error(f"[智策引擎] JSON解析失败详情: {e}，{line_info}，错误位置上下文: {context}，完整响应长度: {len(response)}")
+            # 记录完整的响应内容以便调试
+            self.logger.debug(f"[智策引擎] 完整响应内容: {response}")
+            return {"prediction_text": response}
         except Exception as e:
-            print(f"  ⚠ JSON解析失败: {e}，返回文本格式")
+            print(f"  ⚠ 其他错误: {e}，返回文本格式")
+            self.logger.error(f"[智策引擎] 预测生成错误: {type(e).__name__}: {e}")
+            self.logger.debug(f"[智策引擎] 响应内容: {response[:500]}...")
             return {"prediction_text": response}
     
     def save_analysis_report(self, results: Dict, original_data: Dict) -> int:

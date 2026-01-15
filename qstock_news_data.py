@@ -95,17 +95,17 @@ class QStockNewsDataFetcher:
             
             news_items = []
             
-            # 方法1: 尝试获取个股新闻（东方财富）
+            # 方法1: 尝试获取CCTV新闻（作为基础新闻源）
             try:
-                # stock_news_em(symbol="600519") - 东方财富个股新闻
-                df = ak.stock_news_em(symbol=symbol)
+                # news_cctv() - CCTV新闻
+                df = ak.news_cctv()
                 
                 if df is not None and not df.empty:
-                    print(f"   ✓ 从东方财富获取到 {len(df)} 条新闻")
+                    print(f"   ✓ 从CCTV获取到 {len(df)} 条新闻")
                     
                     # 处理DataFrame，提取新闻
                     for idx, row in df.head(self.max_items).iterrows():
-                        item = {'source': '东方财富'}
+                        item = {'source': 'CCTV'}
                         
                         # 提取所有列
                         for col in df.columns:
@@ -125,83 +125,51 @@ class QStockNewsDataFetcher:
                             news_items.append(item)
             
             except Exception as e:
-                print(f"   ⚠ 从东方财富获取失败: {e}")
+                print(f"   ⚠ 从CCTV获取失败: {e}")
             
-            # 方法2: 如果没有获取到，尝试获取新浪财经新闻
+            # 方法2: 尝试获取个股相关信息（通过筛选CCTV新闻中包含股票代码的内容）
+            if news_items:
+                # 筛选包含股票代码的新闻
+                filtered_items = []
+                for item in news_items:
+                    # 检查新闻内容是否包含股票代码
+                    content = item.get('content', '')
+                    title = item.get('title', '') if 'title' in item else ''
+                    if symbol in content or symbol in title:
+                        item['source'] = f"CCTV-{symbol}"
+                        filtered_items.append(item)
+                
+                # 如果找到了相关的个股新闻，则替换列表
+                if filtered_items:
+                    news_items = filtered_items
+                    print(f"   ✓ 从CCTV中筛选出 {len(news_items)} 条与股票 {symbol} 相关的新闻")
+            
+            # 方法3: 尝试获取百度经济新闻
             if not news_items:
                 try:
-                    # stock_zh_a_spot_em() - 获取股票信息，包含代码和名称
-                    df_info = ak.stock_zh_a_spot_em()
-                    
-                    # 查找股票名称
-                    stock_name = None
-                    if df_info is not None and not df_info.empty:
-                        match = df_info[df_info['代码'] == symbol]
-                        if not match.empty:
-                            stock_name = match.iloc[0]['名称']
-                            print(f"   找到股票名称: {stock_name}")
-                    
-                    # 使用股票名称搜索新闻
-                    if stock_name:
-                        # stock_news_sina - 新浪财经新闻
-                        try:
-                            df = ak.stock_news_sina(symbol=stock_name)
-                            if df is not None and not df.empty:
-                                print(f"   ✓ 从新浪财经获取到 {len(df)} 条新闻")
-                                
-                                for idx, row in df.head(self.max_items).iterrows():
-                                    item = {'source': '新浪财经'}
-                                    
-                                    for col in df.columns:
-                                        value = row.get(col)
-                                        if value is None or (isinstance(value, float) and pd.isna(value)):
-                                            continue
-                                        try:
-                                            item[col] = str(value)
-                                        except:
-                                            item[col] = "无法解析"
-                                    
-                                    if len(item) > 1:
-                                        news_items.append(item)
-                        except:
-                            pass
-                
-                except Exception as e:
-                    print(f"   ⚠ 从新浪财经获取失败: {e}")
-            
-            # 方法3: 尝试获取财联社电报
-            if not news_items or len(news_items) < 5:
-                try:
-                    # stock_news_cls() - 财联社电报
-                    df = ak.stock_news_cls()
+                    # news_economic_baidu() - 百度经济新闻
+                    df = ak.news_economic_baidu()
                     
                     if df is not None and not df.empty:
-                        # 筛选包含股票代码或名称的新闻
-                        df_filtered = df[
-                            df['内容'].str.contains(symbol, na=False) |
-                            df['标题'].str.contains(symbol, na=False)
-                        ]
+                        print(f"   ✓ 从百度经济获取到 {len(df)} 条新闻")
                         
-                        if not df_filtered.empty:
-                            print(f"   ✓ 从财联社获取到 {len(df_filtered)} 条相关新闻")
+                        for idx, row in df.head(self.max_items).iterrows():
+                            item = {'source': '百度经济'}
                             
-                            for idx, row in df_filtered.head(self.max_items - len(news_items)).iterrows():
-                                item = {'source': '财联社'}
-                                
-                                for col in df_filtered.columns:
-                                    value = row.get(col)
-                                    if value is None or (isinstance(value, float) and pd.isna(value)):
-                                        continue
-                                    try:
-                                        item[col] = str(value)
-                                    except:
-                                        item[col] = "无法解析"
-                                
-                                if len(item) > 1:
-                                    news_items.append(item)
+                            for col in df.columns:
+                                value = row.get(col)
+                                if value is None or (isinstance(value, float) and pd.isna(value)):
+                                    continue
+                                try:
+                                    item[col] = str(value)
+                                except:
+                                    item[col] = "无法解析"
+                            
+                            if len(item) > 1:
+                                news_items.append(item)
                 
                 except Exception as e:
-                    print(f"   ⚠ 从财联社获取失败: {e}")
+                    print(f"   ⚠ 从百度经济获取失败: {e}")
             
             if not news_items:
                 print(f"   未找到股票 {symbol} 的新闻")

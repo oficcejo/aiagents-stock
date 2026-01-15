@@ -273,6 +273,57 @@ st.markdown("""
             padding: 0 1rem;
         }
     }
+    
+    /* 优化记录卡片布局 */
+    .record-card {
+        margin-bottom: 0.5rem !important;
+        padding: 0.8rem !important;
+        border-radius: 8px !important;
+        border: 1px solid #e0e0e0 !important;
+        background: #fafafa !important;
+    }
+    
+    /* 紧凑的H4标题样式 */
+    .compact-h4 {
+        margin-bottom: 0.05rem !important;
+        line-height: 1.3 !important;
+        font-size: 1.5rem !important;
+        padding: 0 !important;
+        margin-top: 0 !important;
+    }
+    
+    /* 紧凑的P元素样式 */
+    .compact-p {
+        margin-top: 0.05rem !important;
+        margin-bottom: 0 !important;
+        line-height: 1.3 !important;
+        font-size: 1.2rem !important;
+        padding: 0 !important;
+    }
+    
+    /* 优化记录卡片内部间距 */
+    .record-card .stMarkdown {
+        margin-bottom: 0.2rem !important;
+    }
+    
+    /* 确保P元素与DIV容器对齐 */
+    .record-card .stMarkdown p {
+        margin: 0.05rem 0 !important;
+        padding: 0 !important;
+    }
+    
+    /* 按钮区域优化 */
+    .button-row {
+        display: flex !important;
+        gap: 0.3rem !important;
+        align-items: center !important;
+    }
+    
+    /* 确保文字区域不超过页面1/3 */
+    .text-content-area {
+        max-width: 33% !important;
+        flex: 1 !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -292,10 +343,9 @@ def main():
 
         # 🏠 单股分析（首页）
         if st.button("🏠 股票分析", width='stretch', key="nav_home", help="返回首页，进行单只股票的深度分析"):
-            # 清除所有功能页面标志
-            for key in ['show_history', 'show_monitor', 'show_config', 'show_main_force',
-                       'show_sector_strategy', 'show_longhubang', 'show_portfolio', 'show_low_price_bull']:
-                if key in st.session_state:
+            # 清除所有功能页面标志 - 优化：使用st.session_state.clear()快速清除
+            for key in list(st.session_state.keys()):
+                if key.startswith('show_'):
                     del st.session_state[key]
 
         st.markdown("---")
@@ -305,93 +355,93 @@ def main():
             st.markdown("**根据不同策略筛选优质股票**")
 
             if st.button("💰 主力选股", width='stretch', key="nav_main_force", help="基于主力资金流向的选股策略"):
-                st.session_state.show_main_force = True
-                for key in ['show_history', 'show_monitor', 'show_config', 'show_sector_strategy',
-                           'show_longhubang', 'show_portfolio', 'show_low_price_bull']:
-                    if key in st.session_state:
+                # 优化：先清除所有show_前缀的状态，再设置当前状态
+                for key in list(st.session_state.keys()):
+                    if key.startswith('show_'):
                         del st.session_state[key]
+                st.session_state.show_main_force = True
             
             if st.button("🐂 低价擒牛", width='stretch', key="nav_low_price_bull", help="低价高成长股票筛选策略"):
-                st.session_state.show_low_price_bull = True
-                for key in ['show_history', 'show_monitor', 'show_config', 'show_sector_strategy',
-                           'show_longhubang', 'show_portfolio', 'show_main_force', 'show_small_cap', 'show_profit_growth']:
-                    if key in st.session_state:
+                # 优化：先清除所有show_前缀的状态，再设置当前状态
+                for key in list(st.session_state.keys()):
+                    if key.startswith('show_'):
                         del st.session_state[key]
+                st.session_state.show_low_price_bull = True
             
             if st.button("📊 小市值策略", width='stretch', key="nav_small_cap", help="小盘高成长股票筛选策略"):
-                st.session_state.show_small_cap = True
-                for key in ['show_history', 'show_monitor', 'show_config', 'show_sector_strategy',
-                           'show_longhubang', 'show_portfolio', 'show_main_force', 'show_low_price_bull', 'show_profit_growth']:
-                    if key in st.session_state:
+                # 优化：先清除所有show_前缀的状态，再设置当前状态
+                for key in list(st.session_state.keys()):
+                    if key.startswith('show_'):
                         del st.session_state[key]
+                st.session_state.show_small_cap = True
             
             if st.button("📈 净利增长", width='stretch', key="nav_profit_growth", help="净利润增长稳健股票筛选策略"):
-                st.session_state.show_profit_growth = True
-                for key in ['show_history', 'show_monitor', 'show_config', 'show_sector_strategy',
-                           'show_longhubang', 'show_portfolio', 'show_main_force', 'show_low_price_bull', 'show_small_cap']:
-                    if key in st.session_state:
+                # 优化：先清除所有show_前缀的状态，再设置当前状态
+                for key in list(st.session_state.keys()):
+                    if key.startswith('show_'):
                         del st.session_state[key]
+                st.session_state.show_profit_growth = True
 
         # 📊 策略分析
         with st.expander("📊 策略分析", expanded=True):
             st.markdown("**AI驱动的板块和龙虎榜策略**")
 
             if st.button("🎯 智策板块", width='stretch', key="nav_sector_strategy", help="AI板块策略分析"):
-                st.session_state.show_sector_strategy = True
-                for key in ['show_history', 'show_monitor', 'show_config', 'show_main_force',
-                           'show_longhubang', 'show_portfolio', 'show_smart_monitor', 'show_low_price_bull']:
-                    if key in st.session_state:
+                # 优化：先清除所有show_前缀的状态，再设置当前状态
+                for key in list(st.session_state.keys()):
+                    if key.startswith('show_'):
                         del st.session_state[key]
+                st.session_state.show_sector_strategy = True
 
             if st.button("🐉 智瞰龙虎", width='stretch', key="nav_longhubang", help="龙虎榜深度分析"):
-                st.session_state.show_longhubang = True
-                for key in ['show_history', 'show_monitor', 'show_config', 'show_main_force',
-                           'show_sector_strategy', 'show_portfolio', 'show_smart_monitor', 'show_low_price_bull']:
-                    if key in st.session_state:
+                # 优化：先清除所有show_前缀的状态，再设置当前状态
+                for key in list(st.session_state.keys()):
+                    if key.startswith('show_'):
                         del st.session_state[key]
+                st.session_state.show_longhubang = True
 
         # 💼 投资管理
         with st.expander("💼 投资管理", expanded=True):
             st.markdown("**持仓跟踪与实时监测**")
 
             if st.button("📊 持仓分析", width='stretch', key="nav_portfolio", help="投资组合分析与定时跟踪"):
-                st.session_state.show_portfolio = True
-                for key in ['show_history', 'show_monitor', 'show_config', 'show_main_force',
-                           'show_sector_strategy', 'show_longhubang', 'show_smart_monitor', 'show_low_price_bull']:
-                    if key in st.session_state:
+                # 优化：先清除所有show_前缀的状态，再设置当前状态
+                for key in list(st.session_state.keys()):
+                    if key.startswith('show_'):
                         del st.session_state[key]
+                st.session_state.show_portfolio = True
 
             if st.button("🤖 AI盯盘", width='stretch', key="nav_smart_monitor", help="DeepSeek AI自动盯盘决策交易（支持A股T+1）"):
-                st.session_state.show_smart_monitor = True
-                for key in ['show_history', 'show_monitor', 'show_config', 'show_main_force',
-                           'show_sector_strategy', 'show_longhubang', 'show_portfolio', 'show_low_price_bull']:
-                    if key in st.session_state:
+                # 优化：先清除所有show_前缀的状态，再设置当前状态
+                for key in list(st.session_state.keys()):
+                    if key.startswith('show_'):
                         del st.session_state[key]
+                st.session_state.show_smart_monitor = True
 
             if st.button("📡 实时监测", width='stretch', key="nav_monitor", help="价格监控与预警提醒"):
-                st.session_state.show_monitor = True
-                for key in ['show_history', 'show_main_force', 'show_longhubang', 'show_portfolio',
-                           'show_config', 'show_sector_strategy', 'show_smart_monitor', 'show_low_price_bull']:
-                    if key in st.session_state:
+                # 优化：先清除所有show_前缀的状态，再设置当前状态
+                for key in list(st.session_state.keys()):
+                    if key.startswith('show_'):
                         del st.session_state[key]
+                st.session_state.show_monitor = True
 
         st.markdown("---")
 
         # 📖 历史记录
         if st.button("📖 历史记录", width='stretch', key="nav_history", help="查看历史分析记录"):
-            st.session_state.show_history = True
-            for key in ['show_monitor', 'show_longhubang', 'show_portfolio', 'show_config',
-                       'show_main_force', 'show_sector_strategy', 'show_low_price_bull']:
-                if key in st.session_state:
+            # 优化：先清除所有show_前缀的状态，再设置当前状态
+            for key in list(st.session_state.keys()):
+                if key.startswith('show_'):
                     del st.session_state[key]
+            st.session_state.show_history = True
 
         # ⚙️ 环境配置
         if st.button("⚙️ 环境配置", width='stretch', key="nav_config", help="系统设置与API配置"):
-            st.session_state.show_config = True
-            for key in ['show_history', 'show_monitor', 'show_main_force', 'show_sector_strategy',
-                       'show_longhubang', 'show_portfolio', 'show_low_price_bull']:
-                if key in st.session_state:
+            # 优化：先清除所有show_前缀的状态，再设置当前状态
+            for key in list(st.session_state.keys()):
+                if key.startswith('show_'):
                     del st.session_state[key]
+            st.session_state.show_config = True
 
         st.markdown("---")
 
@@ -561,10 +611,10 @@ def main():
             )
 
         with col2:
-            analyze_button = st.button("🚀 开始分析", type="primary", width='stretch')
+            analyze_button = st.button("🚀 开始分析", type="primary", width='stretch', key="analyze_single_stock")
 
         with col3:
-            if st.button("🔄 清除缓存", width='stretch'):
+            if st.button("🔄 清除缓存", width='stretch', key="clear_cache_single"):
                 st.cache_data.clear()
                 st.success("缓存已清除")
 
@@ -579,13 +629,13 @@ def main():
 
         col1, col2, col3 = st.columns(3)
         with col1:
-            analyze_button = st.button("🚀 开始批量分析", type="primary", width='stretch')
+            analyze_button = st.button("🚀 开始批量分析", type="primary", width='stretch', key="analyze_batch")
         with col2:
-            if st.button("🔄 清除缓存", width='stretch'):
+            if st.button("🔄 清除缓存", width='stretch', key="clear_cache_batch"):
                 st.cache_data.clear()
                 st.success("缓存已清除")
         with col3:
-            if st.button("🗑️ 清除结果", width='stretch'):
+            if st.button("🗑️ 清除结果", width='stretch', key="clear_results"):
                 if 'batch_analysis_results' in st.session_state:
                     del st.session_state.batch_analysis_results
                 st.success("已清除批量分析结果")
@@ -1200,7 +1250,7 @@ def run_stock_analysis(symbol, period):
                 news_data = news_fetcher.get_stock_news(symbol)
                 if news_data and news_data.get('data_success'):
                     news_count = news_data.get('news_data', {}).get('count', 0) if news_data.get('news_data') else 0
-                    st.info(f"✅ 成功从东方财富获取个股 {news_count} 条新闻")
+                    st.info(f"✅ 成功获取个股 {news_count} 条新闻")
                 else:
                     st.warning("⚠️ 未能获取新闻数据，将基于基本信息进行分析")
             except Exception as e:
@@ -1661,6 +1711,28 @@ def display_history_records():
     """显示历史分析记录"""
     st.subheader("📚 历史分析记录")
 
+    # 滚动位置管理 - 确保展开详情时页面不会滚动到错误位置
+    if 'scroll_to_record_id' in st.session_state:
+        scroll_target_id = st.session_state.scroll_to_record_id
+        # 添加滚动JavaScript
+        st.markdown(f"""
+        <script>
+            // 等待页面加载完成后滚动到指定记录
+            window.addEventListener('load', function() {{
+                const targetElement = document.getElementById('record_{scroll_target_id}');
+                if (targetElement) {{
+                    // 平滑滚动到记录位置，保持总览信息栏在顶部可见
+                    targetElement.scrollIntoView({{ behavior: 'smooth', block: 'start' }});
+                    
+                    // 额外调整：确保页面顶部有足够空间显示总览信息
+                    window.scrollBy(0, -100);
+                }}
+            }});
+        </script>
+        """, unsafe_allow_html=True)
+        # 清理滚动状态
+        del st.session_state.scroll_to_record_id
+
     # 获取所有记录
     records = db.get_all_records()
 
@@ -1677,7 +1749,7 @@ def display_history_records():
     with col2:
         st.write("")
         st.write("")
-        if st.button("🔄 刷新列表"):
+        if st.button("🔄 刷新列表", key="refresh_history_list"):
             st.rerun()
 
     # 筛选记录
@@ -1705,40 +1777,84 @@ def display_history_records():
             "强烈卖出": "🔴"
         }.get(rating, "⚪")
 
-        with st.expander(f"{rating_color} {record['stock_name']} ({record['symbol']}) - {record['analysis_date']}"):
-            col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
-
-            with col1:
-                st.write(f"**股票代码:** {record['symbol']}")
-                st.write(f"**股票名称:** {record['stock_name']}")
-
-            with col2:
-                st.write(f"**分析时间:** {record['analysis_date']}")
-                st.write(f"**数据周期:** {record['period']}")
-                st.write(f"**投资评级:** **{rating}**")
-
-            with col3:
-                if st.button("👀 查看详情", key=f"view_{record['id']}"):
-                    st.session_state.viewing_record_id = record['id']
-
-            with col4:
-                if st.button("➕ 监测", key=f"add_monitor_{record['id']}"):
+        # 为记录添加锚点标记和卡片容器
+        st.markdown(f'<div id="record_{record["id"]}" class="record-card"></div>', unsafe_allow_html=True)
+        
+        # 创建记录展示 - 优化布局
+        # 使用2列主布局：左侧文本区域 + 右侧按钮区域
+        text_col, button_col = st.columns([3, 2], gap="small")
+        
+        with text_col:
+            # 添加flex容器确保与按钮区域高度一致
+            st.markdown("<div style='height: 100%; display: flex; flex-direction: column; justify-content: space-between;'>", unsafe_allow_html=True)
+            
+            # 第一行：股票代码和名称 + 投资评级（使用相同比例的嵌套列）
+            top_row_col1, top_row_col2 = st.columns([2, 1])
+            
+            with top_row_col1:
+                st.markdown(f"<h4 class='compact-h4' style='margin-bottom: 0.05rem; margin-top: 0;'><strong>{record['symbol']} - {record['stock_name']}</strong></h4>", unsafe_allow_html=True)
+            
+            with top_row_col2:
+                st.markdown(f"<h4 class='compact-h4' style='margin-bottom: 0.05rem; margin-top: 0;'><strong>投资评级: {rating}</strong></h4>", unsafe_allow_html=True)
+            
+            # 第二行：分析时间 + 数据周期（与第一行使用相同比例的嵌套列）
+            bottom_row_col1, bottom_row_col2 = st.columns([2, 1])
+            
+            with bottom_row_col1:
+                st.markdown(f"<p class='compact-p' style='margin-top: 0.05rem; margin-bottom: 0;'><strong>分析时间:</strong> {record['analysis_date']}</p>", unsafe_allow_html=True)
+            
+            with bottom_row_col2:
+                st.markdown(f"<p class='compact-p' style='margin-top: 0.05rem; margin-bottom: 0;'><strong>数据周期:</strong> {record['period']}</p>", unsafe_allow_html=True)
+            
+            # 闭合flex容器
+            st.markdown("</div>", unsafe_allow_html=True)
+        
+        with button_col:
+            # 按钮区域：使用flex布局确保垂直对齐
+            st.markdown("<div style='height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 0.3rem;'>", unsafe_allow_html=True)
+            
+            # 按钮行：查看详情、监测、删除（紧凑布局）
+            btn_col1, btn_col2, btn_col3 = st.columns([1, 1, 1])
+            
+            with btn_col1:
+                # 获取当前记录的详情显示状态
+                show_detail = st.session_state.get(f"show_detail_{record['id']}", False)
+                button_text = "👁️ 收起" if show_detail else "👀 详情"
+                if st.button(button_text, key=f"view_{record['id']}", use_container_width=True):
+                    st.session_state[f"show_detail_{record['id']}"] = not show_detail
+                    
+                    # 如果是收起详情操作，设置滚动目标
+                    if show_detail:  # 当前是展开状态，点击后要收起
+                        st.session_state.scroll_to_record_id = record['id']
+                    
+                    st.rerun()
+            
+            with btn_col2:
+                if st.button("➕ 监测", key=f"add_monitor_{record['id']}", use_container_width=True):
                     st.session_state.add_to_monitor_id = record['id']
-                    st.session_state.viewing_record_id = record['id']
-
-            # 删除按钮（新增一行）
-            col5, _, _, _ = st.columns(4)
-            with col5:
-                if st.button("🗑️ 删除", key=f"delete_{record['id']}"):
+                    st.session_state[f"show_detail_{record['id']}"] = True
+                    # 设置滚动目标，确保展开详情后页面位置正确
+                    st.session_state.scroll_to_record_id = record['id']
+                    st.rerun()
+            
+            with btn_col3:
+                if st.button("🗑️ 删除", key=f"delete_{record['id']}", use_container_width=True):
                     if db.delete_record(record['id']):
                         st.success("✅ 记录已删除")
                         st.rerun()
                     else:
                         st.error("❌ 删除失败")
+            
+            # 闭合flex容器
+            st.markdown("</div>", unsafe_allow_html=True)
 
-    # 查看详细记录
-    if 'viewing_record_id' in st.session_state:
-        display_record_detail(st.session_state.viewing_record_id)
+        # 显示详情（在记录框架内展开）
+        if show_detail:
+            st.markdown("---")
+            st.markdown("#### 📊 详细分析记录")
+            display_record_detail(record['id'])
+
+        st.markdown("---")
 
 def display_add_to_monitor_dialog(record):
     """显示加入监测的对话框"""
@@ -1911,7 +2027,7 @@ def display_add_to_monitor_dialog(record):
                 st.rerun()
     else:
         st.warning("⚠️ 无法从分析结果中提取关键数据")
-        if st.button("❌ 取消"):
+        if st.button("❌ 取消", key="cancel_add_monitor"):
             if 'add_to_monitor_id' in st.session_state:
                 del st.session_state.add_to_monitor_id
             st.rerun()
@@ -1921,6 +2037,8 @@ def display_record_detail(record_id):
     st.markdown("---")
     st.subheader("📋 详细分析记录")
 
+    # 移除顶部的分隔线和标题，因为已经在调用处添加
+    
     record = db.get_record_by_id(record_id)
     if not record:
         st.error("❌ 记录不存在")
@@ -2053,7 +2171,7 @@ def display_record_detail(record_id):
             decision_text = final_decision.get('decision_text', str(final_decision))
             st.write(decision_text)
 
-    # 加入监测功能
+    # 操作功能区域
     st.markdown("---")
     st.subheader("🎯 操作")
 
@@ -2061,22 +2179,31 @@ def display_record_detail(record_id):
     if 'add_to_monitor_id' in st.session_state and st.session_state.add_to_monitor_id == record_id:
         display_add_to_monitor_dialog(record)
     else:
-        # 只有在不显示对话框时才显示按钮
-        col1, col2 = st.columns([1, 3])
-
-        with col1:
-            if st.button("➕ 加入监测", type="primary", width='stretch'):
+        # 将加入监测和收起详情按钮放在同一行并靠右对齐
+        col1, col2, col3 = st.columns([2, 1, 1])
+        
+        with col2:
+            if st.button("➕ 加入监测", type="primary", width='stretch', key=f"add_monitor_btn_{record_id}"):
                 st.session_state.add_to_monitor_id = record_id
                 st.rerun()
-
-    # 返回按钮
-    st.markdown("---")
-    if st.button("⬅️ 返回历史记录列表"):
-        if 'viewing_record_id' in st.session_state:
-            del st.session_state.viewing_record_id
-        if 'add_to_monitor_id' in st.session_state:
-            del st.session_state.add_to_monitor_id
-        st.rerun()
+        
+        with col3:
+            if st.button("👁️ 收起详情", key=f"close_detail_btn_{record_id}"):
+                # 设置滚动目标，确保页面回到正确的记录位置
+                st.session_state.scroll_to_record_id = record_id
+                
+                # 清理详情页面状态
+                if 'viewing_record_id' in st.session_state:
+                    del st.session_state.viewing_record_id
+                if 'add_to_monitor_id' in st.session_state:
+                    del st.session_state.add_to_monitor_id
+                
+                # 清理历史记录列表中的详情显示状态
+                st.session_state[f"show_detail_{record_id}"] = False
+                
+                # 使用 st.rerun() 重新渲染页面
+                st.rerun()
+    
 
 def display_config_manager():
     """显示环境配置管理界面"""
@@ -2430,7 +2557,7 @@ def display_config_manager():
     col1, col2, col3, col4 = st.columns([1, 1, 1, 2])
 
     with col1:
-        if st.button("💾 保存配置", type="primary", width='stretch'):
+        if st.button("💾 保存配置", type="primary", width='stretch', key="save_config_btn"):
             # 验证配置
             is_valid, message = config_manager.validate_config(st.session_state.temp_config)
 
@@ -2455,14 +2582,14 @@ def display_config_manager():
                 st.error(f"❌ 配置验证失败: {message}")
 
     with col2:
-        if st.button("🔄 重置", width='stretch'):
+        if st.button("🔄 重置", width='stretch', key="reset_config_btn"):
             # 重置为当前文件中的值
             st.session_state.temp_config = {key: info["value"] for key, info in config_info.items()}
             st.success("✅ 已重置为当前配置")
             st.rerun()
 
     with col3:
-        if st.button("⬅️ 返回", width='stretch'):
+        if st.button("⬅️ 返回", width='stretch', key="back_from_config_btn"):
             if 'show_config' in st.session_state:
                 del st.session_state.show_config
             if 'temp_config' in st.session_state:

@@ -10,3 +10,14 @@
 /.cursor
 /openspec
 TradEnv/
+<<<<<<< HEAD
+*.db
+=======
+stock_analysis.db
+sector_strategy.db
+longhubang.db
+main_force_batch.db
+portfolio_stocks.db
+smart_monitor.db
+stock_monitor.db
+>>>>>>> 3554818 (更新界面布局“)

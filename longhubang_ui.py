@@ -131,7 +131,7 @@ def display_analysis_tab():
                 "最近天数",
                 min_value=1,
                 max_value=10,
-                value=1,
+                value=3,
                 help="分析最近N天的龙虎榜数据"
             )
     
@@ -461,7 +461,7 @@ def display_scoring_ranking(result):
             showlegend=False,
             height=400
         )
-        st.plotly_chart(fig1, config={'displayModeBar': False}, use_container_width=True)
+        st.plotly_chart(fig1, config={'displayModeBar': False}, width='stretch')
     
     with col2:
         # 五维评分雷达图（显示批量分析数量的股票）
@@ -509,7 +509,7 @@ def display_scoring_ranking(result):
                     x=0.5
                 )
             )
-            st.plotly_chart(fig2, config={'displayModeBar': False}, use_container_width=True)
+            st.plotly_chart(fig2, config={'displayModeBar': False}, width='stretch')
     
     st.markdown("---")
     
@@ -703,7 +703,7 @@ def display_visualizations(result):
             labels={'name': '股票名称', 'net_inflow': '净流入金额(元)'}
         )
         fig.update_layout(xaxis_tickangle=-45)
-        st.plotly_chart(fig, config={'displayModeBar': False}, use_container_width=True)
+        st.plotly_chart(fig, config={'displayModeBar': False}, width='stretch')
     
     # 热门概念图表
     if summary.get('hot_concepts'):
@@ -718,7 +718,7 @@ def display_visualizations(result):
             names='概念',
             title='热门概念出现次数分布'
         )
-        st.plotly_chart(fig, config={'displayModeBar': False}, use_container_width=True)
+        st.plotly_chart(fig, config={'displayModeBar': False}, width='stretch')
 
 
 def display_pdf_export_section(result):

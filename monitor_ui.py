@@ -12,7 +12,7 @@ def display_monitor_panel():
     st.markdown("## 📊 实时监测面板")
     
     # 监测服务控制
-    col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
+    col1, col2, col3 = st.columns([1, 1, 1])
     
     with col1:
         if st.button("▶️ 启动监测服务", type="primary"):
@@ -29,6 +29,9 @@ def display_monitor_panel():
                 monitor_service.manual_update_stock(stock['id'])
             st.success(f"✅ 已手动更新 {len(stocks)} 只股票")
     
+    # 显示定时调度状态和通知配置
+    col4, col5 = st.columns([1, 2])
+    
     with col4:
         # 显示定时调度状态
         try:
@@ -40,6 +43,22 @@ def display_monitor_panel():
                 st.info("⏰ 定时未启用")
         except:
             st.info("⏰ 定时未配置")
+    
+    with col5:
+        # 显示通知配置状态
+        email_status = notification_service.get_email_config_status()
+        webhook_status = notification_service.get_webhook_config_status()
+        
+        status_text = []
+        if email_status['enabled'] and email_status['configured']:
+            status_text.append("📧 邮件通知已启用")
+        if webhook_status['enabled'] and webhook_status['configured']:
+            status_text.append(f"🔗 Webhook通知已启用 ({webhook_status['webhook_type']})")
+        
+        if status_text:
+            st.success(" ".join(status_text))
+        else:
+            st.info("通知服务未完全配置")
     
     # 显示通知
     display_notifications()
