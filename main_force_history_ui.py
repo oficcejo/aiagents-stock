@@ -44,13 +44,78 @@ def display_batch_history():
         
     except Exception as e:
         st.warning(f"⚠️ 无法获取统计信息: {str(e)}")
+        import traceback
+        st.code(traceback.format_exc())
     
     # 获取历史记录
     try:
+        # 添加调试信息（使用expander折叠，避免影响正常显示）
+        with st.expander("🔍 调试信息", expanded=False):
+            st.caption(f"📊 数据库路径: {batch_db.db_path}")
+            import os
+            if os.path.exists(batch_db.db_path):
+                db_size = os.path.getsize(batch_db.db_path)
+                st.caption(f"📊 数据库文件大小: {db_size} 字节")
+            else:
+                st.warning(f"⚠️ 数据库文件不存在: {batch_db.db_path}")
+        
         history_records = batch_db.get_all_history(limit=50)
         
         if not history_records:
             st.info("📝 暂无批量分析历史记录")
+            st.caption(f"💡 数据库文件位置: {batch_db.db_path}")
+            st.caption("💡 提示: 如果您已经运行过批量分析，请确认数据是否正确保存到数据库")
+            
+            # 提供手动检查数据库的按钮
+            if st.button("🔍 检查数据库状态"):
+                import os
+                import sqlite3
+                
+                with st.expander("📊 数据库详细信息", expanded=True):
+                    st.write(f"**数据库路径**: {batch_db.db_path}")
+                    st.write(f"**文件存在**: {'✅ 是' if os.path.exists(batch_db.db_path) else '❌ 否'}")
+                    
+                    if os.path.exists(batch_db.db_path):
+                        db_size = os.path.getsize(batch_db.db_path)
+                        st.write(f"**文件大小**: {db_size} 字节")
+                        
+                        # 尝试连接数据库并查询表
+                        try:
+                            conn = sqlite3.connect(batch_db.db_path)
+                            cursor = conn.cursor()
+                            
+                            # 检查表是否存在
+                            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='batch_analysis_history'")
+                            table_exists = cursor.fetchone() is not None
+                            st.write(f"**表存在**: {'✅ 是' if table_exists else '❌ 否'}")
+                            
+                            if table_exists:
+                                # 查询记录数
+                                cursor.execute("SELECT COUNT(*) FROM batch_analysis_history")
+                                count = cursor.fetchone()[0]
+                                st.write(f"**记录数**: {count} 条")
+                                
+                                if count > 0:
+                                    # 显示最近几条记录的信息
+                                    cursor.execute("""
+                                        SELECT id, analysis_date, batch_count, success_count, failed_count 
+                                        FROM batch_analysis_history 
+                                        ORDER BY created_at DESC 
+                                        LIMIT 5
+                                    """)
+                                    rows = cursor.fetchall()
+                                    st.write("**最近5条记录**:")
+                                    for row in rows:
+                                        st.write(f"- ID: {row[0]}, 时间: {row[1]}, 数量: {row[2]}, 成功: {row[3]}, 失败: {row[4]}")
+                            else:
+                                st.warning("⚠️ 表 'batch_analysis_history' 不存在，可能是数据库未初始化")
+                            
+                            conn.close()
+                        except Exception as e:
+                            st.error(f"❌ 查询数据库时出错: {str(e)}")
+                    else:
+                        st.warning("⚠️ 数据库文件不存在，可能是首次运行或数据库路径配置错误")
+            
             return
         
         st.markdown(f"### 📋 最近 {len(history_records)} 条记录")

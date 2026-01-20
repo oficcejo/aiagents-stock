@@ -18,6 +18,7 @@ from monitor_manager import display_monitor_manager, get_monitor_summary
 from monitor_service import monitor_service
 from notification_service import notification_service
 from config_manager import config_manager
+import config
 from main_force_ui import display_main_force_selector
 from sector_strategy_ui import display_sector_strategy
 from longhubang_ui import display_longhubang
@@ -37,16 +38,51 @@ def model_selector():
     st.sidebar.markdown("---")
     st.sidebar.subheader("🤖 AI模型选择")
 
-
+    # 获取配置文件中的默认模型
+    default_model = config.DEEPSEEK_MODEL_NAME
+    
+    # 如果配置的模型不在选项中，使用列表第一个
+    if default_model not in model_options:
+        default_model = list(model_options.keys())[0]
+    
+    # 如果 session_state 中已有值，且该值在选项中，使用它；否则使用配置的默认值
+    current_model = st.session_state.get('selected_model', default_model)
+    if current_model not in model_options:
+        current_model = default_model
 
     selected_model = st.sidebar.selectbox(
         "选择AI模型",
         options=list(model_options.keys()),
+        index=list(model_options.keys()).index(current_model) if current_model in model_options else 0,
         format_func=lambda x: model_options[x],
         help="DeepSeek Reasoner提供更强的推理能力，但响应时间可能更长"
     )
 
     return selected_model
+
+
+def get_selected_model():
+    """
+    获取当前选择的AI模型
+    优先使用session_state中的选择，如果不存在或无效，则使用配置文件中的默认值
+    
+    Returns:
+        str: 模型ID
+    """
+    # 优先使用session_state中的选择
+    selected_model = st.session_state.get('selected_model')
+    
+    # 如果session_state中有值且在有效选项中，使用它
+    if selected_model and selected_model in model_options:
+        return selected_model
+    
+    # 否则使用配置文件中的默认值
+    default_model = config.DEEPSEEK_MODEL_NAME
+    if default_model in model_options:
+        return default_model
+    
+    # 如果配置文件的值也不在选项中，使用第一个选项
+    return list(model_options.keys())[0]
 
 # 自定义CSS样式 - 专业版
 st.markdown("""
@@ -277,6 +313,10 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 def main():
+    # 初始化：检查配置文件中的默认模型，如果session_state中没有或值无效，使用配置文件的值
+    if 'selected_model' not in st.session_state or st.session_state.get('selected_model') not in model_options:
+        st.session_state.selected_model = config.DEEPSEEK_MODEL_NAME if config.DEEPSEEK_MODEL_NAME in model_options else list(model_options.keys())[0]
+    
     # 顶部标题栏
     st.markdown("""
     <div class="top-nav">
@@ -410,7 +450,19 @@ def main():
 
         # 模型选择器
         selected_model = model_selector()
-        st.session_state.selected_model = selected_model
+        
+        # 如果配置文件中的默认模型发生了变化，且用户没有主动选择其他模型，更新为配置文件的值
+        config_default_model = config.DEEPSEEK_MODEL_NAME
+        if config_default_model in model_options:
+            # 如果 session_state 中的值不在有效选项中，或者配置文件的值与当前选择不同且用户未手动选择过，使用配置文件的值
+            if (selected_model not in model_options) or \
+               (st.session_state.get('selected_model') not in model_options):
+                selected_model = config_default_model
+                st.session_state.selected_model = selected_model
+            else:
+                st.session_state.selected_model = selected_model
+        else:
+            st.session_state.selected_model = selected_model
 
         st.markdown("---")
 
@@ -812,7 +864,14 @@ def parse_stock_list(stock_input):
 
     return unique_list
 
-def analyze_single_stock_for_batch(symbol, period, enabled_analysts_config=None, selected_model='deepseek-chat'):
+def analyze_single_stock_for_batch(symbol, period, enabled_analysts_config=None, selected_model=None):
+    # 使用全局模型选择（优先使用session_state，回退到配置文件）
+    # 如果传入了有效的模型参数，使用传入的值；否则使用全局选择
+    if selected_model and selected_model in model_options:
+        print(f"[analyze_single_stock_for_batch] 使用传入的模型: {selected_model}")
+    else:
+        selected_model = get_selected_model()
+        print(f"[analyze_single_stock_for_batch] 使用全局选择的模型: {selected_model}")
     """单个股票分析（用于批量分析）
 
     Args:
@@ -970,7 +1029,10 @@ def run_batch_analysis(stock_list, period, batch_mode="顺序分析"):
         'sentiment': st.session_state.get('enable_sentiment', False),
         'news': st.session_state.get('enable_news', False)
     }
-    selected_model = st.session_state.get('selected_model', 'deepseek-chat')
+    # 使用全局模型选择（优先使用session_state，回退到配置文件）
+    selected_model = get_selected_model()
+    
+    print(f"[run_batch_analysis] 使用模型: {selected_model} (来自全局选择)")
 
     # 创建进度显示
     st.subheader(f"📊 批量分析进行中 ({batch_mode})")
@@ -1242,8 +1304,11 @@ def run_stock_analysis(symbol, period):
 
         # 6. 初始化AI分析系统
         status_text.text("🤖 正在初始化AI分析系统...")
-        # 使用选择的模型
-        selected_model = st.session_state.get('selected_model', 'deepseek-chat')
+        # 使用全局模型选择（优先使用session_state，回退到配置文件）
+        selected_model = get_selected_model()
+        
+        print(f"[run_stock_analysis] 使用模型: {selected_model} (来自全局选择)")
+        
         agents = StockAnalysisAgents(model=selected_model)
         progress_bar.progress(55)
 
@@ -1661,6 +1726,25 @@ def display_history_records():
     """显示历史分析记录"""
     st.subheader("📚 历史分析记录")
 
+    # 检查是否正在查看详情，如果是，先显示详情
+    if 'viewing_record_id' in st.session_state:
+        # 添加返回按钮
+        if st.button("⬅️ 返回列表", key="back_to_list"):
+            if 'viewing_record_id' in st.session_state:
+                del st.session_state.viewing_record_id
+            if 'add_to_monitor_id' in st.session_state:
+                del st.session_state.add_to_monitor_id
+            st.rerun()
+        
+        # 显示详情
+        try:
+            display_record_detail(st.session_state.viewing_record_id)
+        except Exception as e:
+            st.error(f"❌ 显示详情时出错: {str(e)}")
+            import traceback
+            st.code(traceback.format_exc())
+        return
+
     # 获取所有记录
     records = db.get_all_records()
 
@@ -1720,11 +1804,13 @@ def display_history_records():
             with col3:
                 if st.button("👀 查看详情", key=f"view_{record['id']}"):
                     st.session_state.viewing_record_id = record['id']
+                    st.rerun()
 
             with col4:
                 if st.button("➕ 监测", key=f"add_monitor_{record['id']}"):
                     st.session_state.add_to_monitor_id = record['id']
                     st.session_state.viewing_record_id = record['id']
+                    st.rerun()
 
             # 删除按钮（新增一行）
             col5, _, _, _ = st.columns(4)
@@ -1735,10 +1821,6 @@ def display_history_records():
                         st.rerun()
                     else:
                         st.error("❌ 删除失败")
-
-    # 查看详细记录
-    if 'viewing_record_id' in st.session_state:
-        display_record_detail(st.session_state.viewing_record_id)
 
 def display_add_to_monitor_dialog(record):
     """显示加入监测的对话框"""
@@ -1921,9 +2003,15 @@ def display_record_detail(record_id):
     st.markdown("---")
     st.subheader("📋 详细分析记录")
 
-    record = db.get_record_by_id(record_id)
-    if not record:
-        st.error("❌ 记录不存在")
+    try:
+        record = db.get_record_by_id(record_id)
+        if not record:
+            st.error("❌ 记录不存在")
+            return
+    except Exception as e:
+        st.error(f"❌ 获取记录时出错: {str(e)}")
+        import traceback
+        st.code(traceback.format_exc())
         return
 
     # 基本信息
@@ -2140,6 +2228,21 @@ def display_config_manager():
             key="input_deepseek_base_url"
         )
         st.session_state.temp_config["DEEPSEEK_BASE_URL"] = new_base_url
+
+        st.markdown("---")
+
+        # DeepSeek Model Name
+        default_model_name = config.DEEPSEEK_MODEL_NAME
+        model_name_info = config_info.get("DEEPSEEK_MODEL_NAME", {"value": default_model_name, "description": "DeepSeek模型名称", "required": False, "type": "text"})
+        current_model_name = st.session_state.temp_config.get("DEEPSEEK_MODEL_NAME", model_name_info.get("value", default_model_name))
+
+        new_model_name = st.text_input(
+            f"🤖 {model_name_info['description']}",
+            value=current_model_name,
+            help="配置要使用的模型名称，如：deepseek-chat、deepseek-reasoner等",
+            key="input_deepseek_model_name"
+        )
+        st.session_state.temp_config["DEEPSEEK_MODEL_NAME"] = new_model_name
 
         st.info("💡 如何获取DeepSeek API密钥？\n\n1. 访问 https://platform.deepseek.com\n2. 注册/登录账号\n3. 进入API密钥管理页面\n4. 创建新的API密钥\n5. 复制密钥并粘贴到上方输入框")
 
@@ -2480,6 +2583,7 @@ def display_config_manager():
 # ========== DeepSeek API配置 ==========
 DEEPSEEK_API_KEY="{current_config.get('DEEPSEEK_API_KEY', '')}"
 DEEPSEEK_BASE_URL="{current_config.get('DEEPSEEK_BASE_URL', '')}"
+DEEPSEEK_MODEL_NAME="{current_config.get('DEEPSEEK_MODEL_NAME', config.DEEPSEEK_MODEL_NAME)}"
 
 # ========== Tushare数据接口（可选）==========
 TUSHARE_TOKEN="{current_config.get('TUSHARE_TOKEN', '')}"

@@ -121,7 +121,7 @@ class PortfolioManager:
     # ==================== 单只股票分析 ====================
     
     def analyze_single_stock(self, stock_code: str, period="1y", 
-                            selected_agents: List[str] = None) -> Dict:
+                            selected_agents: List[str] = None, model: str = None) -> Dict:
         """
         分析单只股票（复用app.py中的分析逻辑）
         
@@ -129,6 +129,7 @@ class PortfolioManager:
             stock_code: 股票代码
             period: 数据周期
             selected_agents: 选中的分析师列表
+            model: AI模型（如果为None，使用self.model）
             
         Returns:
             分析结果字典
@@ -140,6 +141,9 @@ class PortfolioManager:
         try:
             # 导入app.py中的分析函数
             from app import analyze_single_stock_for_batch
+            
+            # 使用传入的模型或默认模型
+            use_model = model if model else self.model
             
             # 构建分析师配置
             if selected_agents is None:
@@ -166,7 +170,7 @@ class PortfolioManager:
                 symbol=stock_code,
                 period=period,
                 enabled_analysts_config=enabled_analysts_config,
-                selected_model=self.model
+                selected_model=use_model
             )
             
             # 检查结果
@@ -191,7 +195,7 @@ class PortfolioManager:
     
     def batch_analyze_sequential(self, stock_codes: List[str], period="1y",
                                  selected_agents: List[str] = None,
-                                 progress_callback=None) -> Dict:
+                                 progress_callback=None, model: str = None) -> Dict:
         """
         顺序批量分析（逐只分析）
         
@@ -219,7 +223,7 @@ class PortfolioManager:
                 progress_callback(i, len(stock_codes), code, "analyzing")
             
             try:
-                result = self.analyze_single_stock(code, period, selected_agents)
+                result = self.analyze_single_stock(code, period, selected_agents, model=model)
                 
                 if result.get("success"):
                     results.append({
@@ -266,7 +270,7 @@ class PortfolioManager:
     def batch_analyze_parallel(self, stock_codes: List[str], period="1y",
                                selected_agents: List[str] = None,
                                max_workers: int = 3,
-                               progress_callback=None) -> Dict:
+                               progress_callback=None, model: str = None) -> Dict:
         """
         并行批量分析（多线程）
         
@@ -292,7 +296,7 @@ class PortfolioManager:
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             # 提交所有任务
             future_to_code = {
-                executor.submit(self.analyze_single_stock, code, period, selected_agents): code
+                executor.submit(self.analyze_single_stock, code, period, selected_agents, model): code
                 for code in stock_codes
             }
             
@@ -351,7 +355,7 @@ class PortfolioManager:
     def batch_analyze_portfolio(self, mode="sequential", period="1y",
                                 selected_agents: List[str] = None,
                                 max_workers: int = 3,
-                                progress_callback=None) -> Dict:
+                                progress_callback=None, model: str = None) -> Dict:
         """
         批量分析所有持仓股票
         
@@ -361,6 +365,7 @@ class PortfolioManager:
             selected_agents: 选中的分析师列表
             max_workers: 并行模式下的最大并发数（默认3）
             progress_callback: 进度回调函数
+            model: AI模型（如果为None，使用self.model）
             
         Returns:
             批量分析结果字典
@@ -378,9 +383,9 @@ class PortfolioManager:
         
         # 根据模式选择分析方法
         if mode == "parallel":
-            return self.batch_analyze_parallel(stock_codes, period, selected_agents, max_workers, progress_callback)
+            return self.batch_analyze_parallel(stock_codes, period, selected_agents, max_workers, progress_callback, model=model)
         else:
-            return self.batch_analyze_sequential(stock_codes, period, selected_agents, progress_callback)
+            return self.batch_analyze_sequential(stock_codes, period, selected_agents, progress_callback, model=model)
     
     # ==================== 分析结果保存 ====================
     
