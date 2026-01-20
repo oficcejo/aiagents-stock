@@ -1,4 +1,4 @@
-name: Build Multi-Arch Docker Image for GHCR  cn-debian12-2026.1.20
+name: Build Multi-Arch Docker Image for GHCR  cn-8503-2026.1.20
 
 on:
   workflow_dispatch:
@@ -58,7 +58,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./Dockerfile
+          file: ./Dockerfile-cn
           #platforms: linux/amd64,linux/arm64
           platforms: linux/amd64
           push: true
