@@ -138,26 +138,72 @@ class MainForceBatchDatabase:
         Returns:
             记录ID
         """
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        analysis_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
-        # 清理结果数据，确保可以JSON序列化
-        cleaned_results = self._clean_results_for_json(results)
-        results_json = json.dumps(cleaned_results, ensure_ascii=False, default=str)
-        
-        cursor.execute('''
-            INSERT INTO batch_analysis_history 
-            (analysis_date, batch_count, analysis_mode, success_count, failed_count, total_time, results_json)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (analysis_date, batch_count, analysis_mode, success_count, failed_count, total_time, results_json))
-        
-        record_id = cursor.lastrowid
-        conn.commit()
-        conn.close()
-        
-        return record_id
+        try:
+            print(f"[MainForceBatchDatabase] 开始保存批量分析结果...")
+            print(f"[MainForceBatchDatabase] 数据库路径: {self.db_path}")
+            print(f"[MainForceBatchDatabase] 参数: batch_count={batch_count}, mode={analysis_mode}, success={success_count}, failed={failed_count}")
+            
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            analysis_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+            # 清理结果数据，确保可以JSON序列化
+            print(f"[MainForceBatchDatabase] 清理结果数据... (共 {len(results)} 条)")
+            cleaned_results = self._clean_results_for_json(results)
+            print(f"[MainForceBatchDatabase] 清理完成，开始序列化JSON...")
+            
+            results_json = json.dumps(cleaned_results, ensure_ascii=False, default=str)
+            json_size = len(results_json)
+            print(f"[MainForceBatchDatabase] JSON序列化完成，大小: {json_size} 字节")
+            
+            # 检查JSON大小（SQLite TEXT字段默认最大1GB，但为了避免问题，可以设置限制）
+            if json_size > 100 * 1024 * 1024:  # 100MB
+                print(f"[MainForceBatchDatabase] 警告: JSON数据过大 ({json_size} 字节)，可能影响性能")
+            
+            print(f"[MainForceBatchDatabase] 执行INSERT语句...")
+            cursor.execute('''
+                INSERT INTO batch_analysis_history 
+                (analysis_date, batch_count, analysis_mode, success_count, failed_count, total_time, results_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (analysis_date, batch_count, analysis_mode, success_count, failed_count, total_time, results_json))
+            
+            record_id = cursor.lastrowid
+            print(f"[MainForceBatchDatabase] INSERT成功，记录ID: {record_id}")
+            
+            conn.commit()
+            print(f"[MainForceBatchDatabase] 事务提交成功")
+            
+            # 验证保存是否成功
+            cursor.execute('SELECT COUNT(*) FROM batch_analysis_history WHERE id = ?', (record_id,))
+            count = cursor.fetchone()[0]
+            if count == 0:
+                raise Exception(f"保存后验证失败：记录ID {record_id} 不存在")
+            
+            print(f"[MainForceBatchDatabase] 保存验证成功，记录已存在")
+            conn.close()
+            
+            # 再次验证：查询最新的记录
+            conn2 = sqlite3.connect(self.db_path)
+            cursor2 = conn2.cursor()
+            cursor2.execute('SELECT COUNT(*) FROM batch_analysis_history')
+            total_count = cursor2.fetchone()[0]
+            conn2.close()
+            print(f"[MainForceBatchDatabase] 数据库总记录数: {total_count} 条")
+            
+            return record_id
+            
+        except Exception as e:
+            import traceback
+            error_msg = f"保存批量分析结果失败: {str(e)}\n{traceback.format_exc()}"
+            print(f"[MainForceBatchDatabase] ❌ {error_msg}")
+            if 'conn' in locals():
+                try:
+                    conn.rollback()
+                    conn.close()
+                except:
+                    pass
+            raise Exception(error_msg) from e
     
     def get_all_history(self, limit: int = 50) -> List[Dict]:
         """
@@ -169,40 +215,55 @@ class MainForceBatchDatabase:
         Returns:
             历史记录列表
         """
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            SELECT id, analysis_date, batch_count, analysis_mode, 
-                   success_count, failed_count, total_time, results_json, created_at
-            FROM batch_analysis_history
-            ORDER BY created_at DESC
-            LIMIT ?
-        ''', (limit,))
-        
-        rows = cursor.fetchall()
-        conn.close()
-        
-        history = []
-        for row in rows:
-            try:
-                results = json.loads(row[7])
-            except:
-                results = []
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
             
-            history.append({
-                'id': row[0],
-                'analysis_date': row[1],
-                'batch_count': row[2],
-                'analysis_mode': row[3],
-                'success_count': row[4],
-                'failed_count': row[5],
-                'total_time': row[6],
-                'results': results,
-                'created_at': row[8]
-            })
-        
-        return history
+            # 检查表是否存在
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='batch_analysis_history';")
+            if not cursor.fetchone():
+                conn.close()
+                print(f"[MainForceBatchDatabase] ⚠️ 表 batch_analysis_history 不存在，初始化数据库...")
+                self._init_database()
+                conn = sqlite3.connect(self.db_path)
+                cursor = conn.cursor()
+            
+            cursor.execute('''
+                SELECT id, analysis_date, batch_count, analysis_mode, 
+                       success_count, failed_count, total_time, results_json, created_at
+                FROM batch_analysis_history
+                ORDER BY created_at DESC
+                LIMIT ?
+            ''', (limit,))
+            
+            rows = cursor.fetchall()
+            conn.close()
+            
+            history = []
+            for row in rows:
+                try:
+                    results = json.loads(row[7])
+                except:
+                    results = []
+                
+                history.append({
+                    'id': row[0],
+                    'analysis_date': row[1],
+                    'batch_count': row[2],
+                    'analysis_mode': row[3],
+                    'success_count': row[4],
+                    'failed_count': row[5],
+                    'total_time': row[6],
+                    'results': results,
+                    'created_at': row[8]
+                })
+            
+            return history
+        except Exception as e:
+            import traceback
+            print(f"[MainForceBatchDatabase] ❌ 获取历史记录失败: {str(e)}")
+            print(traceback.format_exc())
+            raise
     
     def get_record_by_id(self, record_id: int) -> Optional[Dict]:
         """
@@ -275,39 +336,54 @@ class MainForceBatchDatabase:
         Returns:
             统计数据
         """
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        # 总记录数
-        cursor.execute('SELECT COUNT(*) FROM batch_analysis_history')
-        total_records = cursor.fetchone()[0]
-        
-        # 总分析股票数
-        cursor.execute('SELECT SUM(batch_count) FROM batch_analysis_history')
-        total_stocks = cursor.fetchone()[0] or 0
-        
-        # 总成功数
-        cursor.execute('SELECT SUM(success_count) FROM batch_analysis_history')
-        total_success = cursor.fetchone()[0] or 0
-        
-        # 总失败数
-        cursor.execute('SELECT SUM(failed_count) FROM batch_analysis_history')
-        total_failed = cursor.fetchone()[0] or 0
-        
-        # 平均耗时
-        cursor.execute('SELECT AVG(total_time) FROM batch_analysis_history')
-        avg_time = cursor.fetchone()[0] or 0
-        
-        conn.close()
-        
-        return {
-            'total_records': total_records,
-            'total_stocks_analyzed': total_stocks,
-            'total_success': total_success,
-            'total_failed': total_failed,
-            'average_time': round(avg_time, 2),
-            'success_rate': round(total_success / total_stocks * 100, 2) if total_stocks > 0 else 0
-        }
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # 检查表是否存在
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='batch_analysis_history';")
+            if not cursor.fetchone():
+                conn.close()
+                print(f"[MainForceBatchDatabase] ⚠️ 表 batch_analysis_history 不存在，初始化数据库...")
+                self._init_database()
+                conn = sqlite3.connect(self.db_path)
+                cursor = conn.cursor()
+            
+            # 总记录数
+            cursor.execute('SELECT COUNT(*) FROM batch_analysis_history')
+            total_records = cursor.fetchone()[0]
+            
+            # 总分析股票数
+            cursor.execute('SELECT SUM(batch_count) FROM batch_analysis_history')
+            total_stocks = cursor.fetchone()[0] or 0
+            
+            # 总成功数
+            cursor.execute('SELECT SUM(success_count) FROM batch_analysis_history')
+            total_success = cursor.fetchone()[0] or 0
+            
+            # 总失败数
+            cursor.execute('SELECT SUM(failed_count) FROM batch_analysis_history')
+            total_failed = cursor.fetchone()[0] or 0
+            
+            # 平均耗时
+            cursor.execute('SELECT AVG(total_time) FROM batch_analysis_history')
+            avg_time = cursor.fetchone()[0] or 0
+            
+            conn.close()
+            
+            return {
+                'total_records': total_records,
+                'total_stocks_analyzed': total_stocks,
+                'total_success': total_success,
+                'total_failed': total_failed,
+                'average_time': round(avg_time, 2),
+                'success_rate': round(total_success / total_stocks * 100, 2) if total_stocks > 0 else 0
+            }
+        except Exception as e:
+            import traceback
+            print(f"[MainForceBatchDatabase] ❌ 获取统计信息失败: {str(e)}")
+            print(traceback.format_exc())
+            raise
 
 
 # 全局数据库实例

@@ -60,6 +60,30 @@ def model_selector():
 
     return selected_model
 
+
+def get_selected_model():
+    """
+    获取当前选择的AI模型
+    优先使用session_state中的选择，如果不存在或无效，则使用配置文件中的默认值
+    
+    Returns:
+        str: 模型ID
+    """
+    # 优先使用session_state中的选择
+    selected_model = st.session_state.get('selected_model')
+    
+    # 如果session_state中有值且在有效选项中，使用它
+    if selected_model and selected_model in model_options:
+        return selected_model
+    
+    # 否则使用配置文件中的默认值
+    default_model = config.DEEPSEEK_MODEL_NAME
+    if default_model in model_options:
+        return default_model
+    
+    # 如果配置文件的值也不在选项中，使用第一个选项
+    return list(model_options.keys())[0]
+
 # 自定义CSS样式 - 专业版
 st.markdown("""
 <style>
@@ -841,19 +865,13 @@ def parse_stock_list(stock_input):
     return unique_list
 
 def analyze_single_stock_for_batch(symbol, period, enabled_analysts_config=None, selected_model=None):
-    # 强制使用配置文件中的默认模型（忽略传入的旧值）
-    # 如果传入的是 None、空字符串或旧的默认值 "deepseek-chat"，都使用配置文件的值
-    config_model = config.DEEPSEEK_MODEL_NAME
-    if selected_model is None or selected_model == "" or selected_model == "deepseek-chat":
-        selected_model = config_model
-        print(f"[analyze_single_stock_for_batch] 强制使用配置文件中的模型: {selected_model} (传入值被忽略)")
+    # 使用全局模型选择（优先使用session_state，回退到配置文件）
+    # 如果传入了有效的模型参数，使用传入的值；否则使用全局选择
+    if selected_model and selected_model in model_options:
+        print(f"[analyze_single_stock_for_batch] 使用传入的模型: {selected_model}")
     else:
-        # 如果传入的模型在选项中，使用传入的值；否则使用配置文件的值
-        if selected_model not in model_options:
-            selected_model = config_model
-            print(f"[analyze_single_stock_for_batch] 传入的模型不在选项中，使用配置文件中的模型: {selected_model}")
-        else:
-            print(f"[analyze_single_stock_for_batch] 使用传入的模型: {selected_model}")
+        selected_model = get_selected_model()
+        print(f"[analyze_single_stock_for_batch] 使用全局选择的模型: {selected_model}")
     """单个股票分析（用于批量分析）
 
     Args:
@@ -1011,14 +1029,10 @@ def run_batch_analysis(stock_list, period, batch_mode="顺序分析"):
         'sentiment': st.session_state.get('enable_sentiment', False),
         'news': st.session_state.get('enable_news', False)
     }
-    # 强制使用配置文件中的默认模型（忽略 session_state 中的旧值）
-    config_model = config.DEEPSEEK_MODEL_NAME
-    if config_model in model_options:
-        selected_model = config_model
-    else:
-        selected_model = list(model_options.keys())[0]
+    # 使用全局模型选择（优先使用session_state，回退到配置文件）
+    selected_model = get_selected_model()
     
-    print(f"[run_batch_analysis] 使用模型: {selected_model} (来自配置文件: {config_model})")
+    print(f"[run_batch_analysis] 使用模型: {selected_model} (来自全局选择)")
 
     # 创建进度显示
     st.subheader(f"📊 批量分析进行中 ({batch_mode})")
@@ -1290,16 +1304,10 @@ def run_stock_analysis(symbol, period):
 
         # 6. 初始化AI分析系统
         status_text.text("🤖 正在初始化AI分析系统...")
-        # 获取模型，强制使用配置文件中的默认模型（忽略 session_state 中的旧值）
-        # 如果配置文件中的模型不在选项中，则使用第一个选项
-        config_model = config.DEEPSEEK_MODEL_NAME
-        if config_model in model_options:
-            selected_model = config_model
-        else:
-            selected_model = list(model_options.keys())[0]
+        # 使用全局模型选择（优先使用session_state，回退到配置文件）
+        selected_model = get_selected_model()
         
-        print(f"[run_stock_analysis] 使用模型: {selected_model} (来自配置文件: {config_model})")
-        print(f"[run_stock_analysis] session_state中的selected_model: {st.session_state.get('selected_model', 'None')}")
+        print(f"[run_stock_analysis] 使用模型: {selected_model} (来自全局选择)")
         
         agents = StockAnalysisAgents(model=selected_model)
         progress_bar.progress(55)
@@ -1718,6 +1726,25 @@ def display_history_records():
     """显示历史分析记录"""
     st.subheader("📚 历史分析记录")
 
+    # 检查是否正在查看详情，如果是，先显示详情
+    if 'viewing_record_id' in st.session_state:
+        # 添加返回按钮
+        if st.button("⬅️ 返回列表", key="back_to_list"):
+            if 'viewing_record_id' in st.session_state:
+                del st.session_state.viewing_record_id
+            if 'add_to_monitor_id' in st.session_state:
+                del st.session_state.add_to_monitor_id
+            st.rerun()
+        
+        # 显示详情
+        try:
+            display_record_detail(st.session_state.viewing_record_id)
+        except Exception as e:
+            st.error(f"❌ 显示详情时出错: {str(e)}")
+            import traceback
+            st.code(traceback.format_exc())
+        return
+
     # 获取所有记录
     records = db.get_all_records()
 
@@ -1777,11 +1804,13 @@ def display_history_records():
             with col3:
                 if st.button("👀 查看详情", key=f"view_{record['id']}"):
                     st.session_state.viewing_record_id = record['id']
+                    st.rerun()
 
             with col4:
                 if st.button("➕ 监测", key=f"add_monitor_{record['id']}"):
                     st.session_state.add_to_monitor_id = record['id']
                     st.session_state.viewing_record_id = record['id']
+                    st.rerun()
 
             # 删除按钮（新增一行）
             col5, _, _, _ = st.columns(4)
@@ -1792,10 +1821,6 @@ def display_history_records():
                         st.rerun()
                     else:
                         st.error("❌ 删除失败")
-
-    # 查看详细记录
-    if 'viewing_record_id' in st.session_state:
-        display_record_detail(st.session_state.viewing_record_id)
 
 def display_add_to_monitor_dialog(record):
     """显示加入监测的对话框"""
@@ -1978,9 +2003,15 @@ def display_record_detail(record_id):
     st.markdown("---")
     st.subheader("📋 详细分析记录")
 
-    record = db.get_record_by_id(record_id)
-    if not record:
-        st.error("❌ 记录不存在")
+    try:
+        record = db.get_record_by_id(record_id)
+        if not record:
+            st.error("❌ 记录不存在")
+            return
+    except Exception as e:
+        st.error(f"❌ 获取记录时出错: {str(e)}")
+        import traceback
+        st.code(traceback.format_exc())
         return
 
     # 基本信息

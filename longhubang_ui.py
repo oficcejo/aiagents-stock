@@ -136,18 +136,8 @@ def display_analysis_tab():
                 help="分析最近N天的龙虎榜数据"
             )
     
-    with col3:
-        # 导入model_config.py中定义的model_options
-        from model_config import model_options as app_model_options
-        selected_model = st.selectbox(
-            "AI模型",
-            list(app_model_options.keys()),
-            format_func=lambda x: app_model_options[x],
-            help="Reasoner模型提供更强的推理能力"
-        )
-    
     # 分析按钮
-    col1, col2, col3 = st.columns([2, 2, 2])
+    col1, col2 = st.columns([2, 2])
     
     with col1:
         analyze_button = st.button("🚀 开始分析", type="primary", width='stretch')
@@ -159,6 +149,8 @@ def display_analysis_tab():
             st.success("已清除分析结果")
             st.rerun()
     
+    st.info("💡 提示：AI模型选择在左侧边栏，选择后将在所有功能中生效")
+    
     st.markdown("---")
     
     # 开始分析
@@ -166,6 +158,14 @@ def display_analysis_tab():
         # 清除之前的结果
         if 'longhubang_result' in st.session_state:
             del st.session_state.longhubang_result
+        
+        # 使用全局模型选择
+        from model_config import model_options
+        selected_model = st.session_state.get('selected_model')
+        if not selected_model or selected_model not in model_options:
+            selected_model = config.DEEPSEEK_MODEL_NAME
+            if selected_model not in model_options:
+                selected_model = list(model_options.keys())[0]
         
         # 准备参数
         if analysis_mode == "指定日期":
@@ -187,9 +187,14 @@ def display_analysis_tab():
 def run_longhubang_analysis(model=None, date=None, days=1):
     """运行龙虎榜分析"""
     
-    # 如果没有传入model，则使用配置文件中的默认模型
+    # 如果没有传入model，则使用全局模型选择
     if model is None:
-        model = config.DEEPSEEK_MODEL_NAME
+        from model_config import model_options
+        model = st.session_state.get('selected_model')
+        if not model or model not in model_options:
+            model = config.DEEPSEEK_MODEL_NAME
+            if model not in model_options:
+                model = list(model_options.keys())[0]
     
     # 进度显示
     progress_bar = st.progress(0)
@@ -1383,6 +1388,15 @@ def run_longhubang_batch_analysis():
         results = []
         start_time = time.time()
         
+        # 使用全局模型选择（在循环外获取，避免重复）
+        from model_config import model_options
+        selected_model = st.session_state.get('selected_model')
+        if not selected_model or selected_model not in model_options:
+            import config
+            selected_model = config.DEEPSEEK_MODEL_NAME
+            if selected_model not in model_options:
+                selected_model = list(model_options.keys())[0]
+
         if analysis_mode == "sequential":
             # 顺序分析
             for i, code in enumerate(stock_codes):
@@ -1390,7 +1404,7 @@ def run_longhubang_batch_analysis():
                 progress_bar.progress((i + 1) / len(stock_codes))
                 
                 try:
-                    # 调用统一分析函数
+                    # 调用统一分析函数（使用全局模型选择）
                     result = analyze_single_stock_for_batch(
                         symbol=code,
                         period="1y",
@@ -1402,7 +1416,7 @@ def run_longhubang_batch_analysis():
                             'sentiment': False,
                             'news': False
                         },
-                        selected_model=config.DEEPSEEK_MODEL_NAME
+                        selected_model=selected_model
                     )
                     
                     results.append({
@@ -1422,6 +1436,7 @@ def run_longhubang_batch_analysis():
             
             def analyze_one(code):
                 try:
+                    # 使用全局模型选择（已在循环外获取）
                     result = analyze_single_stock_for_batch(
                         symbol=code,
                         period="1y",
@@ -1433,7 +1448,7 @@ def run_longhubang_batch_analysis():
                             'sentiment': False,
                             'news': False
                         },
-                        selected_model=config.DEEPSEEK_MODEL_NAME
+                        selected_model=selected_model
                     )
                     return {"code": code, "result": result}
                 except Exception as e:

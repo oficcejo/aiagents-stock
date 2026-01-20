@@ -255,28 +255,53 @@ class SectorStrategyAgents:
         print("💰 资金流向分析师正在分析...")
         time.sleep(1)
         
+        # 安全转换数值类型的辅助函数
+        def safe_float(value, default=0):
+            try:
+                if isinstance(value, (int, float)):
+                    return float(value)
+                elif isinstance(value, str):
+                    # 移除千分位逗号和空格
+                    cleaned = value.replace(',', '').replace('，', '').strip()
+                    return float(cleaned) if cleaned else default
+                else:
+                    return default
+            except (ValueError, TypeError):
+                return default
+        
         # 构建资金流向数据
         fund_flow_summary = ""
         if fund_flow_data and fund_flow_data.get("today"):
             flow_list = fund_flow_data["today"]
             
             # 净流入前15
-            sorted_inflow = sorted(flow_list, key=lambda x: x["main_net_inflow"], reverse=True)
+            sorted_inflow = sorted(flow_list, key=lambda x: safe_float(x.get("main_net_inflow", 0)), reverse=True)
             fund_flow_summary = f"""
 【板块资金流向】(更新时间: {fund_flow_data.get('update_time', 'N/A')})
 
 主力资金净流入 TOP15:
 """
             for idx, item in enumerate(sorted_inflow[:15], 1):
-                fund_flow_summary += f"{idx}. {item['sector']}: {item['main_net_inflow']:.2f}万 ({item['main_net_inflow_pct']:+.2f}%) | 涨跌: {item['change_pct']:+.2f}% | 超大单: {item['super_large_net_inflow']:.2f}万\n"
+                main_net_inflow = safe_float(item.get('main_net_inflow', 0))
+                main_net_inflow_pct = safe_float(item.get('main_net_inflow_pct', 0))
+                change_pct = safe_float(item.get('change_pct', 0))
+                super_large_net_inflow = safe_float(item.get('super_large_net_inflow', 0))
+                sector = item.get('sector', 'N/A')
+                
+                fund_flow_summary += f"{idx}. {sector}: {main_net_inflow:.2f}万 ({main_net_inflow_pct:+.2f}%) | 涨跌: {change_pct:+.2f}% | 超大单: {super_large_net_inflow:.2f}万\n"
             
             # 净流出前10
-            sorted_outflow = sorted(flow_list, key=lambda x: x["main_net_inflow"])
+            sorted_outflow = sorted(flow_list, key=lambda x: safe_float(x.get("main_net_inflow", 0)))
             fund_flow_summary += f"""
 主力资金净流出 TOP10:
 """
             for idx, item in enumerate(sorted_outflow[:10], 1):
-                fund_flow_summary += f"{idx}. {item['sector']}: {item['main_net_inflow']:.2f}万 ({item['main_net_inflow_pct']:+.2f}%) | 涨跌: {item['change_pct']:+.2f}%\n"
+                main_net_inflow = safe_float(item.get('main_net_inflow', 0))
+                main_net_inflow_pct = safe_float(item.get('main_net_inflow_pct', 0))
+                change_pct = safe_float(item.get('change_pct', 0))
+                sector = item.get('sector', 'N/A')
+                
+                fund_flow_summary += f"{idx}. {sector}: {main_net_inflow:.2f}万 ({main_net_inflow_pct:+.2f}%) | 涨跌: {change_pct:+.2f}%\n"
         
         # 构建北向资金数据
         north_summary = ""
