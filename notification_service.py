@@ -28,8 +28,10 @@ class NotificationService:
             'email_to': '',
             'webhook_enabled': False,
             'webhook_url': '',
-            'webhook_type': 'dingtalk',  # dingtalk 或 feishu
-            'webhook_keyword': 'aiagents通知'  # 钉钉自定义关键词
+            'webhook_type': 'dingtalk',  # dingtalk, feishu 或 gotify
+            'webhook_keyword': 'aiagents通知',  # 钉钉自定义关键词
+            'gotify_server_url': '',  # Gotify服务器地址
+            'gotify_app_token': ''  # Gotify应用令牌
         }
         
         # 从环境变量加载配置
@@ -53,6 +55,12 @@ class NotificationService:
             config['webhook_type'] = os.getenv('WEBHOOK_TYPE').lower()
         if os.getenv('WEBHOOK_KEYWORD'):
             config['webhook_keyword'] = os.getenv('WEBHOOK_KEYWORD')
+        
+        # 新增：加载Gotify配置
+        if os.getenv('GOTIFY_SERVER_URL'):
+            config['gotify_server_url'] = os.getenv('GOTIFY_SERVER_URL')
+        if os.getenv('GOTIFY_APP_TOKEN'):
+            config['gotify_app_token'] = os.getenv('GOTIFY_APP_TOKEN')
         
         return config
     
@@ -289,17 +297,14 @@ class NotificationService:
     def _send_webhook_notification(self, notification: Dict) -> bool:
         """发送Webhook通知"""
         try:
-            # 检查webhook配置是否完整
-            if not self.config['webhook_url']:
-                print("⚠️ Webhook URL未配置")
-                return False
-            
             webhook_type = self.config['webhook_type']
             
             if webhook_type == 'dingtalk':
                 return self._send_dingtalk_webhook(notification)
             elif webhook_type == 'feishu':
                 return self._send_feishu_webhook(notification)
+            elif webhook_type == 'gotify':
+                return self._send_gotify_webhook(notification)
             else:
                 print(f"⚠️ 不支持的webhook类型: {webhook_type}")
                 return False
@@ -312,6 +317,11 @@ class NotificationService:
         """发送钉钉Webhook通知"""
         try:
             import requests
+            
+            # 检查webhook配置是否完整
+            if not self.config['webhook_url']:
+                print("⚠️ 钉钉Webhook URL未配置")
+                return False
             
             # 构建钉钉消息格式（包含自定义关键词）
             keyword = self.config.get('webhook_keyword', '')
@@ -387,6 +397,11 @@ _此消息由AI股票分析系统自动发送_"""
         """发送飞书Webhook通知"""
         try:
             import requests
+            
+            # 检查webhook配置是否完整
+            if not self.config['webhook_url']:
+                print("⚠️ 飞书Webhook URL未配置")
+                return False
             
             # 构建飞书消息格式
             data = {
@@ -487,25 +502,123 @@ _此消息由AI股票分析系统自动发送_"""
             print(f"飞书Webhook发送异常: {e}")
             return False
     
+    def _send_gotify_webhook(self, notification: Dict) -> bool:
+        """发送Gotify通知"""
+        try:
+            import requests
+            
+            # 检查Gotify配置是否完整
+            if not all([self.config['gotify_server_url'], self.config['gotify_app_token']]):
+                print("⚠️ Gotify配置不完整")
+                print(f"  - 服务器地址: {self.config['gotify_server_url'] or '未配置'}")
+                print(f"  - 应用令牌: {'已配置' if self.config['gotify_app_token'] else '未配置'}")
+                return False
+            
+            # 构建Gotify API URL
+            gotify_url = f"{self.config['gotify_server_url'].rstrip('/')}/message"
+            
+            # 构建消息内容
+            title = f"📈 {notification['symbol']} {notification['name']} - {notification['type']}"
+            
+            message = f"""
+股票监测提醒
+
+股票代码: {notification['symbol']}
+股票名称: {notification['name']}
+
+📊 实时行情:
+- 当前价格: {notification.get('current_price', 'N/A')}元
+- 涨跌幅: {notification.get('change_pct', 'N/A')}%
+- 涨跌额: {notification.get('change_amount', 'N/A')}元
+- 成交量: {notification.get('volume', 'N/A')}手
+- 换手率: {notification.get('turnover_rate', 'N/A')}%
+
+🎯 AI决策: {notification['type']}
+
+📝 分析内容: {notification['message']}
+
+💰 持仓信息:
+- 持仓状态: {notification.get('position_status', '未知')}
+- 持仓成本: {notification.get('position_cost', 'N/A')}元
+- 浮动盈亏: {notification.get('profit_loss_pct', 'N/A')}%
+
+⏰ 触发时间: {notification['triggered_at']}
+🕐 交易时段: {notification.get('trading_session', '未知')}
+
+---
+此消息由AI股票分析系统自动发送
+"""
+            
+            # 优先级: 5=紧急, 2=正常, 8=低
+            priority = 5 if notification['type'] in ['风险预警', '紧急提醒'] else 2
+            
+            # 构建附加数据
+            extras = {
+                "client::display": {
+                    "contentType": "text/markdown"
+                }
+            }
+            
+            data = {
+                "title": title,
+                "message": message,
+                "priority": priority,
+                "extras": extras
+            }
+            
+            headers = {
+                'Content-Type': 'application/json',
+                'X-Gotify-Key': self.config['gotify_app_token']
+            }
+            
+            print(f"[Gotify] 正在发送通知...")
+            print(f"  - 服务器: {self.config['gotify_server_url']}")
+            print(f"  - 标题: {title[:50]}...")
+            
+            response = requests.post(
+                gotify_url,
+                json=data,
+                headers=headers,
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                print(f"[成功] Gotify通知发送成功")
+                return True
+            else:
+                print(f"[失败] Gotify请求失败: HTTP {response.status_code}, 响应: {response.text}")
+                return False
+        
+        except Exception as e:
+            print(f"Gotify通知发送异常: {e}")
+            return False
+    
     def send_test_webhook(self) -> tuple[bool, str]:
         """发送测试Webhook"""
         try:
-            # 检查webhook配置是否完整
-            if not self.config['webhook_url']:
-                return False, "Webhook URL未配置，请检查环境变量设置"
-            
-            # 创建测试通知（包含关键词"aiagents通知"以通过钉钉安全设置）
-            test_notification = {
-                'symbol': '测试',
-                'name': 'Webhook配置测试',
-                'type': '系统测试',
-                'message': '如果您收到此消息，说明Webhook配置正确！',
-                'triggered_at': '刚刚'
-            }
-            
             webhook_type = self.config['webhook_type']
             
+            # 创建测试通知
+            test_notification = {
+                'symbol': '000001.SZ',
+                'name': '平安银行',
+                'type': '系统测试',
+                'message': '如果您收到此消息，说明Webhook配置正确！',
+                'triggered_at': '刚刚',
+                'current_price': '15.80',
+                'change_pct': '2.5',
+                'change_amount': '0.38',
+                'volume': '128.5万',
+                'turnover_rate': '1.2%',
+                'position_status': '已持仓',
+                'position_cost': '15.50',
+                'profit_loss_pct': '1.94%',
+                'trading_session': '盘中交易'
+            }
+            
             if webhook_type == 'dingtalk':
+                if not self.config['webhook_url']:
+                    return False, "钉钉Webhook URL未配置，请检查环境变量设置"
                 success = self._send_dingtalk_webhook(test_notification)
                 if success:
                     return True, "钉钉Webhook测试成功！请检查钉钉群消息。"
@@ -513,11 +626,22 @@ _此消息由AI股票分析系统自动发送_"""
                     return False, "钉钉Webhook发送失败，请检查URL和网络连接"
             
             elif webhook_type == 'feishu':
+                if not self.config['webhook_url']:
+                    return False, "飞书Webhook URL未配置，请检查环境变量设置"
                 success = self._send_feishu_webhook(test_notification)
                 if success:
                     return True, "飞书Webhook测试成功！请检查飞书群消息。"
                 else:
                     return False, "飞书Webhook发送失败，请检查URL和网络连接"
+            
+            elif webhook_type == 'gotify':
+                if not all([self.config['gotify_server_url'], self.config['gotify_app_token']]):
+                    return False, "Gotify配置不完整，请检查环境变量设置"
+                success = self._send_gotify_webhook(test_notification)
+                if success:
+                    return True, "Gotify测试成功！请检查Gotify客户端消息。"
+                else:
+                    return False, "Gotify发送失败，请检查服务器地址和应用令牌"
             
             else:
                 return False, f"不支持的webhook类型: {webhook_type}"
@@ -527,12 +651,23 @@ _此消息由AI股票分析系统自动发送_"""
     
     def get_webhook_config_status(self) -> Dict:
         """获取Webhook配置状态"""
-        return {
-            'enabled': self.config['webhook_enabled'],
-            'webhook_type': self.config['webhook_type'],
-            'webhook_url': self.config['webhook_url'][:50] + '...' if self.config['webhook_url'] else '未配置',
-            'configured': bool(self.config['webhook_url'])
-        }
+        webhook_type = self.config['webhook_type']
+        
+        if webhook_type == 'gotify':
+            return {
+                'enabled': self.config['webhook_enabled'],
+                'webhook_type': webhook_type,
+                'gotify_server_url': self.config['gotify_server_url'] or '未配置',
+                'gotify_app_token': '已配置' if self.config['gotify_app_token'] else '未配置',
+                'configured': all([self.config['gotify_server_url'], self.config['gotify_app_token']])
+            }
+        else:
+            return {
+                'enabled': self.config['webhook_enabled'],
+                'webhook_type': webhook_type,
+                'webhook_url': self.config['webhook_url'][:50] + '...' if self.config['webhook_url'] else '未配置',
+                'configured': bool(self.config['webhook_url'])
+            }
     
     def send_portfolio_analysis_notification(self, analysis_results: dict, sync_result: dict = None) -> bool:
         """
@@ -735,38 +870,96 @@ _此消息由AI股票分析系统自动发送_"""
             failed = total - succeeded
             elapsed_time = analysis_results.get("elapsed_time", 0)
             
-            # 构建Markdown消息
-            content = f"### 持仓定时分析完成\\n\\n"
-            content += f"**分析概况**\\n"
-            content += f"- 总数: {total} 只\\n"
-            content += f"- 成功: {succeeded} 只\\n"
-            content += f"- 失败: {failed} 只\\n"
-            content += f"- 耗时: {elapsed_time:.2f} 秒\\n\\n"
+            # 根据webhook类型构建不同的消息
+            webhook_type = self.config['webhook_type']
             
-            if sync_result:
-                content += f"**监测同步**\\n"
-                content += f"- 新增: {sync_result.get('added', 0)} 只\\n"
-                content += f"- 更新: {sync_result.get('updated', 0)} 只\\n\\n"
-            
-            # 根据webhook类型构建请求
-            if self.config['webhook_type'] == 'dingtalk':
+            if webhook_type == 'gotify':
+                # Gotify消息
+                title = "📊 持仓分析完成"
+                message = f"""
+持仓定时分析完成
+
+分析概况:
+- 总数: {total} 只
+- 成功: {succeeded} 只
+- 失败: {failed} 只
+- 耗时: {elapsed_time:.2f} 秒
+"""
+                if sync_result:
+                    message += f"""
+监测同步:
+- 新增: {sync_result.get('added', 0)} 只
+- 更新: {sync_result.get('updated', 0)} 只
+"""
+                
+                # 添加结果摘要
+                message += "\n分析结果摘要:\n"
+                results = analysis_results.get("results", [])
+                for item in results[:5]:  # 只显示前5个结果
+                    code = item.get("code", "")
+                    result = item.get("result", {})
+                    if result.get("success"):
+                        final_decision = result.get("final_decision", {})
+                        rating = final_decision.get("rating", "未知")
+                        message += f"- {code}: {rating}\n"
+                
+                if len(results) > 5:
+                    message += f"... 还有 {len(results) - 5} 只股票\n"
+                
+                # 发送Gotify通知
+                gotify_url = f"{self.config['gotify_server_url'].rstrip('/')}/message"
                 data = {
-                    "msgtype": "markdown",
-                    "markdown": {
-                        "title": f"{self.config['webhook_keyword']}",
-                        "text": f"{self.config['webhook_keyword']}\\n\\n{content}"
+                    "title": title,
+                    "message": message,
+                    "priority": 2,
+                    "extras": {
+                        "client::display": {
+                            "contentType": "text/markdown"
+                        }
                     }
                 }
-            else:  # feishu
-                data = {
-                    "msg_type": "text",
-                    "content": {
-                        "text": content
-                    }
+                
+                headers = {
+                    'Content-Type': 'application/json',
+                    'X-Gotify-Key': self.config['gotify_app_token']
                 }
+                
+                response = requests.post(gotify_url, json=data, headers=headers, timeout=10)
+                return response.status_code == 200
             
-            response = requests.post(self.config['webhook_url'], json=data, timeout=10)
-            return response.status_code == 200
+            else:
+                # 钉钉/飞书消息
+                content = f"### 持仓定时分析完成\\n\\n"
+                content += f"**分析概况**\\n"
+                content += f"- 总数: {total} 只\\n"
+                content += f"- 成功: {succeeded} 只\\n"
+                content += f"- 失败: {failed} 只\\n"
+                content += f"- 耗时: {elapsed_time:.2f} 秒\\n\\n"
+                
+                if sync_result:
+                    content += f"**监测同步**\\n"
+                    content += f"- 新增: {sync_result.get('added', 0)} 只\\n"
+                    content += f"- 更新: {sync_result.get('updated', 0)} 只\\n\\n"
+                
+                # 根据webhook类型构建请求
+                if webhook_type == 'dingtalk':
+                    data = {
+                        "msgtype": "markdown",
+                        "markdown": {
+                            "title": f"{self.config['webhook_keyword']}",
+                            "text": f"{self.config['webhook_keyword']}\\n\\n{content}"
+                        }
+                    }
+                else:  # feishu
+                    data = {
+                        "msg_type": "text",
+                        "content": {
+                            "text": content
+                        }
+                    }
+                
+                response = requests.post(self.config['webhook_url'], json=data, timeout=10)
+                return response.status_code == 200
             
         except Exception as e:
             print(f"[ERROR] Webhook发送失败: {str(e)}")
@@ -774,10 +967,3 @@ _此消息由AI股票分析系统自动发送_"""
 
 # 全局通知服务实例
 notification_service = NotificationService()
-
-
-
-
-
-
-
