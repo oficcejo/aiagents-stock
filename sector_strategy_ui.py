@@ -18,6 +18,7 @@ from sector_strategy_engine import SectorStrategyEngine
 from sector_strategy_pdf import SectorStrategyPDFGenerator
 from sector_strategy_db import SectorStrategyDatabase
 from sector_strategy_scheduler import sector_strategy_scheduler
+import config
 
 
 def _parse_json_field(value, default):
@@ -112,32 +113,20 @@ def display_analysis_tab():
     
     st.markdown("---")
     
-    # 模型选择
-    col1, col2, col3 = st.columns([2, 2, 2])
+    # 分析按钮
+    col1, col2 = st.columns([2, 2])
     
     with col1:
-        # 导入model_config.py中定义的model_options
-        from model_config import model_options as app_model_options
-        selected_model = st.selectbox(
-            "AI模型",
-            list(app_model_options.keys()),
-            format_func=lambda x: app_model_options[x],
-            help="Reasoner模型提供更强的推理能力"
-        )
-    
-    with col2:
-        st.write("")
-        st.write("")
         analyze_button = st.button("🚀 开始智策分析", type="primary", width='content')
     
-    with col3:
-        st.write("")
-        st.write("")
+    with col2:
         if st.button("🔄 清除结果", width='content'):
             if 'sector_strategy_result' in st.session_state:
                 del st.session_state.sector_strategy_result
             st.success("已清除分析结果")
             st.rerun()
+    
+    st.info("💡 提示：AI模型选择在左侧边栏，选择后将在所有功能中生效")
     
     st.markdown("---")
     
@@ -146,6 +135,14 @@ def display_analysis_tab():
         # 清除之前的结果
         if 'sector_strategy_result' in st.session_state:
             del st.session_state.sector_strategy_result
+        
+        # 使用全局模型选择
+        from model_config import model_options
+        selected_model = st.session_state.get('selected_model')
+        if not selected_model or selected_model not in model_options:
+            selected_model = config.DEEPSEEK_MODEL_NAME
+            if selected_model not in model_options:
+                selected_model = list(model_options.keys())[0]
         
         run_sector_strategy_analysis(selected_model)
     
@@ -261,8 +258,17 @@ def display_report_detail(report_id):
     st.info("当前版本仅提供报告摘要，详细页面已移除。")
 
 
-def run_sector_strategy_analysis(model="deepseek-chat"):
+def run_sector_strategy_analysis(model=None):
     """运行智策分析"""
+    
+    # 如果没有传入model，则使用全局模型选择
+    if model is None:
+        from model_config import model_options
+        model = st.session_state.get('selected_model')
+        if not model or model not in model_options:
+            model = config.DEEPSEEK_MODEL_NAME
+            if model not in model_options:
+                model = list(model_options.keys())[0]
     
     # 进度显示
     progress_bar = st.progress(0)

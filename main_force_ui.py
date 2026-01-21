@@ -10,6 +10,7 @@ from main_force_analysis import MainForceAnalyzer
 from main_force_pdf_generator import display_report_download_section
 from main_force_history_ui import display_batch_history
 import pandas as pd
+import config
 
 def display_main_force_selector():
     """显示主力选股界面"""
@@ -127,22 +128,22 @@ def display_main_force_selector():
                 step=100.0
             )
 
-    # 模型选择
-    # 导入model_config.py中定义的model_options
-    from model_config import model_options as app_model_options
-    model = st.selectbox(
-        "选择AI模型",
-        list(app_model_options.keys()),
-        format_func=lambda x: app_model_options[x],
-        help="deepseek-chat速度快，deepseek-reasoner推理能力强"
-    )
-
+    st.info("💡 提示：AI模型选择在左侧边栏，选择后将在所有功能中生效")
+    
     st.markdown("---")
 
     # 开始分析按钮
     if st.button("🚀 开始主力选股", type="primary", width='content'):
 
         with st.spinner("正在获取数据并分析，这可能需要几分钟..."):
+
+            # 使用全局模型选择
+            from model_config import model_options
+            model = st.session_state.get('selected_model')
+            if not model or model not in model_options:
+                model = config.DEEPSEEK_MODEL_NAME
+                if model not in model_options:
+                    model = list(model_options.keys())[0]
 
             # 创建分析器
             analyzer = MainForceAnalyzer(model=model)
@@ -179,171 +180,228 @@ def display_analysis_results(result: dict, analyzer):
     """显示分析结果"""
 
     st.markdown("---")
-    st.markdown("## 📊 分析结果")
+    
+    # 创建左右两列布局：左侧显示分析结果，右侧显示批量分析历史
+    col_left, col_right = st.columns([3, 1])
+    
+    with col_left:
+        st.markdown("## 📊 分析结果")
 
-    # 统计信息
-    col1, col2, col3 = st.columns(3)
+        # 统计信息
+        col1, col2, col3 = st.columns(3)
 
-    with col1:
-        st.metric("获取股票数", result['total_stocks'])
+        with col1:
+            st.metric("获取股票数", result['total_stocks'])
 
-    with col2:
-        st.metric("筛选后", result['filtered_stocks'])
+        with col2:
+            st.metric("筛选后", result['filtered_stocks'])
 
-    with col3:
-        st.metric("最终推荐", len(result['final_recommendations']))
+        with col3:
+            st.metric("最终推荐", len(result['final_recommendations']))
 
-    st.markdown("---")
-
-    # 显示AI分析师完整报告
-    if analyzer and hasattr(analyzer, 'fund_flow_analysis'):
-        display_analyst_reports(analyzer)
-
-    st.markdown("---")
-
-    # 显示推荐股票
-    if result['final_recommendations']:
-        st.markdown("### ⭐ 精选推荐")
-
-        for rec in result['final_recommendations']:
-            with st.expander(
-                f"【第{rec['rank']}名】{rec['symbol']} - {rec['name']}",
-                expanded=(rec['rank'] <= 3)
-            ):
-                display_recommendation_detail(rec)
-
-    # 显示候选股票列表
-    if analyzer and analyzer.raw_stocks is not None and not analyzer.raw_stocks.empty:
         st.markdown("---")
-        st.markdown("### 📋 候选股票列表（筛选后）")
 
-        # 选择关键列显示
-        display_cols = ['股票代码', '股票简称']
+        # 显示AI分析师完整报告
+        if analyzer and hasattr(analyzer, 'fund_flow_analysis'):
+            display_analyst_reports(analyzer)
 
-        # 添加行业列
-        industry_cols = [col for col in analyzer.raw_stocks.columns if '行业' in col]
-        if industry_cols:
-            display_cols.append(industry_cols[0])
+        st.markdown("---")
 
-        # 添加区间主力资金净流入（智能匹配）
-        main_fund_col = None
-        main_fund_patterns = [
-            '区间主力资金流向',      # 实际列名
-            '区间主力资金净流入',
-            '主力资金流向',
-            '主力资金净流入',
-            '主力净流入',
-            '主力资金'
-        ]
-        for pattern in main_fund_patterns:
-            matching = [col for col in analyzer.raw_stocks.columns if pattern in col]
-            if matching:
-                main_fund_col = matching[0]
-                break
-        if main_fund_col:
-            display_cols.append(main_fund_col)
+        # 显示推荐股票
+        if result['final_recommendations']:
+            st.markdown("### ⭐ 精选推荐")
 
-        # 添加区间涨跌幅（前复权）（智能匹配）
-        interval_pct_col = None
-        interval_pct_patterns = [
-            '区间涨跌幅:前复权', '区间涨跌幅:前复权(%)', '区间涨跌幅(%)',
-            '区间涨跌幅', '涨跌幅:前复权', '涨跌幅:前复权(%)', '涨跌幅(%)', '涨跌幅'
-        ]
-        for pattern in interval_pct_patterns:
-            matching = [col for col in analyzer.raw_stocks.columns if pattern in col]
-            if matching:
-                interval_pct_col = matching[0]
-                break
-        if interval_pct_col:
-            display_cols.append(interval_pct_col)
+            for rec in result['final_recommendations']:
+                with st.expander(
+                    f"【第{rec['rank']}名】{rec['symbol']} - {rec['name']}",
+                    expanded=(rec['rank'] <= 3)
+                ):
+                    display_recommendation_detail(rec)
 
-        # 添加市值、市盈率、市净率
-        for col_name in ['总市值', '市盈率', '市净率']:
-            matching_cols = [col for col in analyzer.raw_stocks.columns if col_name in col]
-            if matching_cols:
-                display_cols.append(matching_cols[0])
+        # 显示候选股票列表
+        if analyzer and analyzer.raw_stocks is not None and not analyzer.raw_stocks.empty:
+            st.markdown("---")
+            st.markdown("### 📋 候选股票列表（筛选后）")
 
-        # 选择存在的列
-        final_cols = [col for col in display_cols if col in analyzer.raw_stocks.columns]
+            # 选择关键列显示
+            display_cols = ['股票代码', '股票简称']
 
-        # 调试信息：显示找到的列名
-        with st.expander("🔍 调试信息 - 查看数据列", expanded=False):
-            st.caption("所有可用列:")
-            cols_list = list(analyzer.raw_stocks.columns)
-            st.write(cols_list)
-            st.caption(f"\n已选择显示的列: {final_cols}")
+            # 添加行业列
+            industry_cols = [col for col in analyzer.raw_stocks.columns if '行业' in col]
+            if industry_cols:
+                display_cols.append(industry_cols[0])
+
+            # 添加区间主力资金净流入（智能匹配）
+            main_fund_col = None
+            main_fund_patterns = [
+                '区间主力资金流向',      # 实际列名
+                '区间主力资金净流入',
+                '主力资金流向',
+                '主力资金净流入',
+                '主力净流入',
+                '主力资金'
+            ]
+            for pattern in main_fund_patterns:
+                matching = [col for col in analyzer.raw_stocks.columns if pattern in col]
+                if matching:
+                    main_fund_col = matching[0]
+                    break
             if main_fund_col:
-                st.success(f"✅ 找到主力资金列: {main_fund_col}")
-            else:
-                st.warning("⚠️ 未找到主力资金列")
+                display_cols.append(main_fund_col)
+
+            # 添加区间涨跌幅（前复权）（智能匹配）
+            interval_pct_col = None
+            interval_pct_patterns = [
+                '区间涨跌幅:前复权', '区间涨跌幅:前复权(%)', '区间涨跌幅(%)',
+                '区间涨跌幅', '涨跌幅:前复权', '涨跌幅:前复权(%)', '涨跌幅(%)', '涨跌幅'
+            ]
+            for pattern in interval_pct_patterns:
+                matching = [col for col in analyzer.raw_stocks.columns if pattern in col]
+                if matching:
+                    interval_pct_col = matching[0]
+                    break
             if interval_pct_col:
-                st.success(f"✅ 找到涨跌幅列: {interval_pct_col}")
-            else:
-                st.warning("⚠️ 未找到涨跌幅列")
+                display_cols.append(interval_pct_col)
 
-        # 显示DataFrame
-        display_df = analyzer.raw_stocks[final_cols].copy()
-        st.dataframe(display_df, width='content', height=400)
+            # 添加市值、市盈率、市净率
+            for col_name in ['总市值', '市盈率', '市净率']:
+                matching_cols = [col for col in analyzer.raw_stocks.columns if col_name in col]
+                if matching_cols:
+                    display_cols.append(matching_cols[0])
 
-        # 显示统计
-        st.caption(f"共 {len(display_df)} 只候选股票，显示 {len(final_cols)} 个字段")
+            # 选择存在的列
+            final_cols = [col for col in display_cols if col in analyzer.raw_stocks.columns]
 
-        # 下载按钮
-        csv = display_df.to_csv(index=False, encoding='utf-8-sig')
-        st.download_button(
-            label="📥 下载候选列表CSV",
-            data=csv,
-            file_name=f"main_force_stocks_{datetime.now().strftime('%Y%m%d')}.csv",
-            mime="text/csv"
-        )
+            # 调试信息：显示找到的列名
+            with st.expander("🔍 调试信息 - 查看数据列", expanded=False):
+                st.caption("所有可用列:")
+                cols_list = list(analyzer.raw_stocks.columns)
+                st.write(cols_list)
+                st.caption(f"\n已选择显示的列: {final_cols}")
+                if main_fund_col:
+                    st.success(f"✅ 找到主力资金列: {main_fund_col}")
+                else:
+                    st.warning("⚠️ 未找到主力资金列")
+                if interval_pct_col:
+                    st.success(f"✅ 找到涨跌幅列: {interval_pct_col}")
+                else:
+                    st.warning("⚠️ 未找到涨跌幅列")
 
-        # 批量分析功能区
-        st.markdown("---")
+            # 显示DataFrame
+            display_df = analyzer.raw_stocks[final_cols].copy()
+            st.dataframe(display_df, width='content', height=400)
 
-        col_batch1, col_batch2, col_batch3 = st.columns([2, 1, 1])
-        with col_batch1:
-            st.markdown("#### 🚀 批量深度分析")
-            st.caption("对主力资金净流入TOP股票进行完整的AI团队分析，获取投资评级和关键价位")
+            # 显示统计
+            st.caption(f"共 {len(display_df)} 只候选股票，显示 {len(final_cols)} 个字段")
 
-        with col_batch2:
-            batch_count = st.selectbox(
-                "分析数量",
-                options=[10, 20, 30, 50],
-                index=1,  # 默认20只
-                help="选择分析主力资金净流入前N只股票"
+            # 下载按钮
+            csv = display_df.to_csv(index=False, encoding='utf-8-sig')
+            st.download_button(
+                label="📥 下载候选列表CSV",
+                data=csv,
+                file_name=f"main_force_stocks_{datetime.now().strftime('%Y%m%d')}.csv",
+                mime="text/csv"
             )
 
-        with col_batch3:
-            st.write("")  # 占位
-            if st.button("🚀 开始批量分析", type="primary", width='content'):
-                # 准备数据：按主力资金净流入排序
-                df_sorted = analyzer.raw_stocks.copy()
+            # 批量分析功能区
+            st.markdown("---")
 
-                # 确保主力资金列是数值类型并排序
-                if main_fund_col:
-                    df_sorted[main_fund_col] = pd.to_numeric(df_sorted[main_fund_col], errors='coerce')
-                    df_sorted = df_sorted.sort_values(by=main_fund_col, ascending=False)
+            col_batch1, col_batch2, col_batch3 = st.columns([2, 1, 1])
+            with col_batch1:
+                st.markdown("#### 🚀 批量深度分析")
+                st.caption("对主力资金净流入TOP股票进行完整的AI团队分析，获取投资评级和关键价位")
 
-                # 提取股票代码并去掉市场后缀（.SH, .SZ等）
-                raw_codes = df_sorted.head(batch_count)['股票代码'].tolist()
-                stock_codes = []
-                for code in raw_codes:
-                    # 去掉后缀（如果有的话）
-                    if isinstance(code, str):
-                        # 去掉 .SH, .SZ, .BJ 等后缀
-                        clean_code = code.split('.')[0] if '.' in code else code
-                        stock_codes.append(clean_code)
-                    else:
-                        stock_codes.append(str(code))
+            with col_batch2:
+                batch_count = st.selectbox(
+                    "分析数量",
+                    options=[10, 20, 30, 50],
+                    index=1,  # 默认20只
+                    help="选择分析主力资金净流入前N只股票"
+                )
 
-                # 存储到session_state，触发批量分析
-                st.session_state.main_force_batch_codes = stock_codes
-                st.session_state.main_force_batch_trigger = True
-                st.rerun()
+            with col_batch3:
+                st.write("")  # 占位
+                if st.button("🚀 开始批量分析", type="primary", width='content'):
+                    # 准备数据：按主力资金净流入排序
+                    df_sorted = analyzer.raw_stocks.copy()
 
-    # 显示PDF报告下载区域
-    if analyzer and result:
-        display_report_download_section(analyzer, result)
+                    # 确保主力资金列是数值类型并排序
+                    if main_fund_col:
+                        df_sorted[main_fund_col] = pd.to_numeric(df_sorted[main_fund_col], errors='coerce')
+                        df_sorted = df_sorted.sort_values(by=main_fund_col, ascending=False)
+
+                    # 提取股票代码并去掉市场后缀（.SH, .SZ等）
+                    raw_codes = df_sorted.head(batch_count)['股票代码'].tolist()
+                    stock_codes = []
+                    for code in raw_codes:
+                        # 去掉后缀（如果有的话）
+                        if isinstance(code, str):
+                            # 去掉 .SH, .SZ, .BJ 等后缀
+                            clean_code = code.split('.')[0] if '.' in code else code
+                            stock_codes.append(clean_code)
+                        else:
+                            stock_codes.append(str(code))
+
+                    # 存储到session_state，触发批量分析
+                    st.session_state.main_force_batch_codes = stock_codes
+                    st.session_state.main_force_batch_trigger = True
+                    st.rerun()
+
+        # 显示PDF报告下载区域
+        if analyzer and result:
+            display_report_download_section(analyzer, result)
+    
+    # 右侧栏：显示批量分析历史
+    with col_right:
+        st.markdown("### 📚 批量分析历史")
+        st.markdown("---")
+        
+        try:
+            from main_force_batch_db import batch_db
+            
+            # 获取最近的历史记录
+            history_records = batch_db.get_all_history(limit=5)
+            
+            if history_records:
+                for idx, record in enumerate(history_records):
+                    with st.expander(
+                        f"📅 {record['analysis_date'][:10]}",
+                        expanded=(idx == 0)
+                    ):
+                        st.caption(f"**时间**: {record['analysis_date']}")
+                        st.caption(f"**模式**: {record['analysis_mode']}")
+                        st.caption(f"**总数**: {record['batch_count']} 只")
+                        st.caption(f"**成功**: {record['success_count']} 只")
+                        st.caption(f"**失败**: {record['failed_count']} 只")
+                        success_rate = (record['success_count'] / record['batch_count'] * 100) if record['batch_count'] > 0 else 0
+                        st.caption(f"**成功率**: {success_rate:.1f}%")
+                        st.caption(f"**耗时**: {record['total_time']/60:.1f} 分钟")
+                        
+                        # 加载按钮
+                        if st.button(f"🔄 加载", key=f"load_history_{record['id']}", use_container_width=True):
+                            st.session_state.main_force_batch_results = {
+                                "results": record['results'],
+                                "total": record['batch_count'],
+                                "success": record['success_count'],
+                                "failed": record['failed_count'],
+                                "elapsed_time": record['total_time'],
+                                "analysis_mode": record['analysis_mode'],
+                                "saved_to_history": True,  # 从历史记录加载，说明已经保存
+                                "save_error": None
+                            }
+                            st.success("✅ 已加载到当前结果")
+                            st.rerun()
+            else:
+                st.info("📝 暂无批量分析历史记录")
+                
+        except Exception as e:
+            st.warning(f"⚠️ 无法加载历史记录: {str(e)}")
+        
+        # 查看全部历史按钮
+        st.markdown("---")
+        if st.button("📚 查看全部历史", use_container_width=True):
+            st.session_state.main_force_view_history = True
+            st.rerun()
 
 def display_recommendation_detail(rec: dict):
     """显示单个推荐股票的详细信息"""
@@ -613,7 +671,15 @@ def run_main_force_batch_analysis():
             'sentiment': False,  # 禁用以提升速度
             'news': False  # 禁用以提升速度
         }
-        selected_model = 'deepseek-chat'
+
+        # 使用全局模型选择（优先使用侧边栏选择，回退到配置文件）
+        from model_config import model_options
+        selected_model = st.session_state.get('selected_model')
+        if not selected_model or selected_model not in model_options:
+            selected_model = config.DEEPSEEK_MODEL_NAME
+            if selected_model not in model_options:
+                selected_model = list(model_options.keys())[0]
+
         period = '1y'
 
         # 创建进度显示
@@ -721,57 +787,109 @@ def run_main_force_batch_analysis():
         # 先保存到数据库历史记录（在 rerun 之前完成）
         save_success = False
         save_error = None
-        try:
-            from main_force_batch_db import batch_db
+        
+        # 检查是否有结果需要保存
+        if not results or len(results) == 0:
+            print(f"⚠️ 警告: 没有结果需要保存 (results为空或长度为0)")
+            save_error = "没有分析结果需要保存"
+            st.warning("⚠️ 没有分析结果需要保存到历史记录")
+        else:
+            try:
+                from main_force_batch_db import batch_db
 
-            # 调试信息
-            print(f"\n{'='*60}")
-            print(f"📝 准备保存批量分析结果到历史记录")
-            print(f"{'='*60}")
-            print(f"股票代码数: {len(stock_codes)}")
-            print(f"分析模式: {analysis_mode}")
-            print(f"成功数: {success_count}")
-            print(f"失败数: {failed_count}")
-            print(f"总耗时: {elapsed_time:.2f}秒")
-            print(f"结果数: {len(results)}")
+                # 调试信息
+                print(f"\n{'='*60}")
+                print(f"📝 准备保存批量分析结果到历史记录")
+                print(f"{'='*60}")
+                print(f"股票代码数: {len(stock_codes)}")
+                print(f"分析模式: {analysis_mode}")
+                print(f"成功数: {success_count}")
+                print(f"失败数: {failed_count}")
+                print(f"总耗时: {elapsed_time:.2f}秒")
+                print(f"结果数: {len(results)}")
 
-            # 检查结果数据类型
-            print(f"\n检查结果数据类型:")
-            for i, result in enumerate(results[:3]):  # 只检查前3个
-                print(f"  结果 {i+1}:")
-                for key, value in list(result.items())[:5]:  # 只检查前5个字段
-                    print(f"    - {key}: {type(value).__name__}")
+                # 检查结果数据类型
+                print(f"\n检查结果数据类型:")
+                for i, result in enumerate(results[:3]):  # 只检查前3个
+                    print(f"  结果 {i+1}:")
+                    for key, value in list(result.items())[:5]:  # 只检查前5个字段
+                        print(f"    - {key}: {type(value).__name__}")
 
-            print(f"\n开始保存到数据库...")
-            save_start = time.time()
+                print(f"\n开始保存到数据库...")
+                save_start = time.time()
 
-            # 保存到数据库
-            record_id = batch_db.save_batch_analysis(
-                batch_count=len(stock_codes),
-                analysis_mode=analysis_mode,
-                success_count=success_count,
-                failed_count=failed_count,
-                total_time=elapsed_time,
-                results=results
-            )
+                # 检查数据库路径（调试用）
+                print(f"数据库实例路径: {batch_db.db_path}")
+                import os
+                print(f"数据库文件存在: {os.path.exists(batch_db.db_path)}")
+                if os.path.exists(batch_db.db_path):
+                    print(f"数据库文件大小: {os.path.getsize(batch_db.db_path)} 字节")
+                else:
+                    print(f"⚠️ 警告: 数据库文件不存在！")
+                    st.error(f"❌ 数据库文件不存在: {batch_db.db_path}")
+                
+                # 保存到数据库
+                print(f"调用 save_batch_analysis...")
+                record_id = batch_db.save_batch_analysis(
+                    batch_count=len(stock_codes),
+                    analysis_mode=analysis_mode,
+                    success_count=success_count,
+                    failed_count=failed_count,
+                    total_time=elapsed_time,
+                    results=results
+                )
 
-            save_elapsed = time.time() - save_start
-            print(f"✅ 批量分析结果已保存到历史记录")
-            print(f"   记录ID: {record_id}")
-            print(f"   保存耗时: {save_elapsed:.2f}秒")
-            print(f"{'='*60}\n")
-            save_success = True
+                save_elapsed = time.time() - save_start
+                print(f"✅ 批量分析结果已保存到历史记录")
+                print(f"   记录ID: {record_id}")
+                print(f"   保存耗时: {save_elapsed:.2f}秒")
+                print(f"{'='*60}\n")
+                
+                # 验证保存是否成功（立即查询）
+                try:
+                    print(f"验证保存结果...")
+                    verify_records = batch_db.get_all_history(limit=1)
+                    if verify_records:
+                        latest_record = verify_records[0]
+                        print(f"✅ 保存验证成功：最新记录ID={latest_record.get('id')}, 时间={latest_record.get('analysis_date')}")
+                        save_success = True
+                        st.success(f"✅ 批量分析结果已保存到历史记录（记录ID: {latest_record.get('id')}）")
+                    else:
+                        print(f"⚠️ 保存验证失败：查询结果为空")
+                        save_error = "保存后查询不到记录，可能是数据库路径不一致"
+                        save_success = False
+                        st.error(f"❌ 保存验证失败：查询结果为空")
+                except Exception as verify_e:
+                    import traceback
+                    print(f"⚠️ 保存验证失败：{str(verify_e)}")
+                    print(traceback.format_exc())
+                    save_error = f"保存验证失败: {str(verify_e)}"
+                    save_success = False
+                    st.error(f"❌ 保存验证失败: {str(verify_e)}")
+                    with st.expander("🔍 查看详细错误", expanded=False):
+                        st.code(traceback.format_exc())
 
-        except Exception as e:
-            import traceback
-            save_error = str(e)
-            print(f"\n{'='*60}")
-            print(f"⚠️ 保存历史记录失败")
-            print(f"{'='*60}")
-            print(f"错误信息: {str(e)}")
-            print(f"详细错误:")
-            print(traceback.format_exc())
-            print(f"{'='*60}\n")
+            except Exception as e:
+                import traceback
+                save_error = str(e)
+                error_traceback = traceback.format_exc()
+                
+                print(f"\n{'='*60}")
+                print(f"⚠️ 保存历史记录失败")
+                print(f"{'='*60}")
+                print(f"错误信息: {str(e)}")
+                print(f"详细错误:")
+                print(error_traceback)
+                print(f"{'='*60}\n")
+                
+                # 在页面上也显示错误信息
+                st.error(f"❌ 保存历史记录失败: {str(e)}")
+                with st.expander("🔍 查看详细错误信息", expanded=True):
+                    st.code(error_traceback)
+        
+        # 如果save_error已设置（在验证失败时），也要显示
+        if save_error and save_success == False:
+            st.warning(f"⚠️ 保存状态异常: {save_error}")
 
         # 保存结果到session_state
         st.session_state.main_force_batch_results = {
@@ -784,6 +902,10 @@ def run_main_force_batch_analysis():
             "saved_to_history": save_success,
             "save_error": save_error
         }
+
+        # 清除触发标志，避免重复执行
+        if 'main_force_batch_trigger' in st.session_state:
+            del st.session_state.main_force_batch_trigger
 
         time.sleep(0.5)
 

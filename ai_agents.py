@@ -1,13 +1,30 @@
 from deepseek_client import DeepSeekClient
 from typing import Dict, Any
 import time
+import config
 
 class StockAnalysisAgents:
     """股票分析AI智能体集合"""
     
-    def __init__(self, model="deepseek-chat"):
-        self.model = model
-        self.deepseek_client = DeepSeekClient(model=model)
+    def __init__(self, model=None):
+        # 调试：打印传入的参数和配置
+        print(f"[StockAnalysisAgents.__init__] 传入参数: model={model}")
+        print(f"[StockAnalysisAgents.__init__] 配置文件中的 DEEPSEEK_MODEL_NAME: {config.DEEPSEEK_MODEL_NAME}")
+        
+        # 强制使用配置文件中的默认模型
+        # 如果传入的是 None、空字符串或旧的默认值 "deepseek-chat"，都使用配置文件的值
+        if model is None or model == "" or model == "deepseek-chat":
+            self.model = config.DEEPSEEK_MODEL_NAME
+            if model == "deepseek-chat":
+                print(f"[StockAnalysisAgents.__init__] ⚠️ 检测到传入的模型是旧的默认值 'deepseek-chat'，强制使用配置文件中的模型: {self.model}")
+            else:
+                print(f"[StockAnalysisAgents.__init__] 使用配置文件中的默认模型: {self.model}")
+        else:
+            self.model = model
+            print(f"[StockAnalysisAgents.__init__] 使用传入的模型参数: {self.model}")
+        
+        print(f"[StockAnalysisAgents.__init__] ✅ 最终使用的模型: {self.model}")
+        self.deepseek_client = DeepSeekClient(model=self.model)
         
     def technical_analyst_agent(self, stock_info: Dict, stock_data: Any, indicators: Dict) -> Dict[str, Any]:
         """技术面分析智能体"""

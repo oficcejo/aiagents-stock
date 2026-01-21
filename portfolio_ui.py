@@ -285,12 +285,25 @@ def display_batch_analysis():
             help="通过邮件或Webhook发送分析完成通知"
         )
     
+    st.info("💡 提示：AI模型选择在左侧边栏，选择后将在所有功能中生效")
+    
+    st.markdown("---")
+    
     # 立即分析按钮
     if st.button("🚀 立即开始分析", type="primary", width='content'):
         with st.spinner("正在批量分析持仓股票..."):
             # 显示进度
             progress_bar = st.progress(0)
             status_text = st.empty()
+            
+            # 使用全局模型选择
+            from model_config import model_options
+            import config
+            selected_model = st.session_state.get('selected_model')
+            if not selected_model or selected_model not in model_options:
+                selected_model = config.DEEPSEEK_MODEL_NAME
+                if selected_model not in model_options:
+                    selected_model = list(model_options.keys())[0]
             
             # 执行批量分析
             try:
@@ -308,7 +321,8 @@ def display_batch_analysis():
                 result = portfolio_manager.batch_analyze_portfolio(
                     mode=analysis_mode,
                     max_workers=max_workers,
-                    progress_callback=update_progress
+                    progress_callback=update_progress,
+                    model=selected_model
                 )
                 
                 # 清除进度显示

@@ -14,14 +14,27 @@ from deepseek_client import DeepSeekClient
 import time
 import json
 
+import config
+
 class MainForceAnalyzer:
     """主力选股分析器 - 批量整体分析"""
     
-    def __init__(self, model='deepseek-chat'):
+    def __init__(self, model=None):
+        # 强制使用配置文件中的默认模型
+        # 如果传入的是 None、空字符串或旧的默认值 "deepseek-chat"，都使用配置文件的值
+        if model is None or model == "" or model == "deepseek-chat":
+            self.model = config.DEEPSEEK_MODEL_NAME
+            if model == "deepseek-chat":
+                print(f"[MainForceAnalyzer] ⚠️ 检测到传入的模型是旧的默认值 'deepseek-chat'，强制使用配置文件中的模型: {self.model}")
+            else:
+                print(f"[MainForceAnalyzer] 使用配置文件中的默认模型: {self.model}")
+        else:
+            self.model = model
+            print(f"[MainForceAnalyzer] 使用传入的模型参数: {self.model}")
+        print(f"[MainForceAnalyzer] ✅ 最终使用的模型: {self.model}")
         self.selector = main_force_selector
         self.fetcher = StockDataFetcher()
-        self.model = model
-        self.agents = StockAnalysisAgents(model=model)
+        self.agents = StockAnalysisAgents(model=self.model)
         self.deepseek_client = self.agents.deepseek_client
         self.raw_stocks = None
         self.final_recommendations = []

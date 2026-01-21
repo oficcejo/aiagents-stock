@@ -2,16 +2,55 @@ import openai
 import json
 from typing import Dict, List, Any, Optional
 import config
+import logging
+import os
+
+# 配置日志
+logger = logging.getLogger(__name__)
+# 如果没有配置handler，则添加默认配置
+if not logger.handlers:
+    logging.basicConfig(
+        level=logging.INFO,
+        format='[%(asctime)s] %(levelname)s %(name)s: %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
 
 class DeepSeekClient:
     """DeepSeek API客户端"""
     
-    def __init__(self, model="deepseek-chat"):
-        self.model = model
+    def __init__(self, model=None):
+        # 调试：打印传入的参数和配置
+        logger.info(f"[DeepSeekClient.__init__] 传入参数: model={model}")
+        logger.info(f"[DeepSeekClient.__init__] 配置文件中的 DEEPSEEK_MODEL_NAME: {config.DEEPSEEK_MODEL_NAME}")
+        print(f"[DeepSeekClient.__init__] 传入参数: model={model}")
+        print(f"[DeepSeekClient.__init__] 配置文件中的 DEEPSEEK_MODEL_NAME: {config.DEEPSEEK_MODEL_NAME}")
+        print(f"[DeepSeekClient.__init__] 环境变量 DEEPSEEK_MODEL_NAME: {os.getenv('DEEPSEEK_MODEL_NAME', '未设置')}")
+        
+        # 强制使用配置文件中的默认模型
+        # 如果传入的是 None、空字符串或旧的默认值 "deepseek-chat"，都使用配置文件的值
+        if model is None or model == "" or model == "deepseek-chat":
+            self.model = config.DEEPSEEK_MODEL_NAME
+            if model == "deepseek-chat":
+                logger.warning(f"[DeepSeekClient.__init__] ⚠️ 检测到传入的模型是旧的默认值 'deepseek-chat'，强制使用配置文件中的模型: {self.model}")
+                print(f"[DeepSeekClient.__init__] ⚠️ 检测到传入的模型是旧的默认值 'deepseek-chat'，强制使用配置文件中的模型: {self.model}")
+            else:
+                logger.info(f"[DeepSeekClient.__init__] 使用配置文件中的默认模型: {self.model}")
+                print(f"[DeepSeekClient.__init__] ✅ 使用配置文件中的默认模型: {self.model}")
+            # 如果配置文件的模型仍然是默认值，发出警告
+            if self.model == "deepseek-chat":
+                print(f"[DeepSeekClient.__init__] ⚠️ 警告: 模型仍然是默认值 'deepseek-chat'，请检查 .env 文件中的 DEEPSEEK_MODEL_NAME 配置")
+        else:
+            self.model = model
+            logger.info(f"[DeepSeekClient.__init__] 使用传入的模型参数: {self.model}")
+            print(f"[DeepSeekClient.__init__] 使用传入的模型参数: {self.model}")
+        
+        self.base_url = config.DEEPSEEK_BASE_URL
         self.client = openai.OpenAI(
             api_key=config.DEEPSEEK_API_KEY,
-            base_url=config.DEEPSEEK_BASE_URL
+            base_url=self.base_url
         )
+        logger.info(f"[DeepSeekClient] 初始化完成 - 最终使用的模型: {self.model}, API地址: {self.base_url}")
+        print(f"[DeepSeekClient] ✅ 初始化完成 - 最终使用的模型: {self.model}, API地址: {self.base_url}")
         
     def call_api(self, messages: List[Dict[str, str]], model: Optional[str] = None, 
                  temperature: float = 0.7, max_tokens: int = 2000) -> str:
@@ -20,8 +59,37 @@ class DeepSeekClient:
         model_to_use = model or self.model
         
         # 对于 reasoner 模型，自动增加 max_tokens
+        original_max_tokens = max_tokens
         if "reasoner" in model_to_use.lower() and max_tokens <= 2000:
             max_tokens = 8000  # reasoner 模型需要更多 tokens 来输出推理过程
+        
+        # 计算输入消息的token估算（简单估算：字符数/4）
+        total_chars = sum(len(str(msg.get('content', ''))) for msg in messages)
+        estimated_tokens = total_chars // 4
+        
+        # 准备消息摘要（安全处理）
+        message_summaries = []
+        for msg in messages[:3]:
+            role = msg.get('role', 'unknown')
+            content = str(msg.get('content', ''))
+            if len(content) > 50:
+                content = content[:50] + '...'
+            message_summaries.append(f"{role}:{content}")
+        
+        # 输出模型调用信息（同时输出到日志和控制台）
+        log_msg = f"""
+{'=' * 60}
+[DeepSeekClient] 准备调用API
+  模型名称: {model_to_use}
+  API地址: {self.base_url}
+  消息数量: {len(messages)}
+  估算输入Token: ~{estimated_tokens}
+  温度参数: {temperature}
+  最大输出Token: {max_tokens}{f' (已从{original_max_tokens}自动调整)' if max_tokens != original_max_tokens else ''}
+  消息摘要: {message_summaries}
+{'=' * 60}"""
+        logger.info(log_msg)
+        print(log_msg)  # 同时输出到控制台，方便调试
         
         try:
             response = self.client.chat.completions.create(
@@ -30,6 +98,17 @@ class DeepSeekClient:
                 temperature=temperature,
                 max_tokens=max_tokens
             )
+            
+            # 输出响应信息
+            if response and hasattr(response, 'usage'):
+                usage = response.usage
+                usage_info = f"""
+[DeepSeekClient] API调用成功
+  实际输入Token: {usage.prompt_tokens if hasattr(usage, 'prompt_tokens') else 'N/A'}
+  实际输出Token: {usage.completion_tokens if hasattr(usage, 'completion_tokens') else 'N/A'}
+  总Token: {usage.total_tokens if hasattr(usage, 'total_tokens') else 'N/A'}"""
+                logger.info(usage_info)
+                print(usage_info)  # 同时输出到控制台
             
             # 处理 reasoner 模型的响应
             message = response.choices[0].message
@@ -49,6 +128,8 @@ class DeepSeekClient:
             return result if result else "API返回空响应"
             
         except Exception as e:
+            logger.error(f"[DeepSeekClient] API调用失败: {str(e)}")
+            logger.error(f"  模型: {model_to_use}, API地址: {self.base_url}")
             return f"API调用失败: {str(e)}"
     
     def technical_analysis(self, stock_info: Dict, stock_data: Any, indicators: Dict) -> str:

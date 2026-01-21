@@ -16,17 +16,26 @@ import logging
 class LonghubangEngine:
     """龙虎榜综合分析引擎"""
     
-    def __init__(self, model="deepseek-chat", db_path='longhubang.db'):
+    def __init__(self, model=None, db_path=None):
         """
         初始化分析引擎
         
         Args:
-            model: AI模型名称
+            model: AI模型名称（如果不传入，则使用配置文件中的默认模型）
             db_path: 数据库路径
         """
+        import config
+        # 强制使用配置文件中的默认模型
+        # 如果传入的是 None、空字符串或旧的默认值 "deepseek-chat"，都使用配置文件的值
+        if model is None or model == "" or model == "deepseek-chat":
+            self.model = config.DEEPSEEK_MODEL_NAME
+            if model == "deepseek-chat":
+                print(f"[智瞰龙虎引擎] ⚠️ 检测到传入的模型是旧的默认值 'deepseek-chat'，强制使用配置文件中的模型: {self.model}")
+        else:
+            self.model = model
         self.data_fetcher = LonghubangDataFetcher()
         self.database = LonghubangDatabase(db_path)
-        self.agents = LonghubangAgents(model=model)
+        self.agents = LonghubangAgents(model=self.model)
         self.scoring = LonghubangScoring()
         # 初始化日志
         self.logger = logging.getLogger(__name__)
