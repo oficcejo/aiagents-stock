@@ -51,8 +51,8 @@ RUN npm config set registry https://registry.npmmirror.com/
 COPY requirements.txt .
 
 # 安装Python依赖（使用清华源，更稳定）
-RUN pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple/ && \
-    pip config set global.trusted-host pypi.tuna.tsinghua.edu.cn && \
+RUN #pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple/ && \
+    #pip config set global.trusted-host pypi.tuna.tsinghua.edu.cn && \
     pip install --no-cache-dir --default-timeout=1000 -r requirements.txt
 
 # 复制项目文件
