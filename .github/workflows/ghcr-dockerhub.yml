@@ -14,7 +14,7 @@ env:
   DOCKERHUB_REGISTRY: docker.io
   # 镜像名称配置
   GHCR_IMAGE_NAME: ${{ github.repository }}
-  DOCKERHUB_IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME || github.repository_owner }}/$(echo ${GITHUB_REPOSITORY##*/} | tr '[:upper:]' '[:lower:]')
+  DOCKERHUB_IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}
   # Dockerfile 路径
   DOCKERFILE_PATH: ./Dockerfile-cn
 
