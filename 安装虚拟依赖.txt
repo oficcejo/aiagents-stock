@@ -1,0 +1,12 @@
+### 进入项目文件夹
+python -m venv venv
+### 复制run.bat到项目文件夹，双击
+### 安装依赖
+pip install -r requirements.txt
+
+# 启动服务
+uvicorn src.api.main:app --reload --port 8000
+
+# 测试初始化
+python.exe scripts\test_data_source_init.py
+
