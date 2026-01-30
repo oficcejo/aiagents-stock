@@ -218,12 +218,12 @@ class StockMonitorDatabase:
         cursor = conn.cursor()
         
         cursor.execute('''
-            SELECT n.id, n.stock_id, s.symbol, s.name, n.type, n.message, n.triggered_at
+            SELECT n.id, n.stock_id, s.symbol, s.name, n.type, n.message, datetime(n.triggered_at, 'localtime') as local_triggered_at
             FROM notifications n
             JOIN monitored_stocks s ON n.stock_id = s.id
             WHERE n.sent = FALSE
             ORDER BY n.triggered_at
-        ''')
+        ''') # 发送通知时转换为本地时间
         
         notifications = []
         for row in cursor.fetchall():
