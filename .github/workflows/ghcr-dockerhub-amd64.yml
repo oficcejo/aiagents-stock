@@ -1,4 +1,4 @@
-name: Build and Push Docker Image to Multiple Registries amd64
+name: Build and Push Docker Image(amd64架构) to ghcr and dockerhub
 
 on:
   workflow_dispatch:
