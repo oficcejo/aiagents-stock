@@ -288,7 +288,7 @@ def main():
         if st.button("🏠 股票分析", width='stretch', key="nav_home", help="返回首页，进行单只股票的深度分析"):
             # 清除所有功能页面标志
             for key in ['show_history', 'show_monitor', 'show_config', 'show_main_force',
-                       'show_sector_strategy', 'show_longhubang', 'show_portfolio', 'show_low_price_bull', 'show_news_flow', 'show_macro_cycle']:
+                       'show_sector_strategy', 'show_longhubang', 'show_portfolio', 'show_low_price_bull', 'show_news_flow', 'show_macro_cycle', 'show_value_stock']:
                 if key in st.session_state:
                     del st.session_state[key]
 
@@ -322,7 +322,14 @@ def main():
             if st.button("📈 净利增长", width='stretch', key="nav_profit_growth", help="净利润增长稳健股票筛选策略"):
                 st.session_state.show_profit_growth = True
                 for key in ['show_history', 'show_monitor', 'show_config', 'show_sector_strategy',
-                           'show_longhubang', 'show_portfolio', 'show_main_force', 'show_low_price_bull', 'show_small_cap', 'show_news_flow']:
+                           'show_longhubang', 'show_portfolio', 'show_main_force', 'show_low_price_bull', 'show_small_cap', 'show_news_flow', 'show_value_stock']:
+                    if key in st.session_state:
+                        del st.session_state[key]
+
+            if st.button("💎 低估值策略", width='stretch', key="nav_value_stock", help="低PE+低PB+高股息+低负债 价值投资筛选"):
+                st.session_state.show_value_stock = True
+                for key in ['show_history', 'show_monitor', 'show_config', 'show_sector_strategy',
+                           'show_longhubang', 'show_portfolio', 'show_main_force', 'show_low_price_bull', 'show_small_cap', 'show_profit_growth', 'show_news_flow', 'show_macro_cycle']:
                     if key in st.session_state:
                         del st.session_state[key]
 
@@ -517,6 +524,12 @@ def main():
     if 'show_profit_growth' in st.session_state and st.session_state.show_profit_growth:
         from profit_growth_ui import display_profit_growth
         display_profit_growth()
+        return
+
+    # 检查是否显示低估值策略
+    if 'show_value_stock' in st.session_state and st.session_state.show_value_stock:
+        from value_stock_ui import display_value_stock
+        display_value_stock()
         return
 
     # 检查是否显示智策板块
