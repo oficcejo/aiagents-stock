@@ -7,8 +7,10 @@
 ## 股票知识讲解合集：https://www.bilibili.com/video/BV1Y2FGzzEeS/
 ## 投资认知提升合集：https://www.bilibili.com/video/BV1ugBMBAEbW
 ## 价值投资核心逻辑：https://www.bilibili.com/video/BV1eJfxBrEjZ
+## ETH币圈超短线项目：https://github.com/oficcejo/okx-short
 
 如果你希望能在股市中长久生存下去，建议你能把上面的合集看完，会对你有很大帮助的！
+另广告一下，喜欢玩币的可以看看这个项目：https://github.com/oficcejo/okx-short
 
 ## ⭐ 2026.2.27更新 - 低估值价值投资策略 💎
 
