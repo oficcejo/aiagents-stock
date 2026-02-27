@@ -4,7 +4,10 @@
 ## QQ交流群：1059277514
 ## B站本地部署教程1：https://www.bilibili.com/video/BV1qHFPz9EXY/
 ## docker部署教程2：https://www.bilibili.com/video/BV1j2FNz4EAi/
+## 股票知识讲解合集：https://www.bilibili.com/video/BV1Y2FGzzEeS/
+## 投资认知提升合集：https://www.bilibili.com/video/BV1ugBMBAEbW
 
+如果你希望能在股市中长久生存下去，建议你能把上面的合集看完，会对你有很大帮助的！
 ## ⭐ 2026.2.27更新 - AI模型自由切换 🤖
 
 **重大改进：AI模型全局可配置化**
