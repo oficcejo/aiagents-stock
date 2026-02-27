@@ -276,6 +276,9 @@ def main():
     </div>
     """, unsafe_allow_html=True)
 
+    # 学习资源展示
+    st.info("📺 **新手必看干货**：为了在股市长久生存，建议您观看 👉 [股票知识讲解合集](https://www.bilibili.com/video/BV1Y2FGzzEeS/) 和 [投资认知提升合集](https://www.bilibili.com/video/BV1ugBMBAEbW) 👈，相信会对您有很大帮助！")
+
     # 侧边栏
     with st.sidebar:
         # 快捷导航 - 移到顶部
@@ -285,7 +288,7 @@ def main():
         if st.button("🏠 股票分析", width='stretch', key="nav_home", help="返回首页，进行单只股票的深度分析"):
             # 清除所有功能页面标志
             for key in ['show_history', 'show_monitor', 'show_config', 'show_main_force',
-                       'show_sector_strategy', 'show_longhubang', 'show_portfolio', 'show_low_price_bull', 'show_news_flow']:
+                       'show_sector_strategy', 'show_longhubang', 'show_portfolio', 'show_low_price_bull', 'show_news_flow', 'show_macro_cycle']:
                 if key in st.session_state:
                     del st.session_state[key]
 
@@ -344,7 +347,14 @@ def main():
             if st.button("📰 新闻流量", width='stretch', key="nav_news_flow", help="新闻流量监测与短线指导"):
                 st.session_state.show_news_flow = True
                 for key in ['show_history', 'show_monitor', 'show_config', 'show_main_force',
-                           'show_sector_strategy', 'show_portfolio', 'show_smart_monitor', 'show_low_price_bull', 'show_longhubang']:
+                           'show_sector_strategy', 'show_portfolio', 'show_smart_monitor', 'show_low_price_bull', 'show_longhubang', 'show_macro_cycle']:
+                    if key in st.session_state:
+                        del st.session_state[key]
+
+            if st.button("🧭 宏观周期", width='stretch', key="nav_macro_cycle", help="康波周期 × 美林投资时钟 × 政策分析"):
+                st.session_state.show_macro_cycle = True
+                for key in ['show_history', 'show_monitor', 'show_config', 'show_main_force',
+                           'show_sector_strategy', 'show_portfolio', 'show_smart_monitor', 'show_low_price_bull', 'show_longhubang', 'show_news_flow']:
                     if key in st.session_state:
                         del st.session_state[key]
 
@@ -462,7 +472,18 @@ def main():
             1. 数据获取 → 2. 技术分析
             3. 基本面分析 → 4. 资金分析
             5. 情绪数据(ARBR) → 6. 新闻(qstock)
-            7. AI团队分析 → 8. 团队讨论 → 9. 决策
+            7. AI分析 → 8. 团队讨论 → 9. 决策
+            """)
+            
+        # 学习资源
+        with st.expander("📺 学习视频合集"):
+            st.markdown("""
+            **📢 B站干货合集**
+            
+            如果你希望能在股市中长久生存下去，建议你能把下面的合集看完，会对你有很大帮助的！
+            
+            - 📚 [股票知识讲解合集](https://www.bilibili.com/video/BV1Y2FGzzEeS/)
+            - 🧠 [投资认知提升合集](https://www.bilibili.com/video/BV1ugBMBAEbW)
             """)
 
     # 检查是否显示历史记录
@@ -522,6 +543,12 @@ def main():
     # 检查是否显示新闻流量监测
     if 'show_news_flow' in st.session_state and st.session_state.show_news_flow:
         display_news_flow_monitor()
+        return
+
+    # 检查是否显示宏观周期分析
+    if 'show_macro_cycle' in st.session_state and st.session_state.show_macro_cycle:
+        from macro_cycle_ui import display_macro_cycle
+        display_macro_cycle()
         return
     
     # 检查是否显示环境配置
