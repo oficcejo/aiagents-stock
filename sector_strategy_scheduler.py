@@ -128,7 +128,7 @@ class SectorStrategyScheduler:
             
             # 2. 运行AI分析
             print("[智策定时] [2/3] AI智能体分析中...")
-            engine = SectorStrategyEngine(model="deepseek-chat")
+            engine = SectorStrategyEngine()
             result = engine.run_comprehensive_analysis(data)
             
             if not result.get("success"):

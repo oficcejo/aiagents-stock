@@ -127,25 +127,15 @@ def display_main_force_selector():
                 step=100.0
             )
 
-    # 模型选择
-    # 导入model_config.py中定义的model_options
-    from model_config import model_options as app_model_options
-    model = st.selectbox(
-        "选择AI模型",
-        list(app_model_options.keys()),
-        format_func=lambda x: app_model_options[x],
-        help="deepseek-chat速度快，deepseek-reasoner推理能力强"
-    )
-
     st.markdown("---")
 
-    # 开始分析按钮
+    # 开始分析按钮（使用.env中配置的默认模型）
     if st.button("🚀 开始主力选股", type="primary", width='content'):
 
         with st.spinner("正在获取数据并分析，这可能需要几分钟..."):
 
-            # 创建分析器
-            analyzer = MainForceAnalyzer(model=model)
+            # 创建分析器（使用默认模型）
+            analyzer = MainForceAnalyzer()
 
             # 运行分析
             result = analyzer.run_full_analysis(
@@ -613,7 +603,8 @@ def run_main_force_batch_analysis():
             'sentiment': False,  # 禁用以提升速度
             'news': False  # 禁用以提升速度
         }
-        selected_model = 'deepseek-chat'
+        import config
+        selected_model = config.DEFAULT_MODEL_NAME
         period = '1y'
 
         # 创建进度显示

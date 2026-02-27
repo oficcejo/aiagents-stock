@@ -250,7 +250,7 @@ class NewsFlowEngine:
                             'advice': ai_analysis.get('investment_advice', {}).get('advice', '观望'),
                             'confidence': ai_analysis.get('investment_advice', {}).get('confidence', 50),
                             'summary': ai_analysis.get('investment_advice', {}).get('summary', ''),
-                            'model_used': 'deepseek-chat',
+                            'model_used': getattr(self, 'model', 'unknown'),
                             'analysis_time': ai_analysis.get('analysis_time', 0),
                         }
                         self.db.save_ai_analysis(quick_result['snapshot_id'], ai_record)

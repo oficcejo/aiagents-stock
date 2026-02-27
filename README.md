@@ -5,7 +5,29 @@
 ## B站本地部署教程1：https://www.bilibili.com/video/BV1qHFPz9EXY/
 ## docker部署教程2：https://www.bilibili.com/video/BV1j2FNz4EAi/
 
-## ⭐20261.25第一更 - 新闻流量监测 📈
+## ⭐ 2026.2.27更新 - AI模型自由切换 🤖
+
+**重大改进：AI模型全局可配置化**
+
+将所有硬编码的模型名称统一改为从 `.env` 文件动态读取，一键切换任意 OpenAI 兼容大模型，无需修改代码！
+
+**核心变化：**
+- ✅ **新增 `DEFAULT_MODEL_NAME`** — 在 `.env` 中配置默认 AI 模型
+- ✅ **移除所有模型选择下拉框** — 龙虎榜、主力选股、智策板块等页面不再需要手动选模型
+- ✅ **环境配置 UI 新增模型输入** — 在「环境配置」中可直接输入模型名称，附常用模型参考
+- ✅ **支持任意 OpenAI 兼容模型** — DeepSeek、通义千问、GPT-4o 等一键切换
+
+**切换模型只需一步：**
+```env
+# .env 文件
+DEFAULT_MODEL_NAME="qwen-plus"  # 或 deepseek-chat, gpt-4o 等
+```
+
+> 💡 修改后重启应用即可生效，侧边栏会显示当前使用的模型名称。
+
+---
+
+## ⭐ 2026.1.25第一更 - 新闻流量监测 📈
 
 实时监测百度、微博、东财、财联社、抖音、B站等20个平台热点新闻，调用ai分析对A股板块及股票的影响，生成分析报告。也可使用https://stock-news.ws4.cn
 
@@ -378,7 +400,7 @@ StockAPI龙虎榜接口（每日更新，免费1000次）
   - 灵活设置运行时间（盘前/盘后/晚间）
   - 手动触发和状态监控
 - **数据来源**：AKShare免费数据（行情、资金、新闻）
-- **AI模型**：DeepSeek Chat / Reasoner双模型
+- **AI模型**：支持任意 OpenAI 兼容模型（通过 `.env` 配置切换）
 - **报告导出**：支持PDF格式完整报告
 - **使用场景**：盘前策略、板块轮动、风险规避
 
@@ -576,6 +598,11 @@ cp .env.example .env
 ```env
 # DeepSeek API配置（必需）
 DEEPSEEK_API_KEY=your_actual_deepseek_api_key_here
+DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
+
+# AI模型名称（可选，支持OpenAI兼容模型）
+# 常用：deepseek-chat, deepseek-reasoner, qwen-plus, gpt-4o
+DEFAULT_MODEL_NAME=deepseek-chat
 
 # Tushare配置（可选）- 作为降级数据源
 TUSHARE_TOKEN=your_tushare_token       # 在 https://tushare.pro 注册获取
@@ -588,7 +615,7 @@ EMAIL_FROM=your_email@qq.com
 EMAIL_PASSWORD=your_authorization_code
 EMAIL_TO=receiver@example.com
 
-# Webhook通知配置（可选）⭐️ 新增 - 用于实时监测和智策定时分析
+# Webhook通知配置（可选）- 用于实时监测和智策定时分析
 WEBHOOK_ENABLED=false
 WEBHOOK_TYPE=dingtalk  # 或 feishu
 WEBHOOK_URL=your_webhook_url_here
@@ -704,9 +731,7 @@ streamlit run app.py
 2. **设置分析参数**
    - **分析模式**：选择"指定日期"或"最近N天"
    - **日期选择**：建议选择昨天的日期（龙虎榜数据T日更新）
-   - **AI模型**：
-     - **deepseek-chat**：速度快，8-12分钟完成
-     - **deepseek-reasoner**：推理深入，12-18分钟完成
+   - **AI模型**：自动使用 `.env` 中配置的默认模型
    
 3. **开始分析**
    - 点击"🚀 开始分析"按钮
@@ -780,12 +805,9 @@ streamlit run app.py
 ### 智策板块分析使用流程 ⭐️ 全新功能
 1. **进入智策板块**
    - 点击侧边栏"🎯 智策板块"按钮
+   - AI模型自动使用 `.env` 中配置的默认模型
    
-2. **选择AI模型**
-   - **deepseek-chat**：标准模型，速度快（2-3分钟）
-   - **deepseek-reasoner**：推理增强模型，分析深度更高（3-5分钟）
-   
-3. **开始分析**
+2. **开始分析**
    - 点击"🚀 开始智策分析"按钮
    - 系统自动执行：
      - 获取市场数据（30秒）
@@ -793,7 +815,7 @@ streamlit run app.py
      - 综合研判（30秒）
      - 生成预测报告
 
-4. **查看分析结果**
+3. **查看分析结果**
    分析完成后，查看四个标签页：
    
    - **📋 核心预测**：
@@ -816,12 +838,12 @@ streamlit run app.py
      - 板块多空信心度对比图
      - 板块热度分布图
 
-5. **导出PDF报告**
+4. **导出PDF报告**
    - 点击"📥 生成PDF报告"按钮
    - 等待生成（3-5秒）
    - 点击"💾 下载PDF"保存
 
-6. **配置定时分析** ⭐️
+5. **配置定时分析** ⭐️
    展开"⏰ 定时分析设置"：
    
    **步骤1：配置邮件/Webhook**
@@ -848,14 +870,14 @@ streamlit run app.py
    - 查看运行状态和上次运行时间
    - 需要时可点击"⏹️ 停止定时任务"
 
-7. **使用技巧**
+6. **使用技巧**
    - **最佳使用时间**：盘前8:30-9:30或盘后15:30-20:00
    - **关注信心度**：≥8分为高信心，可重点关注
    - **结合轮动**：重点关注"潜力接力板块"，最佳布局时机
    - **热度判断**：升温板块有机会，降温板块注意风险
    - **四维共振**：宏观、基本面、资金、情绪共振时信号更强
 
-8. **通知内容示例**
+7. **通知内容示例**
    
    **邮件/Webhook推送内容**：
    ```
@@ -1199,7 +1221,7 @@ AI股票分析系统
 
 **longhubang_ui.py**
 - 智瞰龙虎主界面
-- 分析参数设置（日期/模型）
+- 分析参数设置
 - 实时进度显示
 - 四个结果标签页（推荐/报告/数据/图表）
 - 历史报告查询
@@ -1244,7 +1266,6 @@ AI股票分析系统
 
 **sector_strategy_ui.py**
 - 智策板块主界面
-- AI模型选择
 - 分析进度显示
 - 四个结果标签页展示
 - 定时分析设置面板
@@ -1318,7 +1339,8 @@ AI股票分析系统
 - **降级机制**：TDX → Tushare → AKShare 多层数据源保障
 
 ### AI模型
-- **语言模型**：DeepSeek Chat API
+- **语言模型**：支持任意 OpenAI 兼容模型（DeepSeek、通义千问、GPT-4o 等）
+- **模型配置**：通过 `.env` 文件中的 `DEFAULT_MODEL_NAME` 一键切换
 - **分析框架**：多智能体协作
 - **决策逻辑**：综合评分机制
 
@@ -1339,6 +1361,7 @@ AI股票分析系统
 # .env 文件
 DEEPSEEK_API_KEY=your_api_key
 DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
+DEFAULT_MODEL_NAME=deepseek-chat   # 支持任意OpenAI兼容模型
 ```
 
 **重要提示**：

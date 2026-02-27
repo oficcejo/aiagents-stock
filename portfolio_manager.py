@@ -11,19 +11,20 @@ from datetime import datetime
 
 # 导入必要的模块
 from portfolio_db import portfolio_db
+import config
 
 
 class PortfolioManager:
     """持仓管理器类"""
     
-    def __init__(self, model="deepseek-chat"):
+    def __init__(self, model=None):
         """
         初始化持仓管理器
         
         Args:
-            model: AI模型（deepseek-chat 或 deepseek-reasoner）
+            model: AI模型名称，默认从 .env 的 DEFAULT_MODEL_NAME 读取
         """
-        self.model = model
+        self.model = model or config.DEFAULT_MODEL_NAME
         self.db = portfolio_db
     
     # ==================== 持仓股票管理 ====================

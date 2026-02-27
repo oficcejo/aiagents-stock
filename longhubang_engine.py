@@ -11,12 +11,13 @@ from typing import Dict, Any, List
 from datetime import datetime, timedelta
 import time
 import logging
+import config
 
 
 class LonghubangEngine:
     """龙虎榜综合分析引擎"""
     
-    def __init__(self, model="deepseek-chat", db_path='longhubang.db'):
+    def __init__(self, model=None, db_path='longhubang.db'):
         """
         初始化分析引擎
         

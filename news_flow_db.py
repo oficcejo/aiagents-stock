@@ -766,7 +766,7 @@ class NewsFlowDatabase:
             analysis_data.get('confidence', 50),
             analysis_data.get('summary', ''),
             analysis_data.get('raw_response', ''),
-            analysis_data.get('model_used', 'deepseek-chat'),
+            analysis_data.get('model_used', 'unknown'),
             analysis_data.get('analysis_time', 0)
         ))
         

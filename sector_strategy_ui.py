@@ -112,27 +112,13 @@ def display_analysis_tab():
     
     st.markdown("---")
     
-    # 模型选择
-    col1, col2, col3 = st.columns([2, 2, 2])
+    # 操作按钮
+    col1, col2 = st.columns([2, 2])
     
     with col1:
-        # 导入model_config.py中定义的model_options
-        from model_config import model_options as app_model_options
-        selected_model = st.selectbox(
-            "AI模型",
-            list(app_model_options.keys()),
-            format_func=lambda x: app_model_options[x],
-            help="Reasoner模型提供更强的推理能力"
-        )
-    
-    with col2:
-        st.write("")
-        st.write("")
         analyze_button = st.button("🚀 开始智策分析", type="primary", width='content')
     
-    with col3:
-        st.write("")
-        st.write("")
+    with col2:
         if st.button("🔄 清除结果", width='content'):
             if 'sector_strategy_result' in st.session_state:
                 del st.session_state.sector_strategy_result
@@ -141,13 +127,13 @@ def display_analysis_tab():
     
     st.markdown("---")
     
-    # 开始分析
+    # 开始分析（使用.env中配置的默认模型）
     if analyze_button:
         # 清除之前的结果
         if 'sector_strategy_result' in st.session_state:
             del st.session_state.sector_strategy_result
         
-        run_sector_strategy_analysis(selected_model)
+        run_sector_strategy_analysis()
     
     # 显示分析结果
     if 'sector_strategy_result' in st.session_state:
@@ -261,8 +247,10 @@ def display_report_detail(report_id):
     st.info("当前版本仅提供报告摘要，详细页面已移除。")
 
 
-def run_sector_strategy_analysis(model="deepseek-chat"):
+def run_sector_strategy_analysis(model=None):
     """运行智策分析"""
+    import config
+    model = model or config.DEFAULT_MODEL_NAME
     
     # 进度显示
     progress_bar = st.progress(0)

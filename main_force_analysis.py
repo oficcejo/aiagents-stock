@@ -13,15 +13,16 @@ from ai_agents import StockAnalysisAgents
 from deepseek_client import DeepSeekClient
 import time
 import json
+import config
 
 class MainForceAnalyzer:
     """主力选股分析器 - 批量整体分析"""
     
-    def __init__(self, model='deepseek-chat'):
+    def __init__(self, model=None):
         self.selector = main_force_selector
         self.fetcher = StockDataFetcher()
-        self.model = model
-        self.agents = StockAnalysisAgents(model=model)
+        self.model = model or config.DEFAULT_MODEL_NAME
+        self.agents = StockAnalysisAgents(model=self.model)
         self.deepseek_client = self.agents.deepseek_client
         self.raw_stocks = None
         self.final_recommendations = []
