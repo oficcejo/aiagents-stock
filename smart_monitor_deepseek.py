@@ -7,6 +7,7 @@ import logging
 from typing import Dict, List, Optional
 from datetime import datetime, time
 import pytz
+import config
 
 
 class SmartMonitorDeepSeek:
@@ -20,7 +21,7 @@ class SmartMonitorDeepSeek:
             api_key: DeepSeek API密钥
         """
         self.api_key = api_key
-        self.base_url = "https://api.deepseek.com/v1"
+        self.base_url = config.DEEPSEEK_BASE_URL
         self.headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
@@ -138,7 +139,7 @@ class SmartMonitorDeepSeek:
                 'can_trade': False
             }
 
-    def chat_completion(self, messages: List[Dict], model: str = "deepseek-chat",
+    def chat_completion(self, messages: List[Dict], model: str = None,
                        temperature: float = 0.7, max_tokens: int = 2000) -> Dict:
         """
         调用DeepSeek API
@@ -153,6 +154,8 @@ class SmartMonitorDeepSeek:
             API响应
         """
         import requests
+        
+        model = model or config.DEFAULT_MODEL_NAME
         
         payload = {
             "model": model,

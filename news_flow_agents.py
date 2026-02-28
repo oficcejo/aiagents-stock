@@ -16,14 +16,15 @@ logger = logging.getLogger(__name__)
 class NewsFlowAgents:
     """新闻流量智能分析代理"""
     
-    def __init__(self, model: str = "deepseek-chat"):
+    def __init__(self, model: str = None):
         """
         初始化代理
         
         Args:
-            model: 使用的模型，默认 deepseek-chat
+            model: 使用的模型，默认从 .env 的 DEFAULT_MODEL_NAME 读取
         """
-        self.model = model
+        import config
+        self.model = model or config.DEFAULT_MODEL_NAME
         self.deepseek_client = None
         self._init_client()
     

@@ -26,6 +26,12 @@ class ConfigManager:
                 "required": False,
                 "type": "text"
             },
+            "DEFAULT_MODEL_NAME": {
+                "value": "deepseek-chat",
+                "description": "AI模型名称（支持OpenAI兼容模型）",
+                "required": False,
+                "type": "text"
+            },
             "TUSHARE_TOKEN": {
                 "value": "",
                 "description": "Tushare数据接口Token（可选）",

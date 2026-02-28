@@ -11,20 +11,21 @@ import time
 import json
 import pandas as pd
 import logging
+import config
 
 
 class SectorStrategyEngine:
     """板块策略综合研判引擎"""
     
-    def __init__(self, model="deepseek-chat"):
-        self.model = model
-        self.agents = SectorStrategyAgents(model=model)
-        self.deepseek_client = DeepSeekClient(model=model)
+    def __init__(self, model=None):
+        self.model = model or config.DEFAULT_MODEL_NAME
+        self.agents = SectorStrategyAgents(model=self.model)
+        self.deepseek_client = DeepSeekClient(model=self.model)
         self.database = SectorStrategyDatabase()
         self.logger = logging.getLogger(__name__)
         if not self.logger.handlers:
             logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s %(name)s: %(message)s')
-        print(f"[智策引擎] 初始化完成 (模型: {model})")
+        print(f"[智策引擎] 初始化完成 (模型: {self.model})")
     
     def save_raw_data_with_fallback(self, data_type, data_df, data_date=None):
         """

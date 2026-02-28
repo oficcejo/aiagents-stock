@@ -6,8 +6,8 @@ import config
 class DeepSeekClient:
     """DeepSeek API客户端"""
     
-    def __init__(self, model="deepseek-chat"):
-        self.model = model
+    def __init__(self, model=None):
+        self.model = model or config.DEFAULT_MODEL_NAME
         self.client = openai.OpenAI(
             api_key=config.DEEPSEEK_API_KEY,
             base_url=config.DEEPSEEK_BASE_URL

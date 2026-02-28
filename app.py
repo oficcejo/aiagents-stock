@@ -7,8 +7,7 @@ from datetime import datetime
 import time
 import base64
 import os
-# 从新的配置文件导入model_options
-from model_config import model_options
+import config
 
 from stock_data import StockDataFetcher
 from ai_agents import StockAnalysisAgents
@@ -32,22 +31,13 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 模型选择器
-def model_selector():
-    """模型选择器"""
+# 在侧边栏显示当前模型信息（统一使用.env配置）
+def show_current_model_info():
+    """显示当前使用的AI模型信息"""
     st.sidebar.markdown("---")
-    st.sidebar.subheader("🤖 AI模型选择")
-
-
-
-    selected_model = st.sidebar.selectbox(
-        "选择AI模型",
-        options=list(model_options.keys()),
-        format_func=lambda x: model_options[x],
-        help="DeepSeek Reasoner提供更强的推理能力，但响应时间可能更长"
-    )
-
-    return selected_model
+    st.sidebar.subheader("🤖 AI模型")
+    st.sidebar.info(f"当前模型: **{config.DEFAULT_MODEL_NAME}**")
+    st.sidebar.caption("可在「环境配置」中修改模型名称")
 
 # 自定义CSS样式 - 专业版
 st.markdown("""
@@ -286,6 +276,9 @@ def main():
     </div>
     """, unsafe_allow_html=True)
 
+    # 学习资源展示
+    st.info("📺 **新手必看干货**：为了在股市长久生存，建议您观看 👉 [股票知识讲解合集](https://www.bilibili.com/video/BV1Y2FGzzEeS/) 和 [投资认知提升合集](https://www.bilibili.com/video/BV1ugBMBAEbW) 👈，相信会对您有很大帮助！")
+
     # 侧边栏
     with st.sidebar:
         # 快捷导航 - 移到顶部
@@ -295,7 +288,7 @@ def main():
         if st.button("🏠 股票分析", width='stretch', key="nav_home", help="返回首页，进行单只股票的深度分析"):
             # 清除所有功能页面标志
             for key in ['show_history', 'show_monitor', 'show_config', 'show_main_force',
-                       'show_sector_strategy', 'show_longhubang', 'show_portfolio', 'show_low_price_bull', 'show_news_flow']:
+                       'show_sector_strategy', 'show_longhubang', 'show_portfolio', 'show_low_price_bull', 'show_news_flow', 'show_macro_cycle', 'show_value_stock']:
                 if key in st.session_state:
                     del st.session_state[key]
 
@@ -329,7 +322,14 @@ def main():
             if st.button("📈 净利增长", width='stretch', key="nav_profit_growth", help="净利润增长稳健股票筛选策略"):
                 st.session_state.show_profit_growth = True
                 for key in ['show_history', 'show_monitor', 'show_config', 'show_sector_strategy',
-                           'show_longhubang', 'show_portfolio', 'show_main_force', 'show_low_price_bull', 'show_small_cap', 'show_news_flow']:
+                           'show_longhubang', 'show_portfolio', 'show_main_force', 'show_low_price_bull', 'show_small_cap', 'show_news_flow', 'show_value_stock']:
+                    if key in st.session_state:
+                        del st.session_state[key]
+
+            if st.button("💎 低估值策略", width='stretch', key="nav_value_stock", help="低PE+低PB+高股息+低负债 价值投资筛选"):
+                st.session_state.show_value_stock = True
+                for key in ['show_history', 'show_monitor', 'show_config', 'show_sector_strategy',
+                           'show_longhubang', 'show_portfolio', 'show_main_force', 'show_low_price_bull', 'show_small_cap', 'show_profit_growth', 'show_news_flow', 'show_macro_cycle']:
                     if key in st.session_state:
                         del st.session_state[key]
 
@@ -354,7 +354,14 @@ def main():
             if st.button("📰 新闻流量", width='stretch', key="nav_news_flow", help="新闻流量监测与短线指导"):
                 st.session_state.show_news_flow = True
                 for key in ['show_history', 'show_monitor', 'show_config', 'show_main_force',
-                           'show_sector_strategy', 'show_portfolio', 'show_smart_monitor', 'show_low_price_bull', 'show_longhubang']:
+                           'show_sector_strategy', 'show_portfolio', 'show_smart_monitor', 'show_low_price_bull', 'show_longhubang', 'show_macro_cycle']:
+                    if key in st.session_state:
+                        del st.session_state[key]
+
+            if st.button("🧭 宏观周期", width='stretch', key="nav_macro_cycle", help="康波周期 × 美林投资时钟 × 政策分析"):
+                st.session_state.show_macro_cycle = True
+                for key in ['show_history', 'show_monitor', 'show_config', 'show_main_force',
+                           'show_sector_strategy', 'show_portfolio', 'show_smart_monitor', 'show_low_price_bull', 'show_longhubang', 'show_news_flow']:
                     if key in st.session_state:
                         del st.session_state[key]
 
@@ -416,9 +423,9 @@ def main():
 
         st.markdown("---")
 
-        # 模型选择器
-        selected_model = model_selector()
-        st.session_state.selected_model = selected_model
+        # 显示当前模型信息
+        show_current_model_info()
+        st.session_state.selected_model = config.DEFAULT_MODEL_NAME
 
         st.markdown("---")
 
@@ -472,7 +479,18 @@ def main():
             1. 数据获取 → 2. 技术分析
             3. 基本面分析 → 4. 资金分析
             5. 情绪数据(ARBR) → 6. 新闻(qstock)
-            7. AI团队分析 → 8. 团队讨论 → 9. 决策
+            7. AI分析 → 8. 团队讨论 → 9. 决策
+            """)
+            
+        # 学习资源
+        with st.expander("📺 学习视频合集"):
+            st.markdown("""
+            **📢 B站干货合集**
+            
+            如果你希望能在股市中长久生存下去，建议你能把下面的合集看完，会对你有很大帮助的！
+            
+            - 📚 [股票知识讲解合集](https://www.bilibili.com/video/BV1Y2FGzzEeS/)
+            - 🧠 [投资认知提升合集](https://www.bilibili.com/video/BV1ugBMBAEbW)
             """)
 
     # 检查是否显示历史记录
@@ -508,6 +526,12 @@ def main():
         display_profit_growth()
         return
 
+    # 检查是否显示低估值策略
+    if 'show_value_stock' in st.session_state and st.session_state.show_value_stock:
+        from value_stock_ui import display_value_stock
+        display_value_stock()
+        return
+
     # 检查是否显示智策板块
     if 'show_sector_strategy' in st.session_state and st.session_state.show_sector_strategy:
         display_sector_strategy()
@@ -532,6 +556,12 @@ def main():
     # 检查是否显示新闻流量监测
     if 'show_news_flow' in st.session_state and st.session_state.show_news_flow:
         display_news_flow_monitor()
+        return
+
+    # 检查是否显示宏观周期分析
+    if 'show_macro_cycle' in st.session_state and st.session_state.show_macro_cycle:
+        from macro_cycle_ui import display_macro_cycle
+        display_macro_cycle()
         return
     
     # 检查是否显示环境配置
@@ -825,18 +855,22 @@ def parse_stock_list(stock_input):
 
     return unique_list
 
-def analyze_single_stock_for_batch(symbol, period, enabled_analysts_config=None, selected_model='deepseek-chat'):
+def analyze_single_stock_for_batch(symbol, period, enabled_analysts_config=None, selected_model=None):
     """单个股票分析（用于批量分析）
 
     Args:
         symbol: 股票代码
         period: 数据周期
         enabled_analysts_config: 分析师配置字典
-        selected_model: 选择的AI模型
+        selected_model: 选择的AI模型，默认从 .env 的 DEFAULT_MODEL_NAME 读取
 
     返回分析结果或错误信息
     """
     try:
+        # 使用默认模型
+        if selected_model is None:
+            selected_model = config.DEFAULT_MODEL_NAME
+        
         # 使用默认配置
         if enabled_analysts_config is None:
             enabled_analysts_config = {
@@ -983,7 +1017,7 @@ def run_batch_analysis(stock_list, period, batch_mode="顺序分析"):
         'sentiment': st.session_state.get('enable_sentiment', False),
         'news': st.session_state.get('enable_news', False)
     }
-    selected_model = st.session_state.get('selected_model', 'deepseek-chat')
+    selected_model = st.session_state.get('selected_model', config.DEFAULT_MODEL_NAME)
 
     # 创建进度显示
     st.subheader(f"📊 批量分析进行中 ({batch_mode})")
@@ -1256,7 +1290,7 @@ def run_stock_analysis(symbol, period):
         # 6. 初始化AI分析系统
         status_text.text("🤖 正在初始化AI分析系统...")
         # 使用选择的模型
-        selected_model = st.session_state.get('selected_model', 'deepseek-chat')
+        selected_model = st.session_state.get('selected_model', config.DEFAULT_MODEL_NAME)
         agents = StockAnalysisAgents(model=selected_model)
         progress_bar.progress(55)
 
@@ -2153,6 +2187,37 @@ def display_config_manager():
             key="input_deepseek_base_url"
         )
         st.session_state.temp_config["DEEPSEEK_BASE_URL"] = new_base_url
+
+        st.markdown("---")
+
+        # AI模型名称
+        model_name_info = config_info["DEFAULT_MODEL_NAME"]
+        current_model_name = st.session_state.temp_config.get("DEFAULT_MODEL_NAME", "deepseek-chat")
+
+        new_model_name = st.text_input(
+            f"🤖 {model_name_info['description']}",
+            value=current_model_name,
+            help="输入OpenAI兼容的模型名称，修改后重启生效",
+            key="input_default_model_name"
+        )
+        st.session_state.temp_config["DEFAULT_MODEL_NAME"] = new_model_name
+
+        if new_model_name:
+            st.success(f"✅ 当前模型: **{new_model_name}**")
+        else:
+            st.warning("⚠️ 未设置模型名称，将使用默认值 deepseek-chat")
+
+        st.markdown("""
+        **常用模型名称参考：**
+        - `deepseek-chat` — DeepSeek Chat（默认）
+        - `deepseek-reasoner` — DeepSeek Reasoner（推理增强）
+        - `qwen-plus` — 通义千问 Plus
+        - `qwen-turbo` — 通义千问 Turbo
+        - `gpt-4o` — OpenAI GPT-4o
+        - `gpt-4o-mini` — OpenAI GPT-4o Mini
+        
+        > 💡 使用非 DeepSeek 模型时，请同时修改上方的 API地址 和 API密钥
+        """)
 
         st.info("💡 如何获取DeepSeek API密钥？\n\n1. 访问 https://platform.deepseek.com\n2. 注册/登录账号\n3. 进入API密钥管理页面\n4. 创建新的API密钥\n5. 复制密钥并粘贴到上方输入框")
 

@@ -13,6 +13,7 @@ import base64
 
 from longhubang_engine import LonghubangEngine
 from longhubang_pdf import LonghubangPDFGenerator
+import config
 
 
 def display_longhubang():
@@ -110,7 +111,7 @@ def display_analysis_tab():
     st.subheader("🔍 龙虎榜综合分析")
     
     # 参数设置
-    col1, col2, col3 = st.columns([2, 2, 2])
+    col1, col2 = st.columns([2, 2])
     
     with col1:
         analysis_mode = st.selectbox(
@@ -135,18 +136,8 @@ def display_analysis_tab():
                 help="分析最近N天的龙虎榜数据"
             )
     
-    with col3:
-        # 导入model_config.py中定义的model_options
-        from model_config import model_options as app_model_options
-        selected_model = st.selectbox(
-            "AI模型",
-            list(app_model_options.keys()),
-            format_func=lambda x: app_model_options[x],
-            help="Reasoner模型提供更强的推理能力"
-        )
-    
     # 分析按钮
-    col1, col2, col3 = st.columns([2, 2, 2])
+    col1, col2 = st.columns([2, 2])
     
     with col1:
         analyze_button = st.button("🚀 开始分析", type="primary", width='stretch')
@@ -166,12 +157,12 @@ def display_analysis_tab():
         if 'longhubang_result' in st.session_state:
             del st.session_state.longhubang_result
         
-        # 准备参数
+        # 准备参数（使用.env中配置的默认模型）
         if analysis_mode == "指定日期":
             date_str = selected_date.strftime('%Y-%m-%d')
-            run_longhubang_analysis(model=selected_model, date=date_str)
+            run_longhubang_analysis(date=date_str)
         else:
-            run_longhubang_analysis(model=selected_model, days=days)
+            run_longhubang_analysis(days=days)
     
     # 显示分析结果
     if 'longhubang_result' in st.session_state:
@@ -183,8 +174,10 @@ def display_analysis_tab():
             st.error(f"❌ 分析失败: {result.get('error', '未知错误')}")
 
 
-def run_longhubang_analysis(model="deepseek-chat", date=None, days=1):
+def run_longhubang_analysis(model=None, date=None, days=1):
     """运行龙虎榜分析"""
+    import config
+    model = model or config.DEFAULT_MODEL_NAME
     
     # 进度显示
     progress_bar = st.progress(0)
@@ -1397,7 +1390,7 @@ def run_longhubang_batch_analysis():
                             'sentiment': False,
                             'news': False
                         },
-                        selected_model='deepseek-chat'
+                        selected_model=config.DEFAULT_MODEL_NAME
                     )
                     
                     results.append({
@@ -1428,7 +1421,7 @@ def run_longhubang_batch_analysis():
                             'sentiment': False,
                             'news': False
                         },
-                        selected_model='deepseek-chat'
+                        selected_model=config.DEFAULT_MODEL_NAME
                     )
                     return {"code": code, "result": result}
                 except Exception as e:
