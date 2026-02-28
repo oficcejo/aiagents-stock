@@ -257,37 +257,44 @@ class SectorStrategyDataFetcher:
             # 大盘指数
             try:
                 # 上证指数
-                df_sh = ak.stock_zh_index_spot_em(symbol="上证指数")
+                df_sh = ak.stock_zh_index_spot_em(symbol="上证系列指数")
                 if df_sh is not None and not df_sh.empty:
-                    overview["sh_index"] = {
-                        "code": "000001",
-                        "name": "上证指数",
-                        "close": df_sh.iloc[0].get('最新价', 0),
-                        "change_pct": df_sh.iloc[0].get('涨跌幅', 0),
-                        "change": df_sh.iloc[0].get('涨跌额', 0)
-                    }
+                    # 精确查找上证指数（代码000001）
+                    sh_index_df = df_sh[df_sh['代码'] == '000001']
+                    if not sh_index_df.empty:
+                        overview["sh_index"] = {
+                            "code": "000001",
+                            "name": "上证指数",
+                            "close": sh_index_df.iloc[0].get('最新价', 0),
+                            "change_pct": sh_index_df.iloc[0].get('涨跌幅', 0),
+                            "change": sh_index_df.iloc[0].get('涨跌额', 0)
+                        }
                 
                 # 深证成指
-                df_sz = self._safe_request(ak.stock_zh_index_spot_em, symbol="深证成指")
+                df_sz = self._safe_request(ak.stock_zh_index_spot_em, symbol="深证系列指数")
                 if df_sz is not None and not df_sz.empty:
-                    overview["sz_index"] = {
-                        "code": "399001",
-                        "name": "深证成指",
-                        "close": df_sz.iloc[0].get('最新价', 0),
-                        "change_pct": df_sz.iloc[0].get('涨跌幅', 0),
-                        "change": df_sz.iloc[0].get('涨跌额', 0)
-                    }
+                    # 精确查找上证指数（代码399001）
+                    sz_index_df = df_sz[df_sz['代码'] == '399001']
+                    if not sz_index_df.empty:
+                        overview["sz_index"] = {
+                            "code": "399001",
+                            "name": "深证成指",
+                            "close": sz_index_df.iloc[0].get('最新价', 0),
+                            "change_pct": sz_index_df.iloc[0].get('涨跌幅', 0),
+                            "change": sz_index_df.iloc[0].get('涨跌额', 0)
+                        }
                 
                 # 创业板指
-                df_cyb = self._safe_request(ak.stock_zh_index_spot_em, symbol="创业板指")
-                if df_cyb is not None and not df_cyb.empty:
-                    overview["cyb_index"] = {
-                        "code": "399006",
-                        "name": "创业板指",
-                        "close": df_cyb.iloc[0].get('最新价', 0),
-                        "change_pct": df_cyb.iloc[0].get('涨跌幅', 0),
-                        "change": df_cyb.iloc[0].get('涨跌额', 0)
-                    }
+                    # 精确查找上证指数（代码399001）
+                    cyb_index_df = df_sz[df_sz['代码'] == '399006']
+                    if not cyb_index_df.empty:
+                        overview["cyb_index"] = {
+                            "code": "399006",
+                            "name": "创业板指",
+                            "close": cyb_index_df.iloc[0].get('最新价', 0),
+                            "change_pct": cyb_index_df.iloc[0].get('涨跌幅', 0),
+                            "change": cyb_index_df.iloc[0].get('涨跌额', 0)
+                        }
             except:
                 pass
             
