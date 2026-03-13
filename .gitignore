@@ -1,12 +1,21 @@
 /*.rar
+/*.db
 /test_akshare.py
 /test_fixed.py
 /test_pdf_export.py
 /test_pe_pb.py
 /venv
-/__pycache__
+.venv/
+__pycache__/
 # 环境变量文件
 .env
 /.cursor
 /openspec
 TradEnv/
+/.idea/inspectionProfiles/profiles_settings.xml
+/.idea/inspectionProfiles/Project_Default.xml
+/.idea/.gitignore
+/.idea/aiagents-stock.iml
+/.idea/misc.xml
+/.idea/modules.xml
+/.idea/vcs.xml
