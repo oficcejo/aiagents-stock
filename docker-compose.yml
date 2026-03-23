@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: agentsstock1
+    container_name: agentsstock-v1
     ports:
       - "8503:8503"
     volumes:
