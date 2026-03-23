@@ -12,6 +12,8 @@ pytz
 ta>=0.10.2
 reportlab>=4.0.0
 peewee>=3.17.0
-schedule>=1.2.0 
+schedule>=1.2.0
 pywencai>=0.7.0
 jieba>=0.42.1
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
