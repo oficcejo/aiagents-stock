@@ -18,7 +18,8 @@ class NewsFlowDataFetcher:
     """新闻流量数据获取器"""
     
     def __init__(self):
-        self.base_url = "https://newsapi.ws4.cn/api/v1/dailynews/"
+        # self.base_url = "https://newsapi.ws4.cn/api/v1/dailynews/"
+        self.base_url = "https://orz.ai/api/v1/dailynews/"
         self.timeout = 10
         
         # 支持的平台配置 - 扩展到22个平台
