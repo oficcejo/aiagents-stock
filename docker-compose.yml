@@ -16,6 +16,7 @@ services:
     environment:
       # 可以在这里设置环境变量，或者使用.env文件
       - TZ=Asia/Shanghai
+      - PYTHONUNBUFFERED=1  # 禁用缓冲，解决日志吐出被缓冲后被延迟显示
     restart: unless-stopped
     networks:
       - agentsstock-network
