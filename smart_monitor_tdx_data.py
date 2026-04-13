@@ -193,12 +193,18 @@ class SmartMonitorTDXDataFetcher:
             
             # 只保留最近limit条
             if len(df) > limit:
-                df = df.tail(limit).reset_index(drop=True)
+                df = df.head(limit)
+                # tail应用了二次反转逻辑，数据取回尾端，直接取头端数据 df = df.tail(limit).reset_index(drop=True)
             
             # 转换日期格式
             df['日期'] = pd.to_datetime(df['日期'])
-            
-            self.logger.info(f"✅ TDX成功获取 {stock_code} K线数据，共{len(df)}条")
+
+            # 确认处理后k线数据日期区间及数据量时否正确
+            if not df.empty:
+                self.logger.info(
+                    f"K线数据处理完成: 首日={df.iloc[0]['日期']}, 末日={df.iloc[-1]['日期']}, "
+                    f"共{len(df)}条数据"
+            )
             
             return df
             
