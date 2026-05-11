@@ -1,12 +1,10 @@
 """
 数据源管理器
-实现akshare、tushare、TDX三级自动切换机制
-优先级: akshare > tushare > TDX
+实现akshare和tushare的自动切换机制
 """
 
 import os
 import pandas as pd
-import requests
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
@@ -15,7 +13,7 @@ load_dotenv()
 
 
 class DataSourceManager:
-    """数据源管理器 - 实现akshare、tushare、TDX三级自动切换"""
+    """数据源管理器 - 实现akshare与tushare自动切换"""
     
     def __init__(self):
         self.tushare_token = os.getenv('TUSHARE_TOKEN', '')
@@ -34,34 +32,21 @@ class DataSourceManager:
                 print(f"⚠️ Tushare数据源初始化失败: {e}")
                 self.tushare_available = False
         else:
-            print("ℹ️ 未配置Tushare Token，Tushare数据源不可用")
-        
-        # 初始化TDX
-        self.tdx_enabled = os.getenv('TDX_ENABLED', 'false').lower() == 'true'
-        self.tdx_base_url = os.getenv('TDX_BASE_URL', 'http://192.168.0.106:8080')
-        if self.tdx_enabled:
-            print(f"✅ TDX数据源已就绪: {self.tdx_base_url}")
-        else:
-            print("ℹ️ TDX数据源未启用")
-    
-    # ==================== 历史K线数据 ====================
+            print("ℹ️ 未配置Tushare Token，将仅使用Akshare数据源")
     
     def get_stock_hist_data(self, symbol, start_date=None, end_date=None, adjust='qfq'):
         """
-        获取股票历史数据（优先akshare → tushare → TDX）
+        获取股票历史数据（优先akshare，失败时使用tushare）
         
         Args:
-            symbol: 股票代码（6位数字，或带后缀如 000001.SZ）
+            symbol: 股票代码（6位数字）
             start_date: 开始日期（格式：'20240101'或'2024-01-01'）
             end_date: 结束日期
             adjust: 复权类型（'qfq'前复权, 'hfq'后复权, ''不复权）
             
         Returns:
-            DataFrame: 包含 date, open, close, high, low, volume 等列
+            DataFrame: 包含日期、开盘、收盘、最高、最低、成交量等列
         """
-        # 标准化股票代码：统一取6位纯数字
-        clean_symbol = symbol.split('.')[0]
-        
         # 标准化日期格式
         if start_date:
             start_date = start_date.replace('-', '')
@@ -70,27 +55,7 @@ class DataSourceManager:
         else:
             end_date = datetime.now().strftime('%Y%m%d')
         
-        # === 第一优先：akshare ===
-        df = self._get_hist_akshare(clean_symbol, start_date, end_date, adjust)
-        if df is not None:
-            return df
-        
-        # === 第二优先：tushare ===
-        df = self._get_hist_tushare(clean_symbol, start_date, end_date, adjust)
-        if df is not None:
-            return df
-        
-        # === 第三优先：TDX ===
-        df = self._get_hist_tdx(clean_symbol, start_date, end_date)
-        if df is not None:
-            return df
-        
-        # 全部失败
-        print("❌ 所有数据源均获取历史数据失败")
-        return None
-    
-    def _get_hist_akshare(self, symbol, start_date, end_date, adjust):
-        """通过akshare获取历史K线"""
+        # 优先使用akshare
         try:
             import akshare as ak
             print(f"[Akshare] 正在获取 {symbol} 的历史数据...")
@@ -104,6 +69,7 @@ class DataSourceManager:
             )
             
             if df is not None and not df.empty:
+                # 标准化列名
                 df = df.rename(columns={
                     '日期': 'date',
                     '开盘': 'open',
@@ -122,99 +88,58 @@ class DataSourceManager:
                 return df
         except Exception as e:
             print(f"[Akshare] ❌ 获取失败: {e}")
-        return None
-    
-    def _get_hist_tushare(self, symbol, start_date, end_date, adjust):
-        """通过tushare获取历史K线"""
-        if not self.tushare_available:
-            return None
-        try:
-            print(f"[Tushare] 正在获取 {symbol} 的历史数据（备用数据源）...")
-            
-            ts_code = self._convert_to_ts_code(symbol)
-            
-            adj_dict = {'qfq': 'qfq', 'hfq': 'hfq', '': None}
-            adj = adj_dict.get(adjust, 'qfq')
-            
-            df = self.tushare_api.daily(
-                ts_code=ts_code,
-                start_date=start_date,
-                end_date=end_date,
-                adj=adj
-            )
-            
-            if df is not None and not df.empty:
-                df = df.rename(columns={
-                    'trade_date': 'date',
-                    'vol': 'volume',
-                    'amount': 'amount'
-                })
-                df['date'] = pd.to_datetime(df['date'])
-                df = df.sort_values('date')
+        
+        # akshare失败，尝试tushare
+        if self.tushare_available:
+            try:
+                print(f"[Tushare] 正在获取 {symbol} 的历史数据（备用数据源）...")
                 
-                # tushare成交量单位是手→转为股，成交额单位是千元→转为元
-                df['volume'] = df['volume'] * 100
-                df['amount'] = df['amount'] * 1000
+                # 转换股票代码格式（添加市场后缀）
+                ts_code = self._convert_to_ts_code(symbol)
                 
-                print(f"[Tushare] ✅ 成功获取 {len(df)} 条数据")
-                return df
-        except Exception as e:
-            print(f"[Tushare] ❌ 获取失败: {e}")
-        return None
-    
-    def _get_hist_tdx(self, symbol, start_date=None, end_date=None):
-        """通过TDX获取历史K线"""
-        if not self.tdx_enabled:
-            return None
-        try:
-            prefix = "SH" if symbol.startswith(('6', '9', '5')) else "SZ"
-            tdx_code = f"{prefix}{symbol}"
-            
-            url = f"{self.tdx_base_url}/api/kline"
-            params = {"code": tdx_code, "kline_type": "day", "limit": 400}
-            print(f"[TDX] 正在抓取 {tdx_code} (原始输入: {symbol})...")
-            
-            res = requests.get(url, params=params, timeout=10)
-            if res.status_code == 200:
-                json_data = res.json()
-                data_body = json_data.get("data", {})
-                data_list = data_body.get("List", []) if isinstance(data_body, dict) else []
+                # 转换复权类型
+                adj_dict = {'qfq': 'qfq', 'hfq': 'hfq', '': None}
+                adj = adj_dict.get(adjust, 'qfq')
                 
-                if data_list:
-                    items = []
-                    for d in data_list:
-                        items.append({
-                            "date": d.get("Time") or d.get("datetime"),
-                            "open": float(d.get("Open", 0)) / 1000.0,
-                            "high": float(d.get("High", 0)) / 1000.0,
-                            "low": float(d.get("Low", 0)) / 1000.0,
-                            "close": float(d.get("Close", 0)) / 1000.0,
-                            "volume": float(d.get("Volume", d.get("TotalHand", 0)))
-                        })
-                    df = pd.DataFrame(items)
-                    if not df.empty:
-                        df['date'] = pd.to_datetime(df['date'], utc=True).dt.tz_localize(None)
-                        df = df.sort_values('date')
-                        
-                        # 按日期范围过滤
-                        if start_date:
-                            df = df[df['date'] >= pd.to_datetime(start_date)]
-                        if end_date:
-                            df = df[df['date'] <= pd.to_datetime(end_date)]
-                        
-                        print(f"[TDX] ✅ 成功解析 {len(df)} 条K线数据")
-                        return df
-                else:
-                    print(f"[TDX] ❌ 接口返回为空: {json_data.get('message')}")
-        except Exception as e:
-            print(f"[TDX] ❌ 严重错误: {e}")
+                # 格式化日期
+                start = f"{start_date[:4]}-{start_date[4:6]}-{start_date[6:]}" if start_date else None
+                end = f"{end_date[:4]}-{end_date[4:6]}-{end_date[6:]}" if end_date else None
+                
+                # 获取数据
+                df = self.tushare_api.daily(
+                    ts_code=ts_code,
+                    start_date=start_date,
+                    end_date=end_date,
+                    adj=adj
+                )
+                
+                if df is not None and not df.empty:
+                    # 标准化列名和数据格式
+                    df = df.rename(columns={
+                        'trade_date': 'date',
+                        'vol': 'volume',
+                        'amount': 'amount'
+                    })
+                    df['date'] = pd.to_datetime(df['date'])
+                    df = df.sort_values('date')
+                    
+                    # 转换成交量单位（tushare单位是手，转换为股）
+                    df['volume'] = df['volume'] * 100
+                    # 转换成交额单位（tushare单位是千元，转换为元）
+                    df['amount'] = df['amount'] * 1000
+                    
+                    print(f"[Tushare] ✅ 成功获取 {len(df)} 条数据")
+                    return df
+            except Exception as e:
+                print(f"[Tushare] ❌ 获取失败: {e}")
+        
+        # 两个数据源都失败
+        print("❌ 所有数据源均获取失败")
         return None
-    
-    # ==================== 股票基本信息 ====================
     
     def get_stock_basic_info(self, symbol):
         """
-        获取股票基本信息（优先akshare → tushare → TDX兜底）
+        获取股票基本信息（优先akshare，失败时使用tushare）
         
         Args:
             symbol: 股票代码
@@ -222,21 +147,19 @@ class DataSourceManager:
         Returns:
             dict: 股票基本信息
         """
-        clean_symbol = symbol.split('.')[0]
-        
         info = {
-            "symbol": clean_symbol,
+            "symbol": symbol,
             "name": "未知",
             "industry": "未知",
             "market": "未知"
         }
         
-        # === 第一优先：akshare ===
+        # 优先使用akshare
         try:
             import akshare as ak
-            print(f"[Akshare] 正在获取 {clean_symbol} 的基本信息...")
+            print(f"[Akshare] 正在获取 {symbol} 的基本信息...")
             
-            stock_info = ak.stock_individual_info_em(symbol=clean_symbol)
+            stock_info = ak.stock_individual_info_em(symbol=symbol)
             if stock_info is not None and not stock_info.empty:
                 for _, row in stock_info.iterrows():
                     key = row['item']
@@ -258,12 +181,12 @@ class DataSourceManager:
         except Exception as e:
             print(f"[Akshare] ❌ 获取失败: {e}")
         
-        # === 第二优先：tushare ===
+        # akshare失败，尝试tushare
         if self.tushare_available:
             try:
-                print(f"[Tushare] 正在获取 {clean_symbol} 的基本信息（备用数据源）...")
+                print(f"[Tushare] 正在获取 {symbol} 的基本信息（备用数据源）...")
                 
-                ts_code = self._convert_to_ts_code(clean_symbol)
+                ts_code = self._convert_to_ts_code(symbol)
                 df = self.tushare_api.stock_basic(
                     ts_code=ts_code,
                     fields='ts_code,name,area,industry,market,list_date'
@@ -280,18 +203,11 @@ class DataSourceManager:
             except Exception as e:
                 print(f"[Tushare] ❌ 获取失败: {e}")
         
-        # === 第三兜底：TDX（信息有限） ===
-        if self.tdx_enabled:
-            info['name'] = "TDX股票"
-            print(f"[TDX] ⚠️ TDX不支持详细基本信息，返回默认值")
-        
         return info
-    
-    # ==================== 实时行情 ====================
     
     def get_realtime_quotes(self, symbol):
         """
-        获取实时行情数据（优先akshare → tushare → TDX兜底）
+        获取实时行情数据（优先akshare，失败时使用tushare）
         
         Args:
             symbol: 股票代码
@@ -299,21 +215,20 @@ class DataSourceManager:
         Returns:
             dict: 实时行情数据
         """
-        clean_symbol = symbol.split('.')[0]
         quotes = {}
         
-        # === 第一优先：akshare ===
+        # 优先使用akshare
         try:
             import akshare as ak
-            print(f"[Akshare] 正在获取 {clean_symbol} 的实时行情...")
+            print(f"[Akshare] 正在获取 {symbol} 的实时行情...")
             
             df = ak.stock_zh_a_spot_em()
-            stock_df = df[df['代码'] == clean_symbol]
+            stock_df = df[df['代码'] == symbol]
             
             if not stock_df.empty:
                 row = stock_df.iloc[0]
                 quotes = {
-                    'symbol': clean_symbol,
+                    'symbol': symbol,
                     'name': row['名称'],
                     'price': row['最新价'],
                     'change_percent': row['涨跌幅'],
@@ -330,12 +245,12 @@ class DataSourceManager:
         except Exception as e:
             print(f"[Akshare] ❌ 获取失败: {e}")
         
-        # === 第二优先：tushare ===
+        # akshare失败，尝试tushare
         if self.tushare_available:
             try:
-                print(f"[Tushare] 正在获取 {clean_symbol} 的实时行情（备用数据源）...")
+                print(f"[Tushare] 正在获取 {symbol} 的实时行情（备用数据源）...")
                 
-                ts_code = self._convert_to_ts_code(clean_symbol)
+                ts_code = self._convert_to_ts_code(symbol)
                 df = self.tushare_api.daily(
                     ts_code=ts_code,
                     start_date=datetime.now().strftime('%Y%m%d'),
@@ -345,7 +260,7 @@ class DataSourceManager:
                 if df is not None and not df.empty:
                     row = df.iloc[0]
                     quotes = {
-                        'symbol': clean_symbol,
+                        'symbol': symbol,
                         'price': row['close'],
                         'change_percent': row['pct_chg'],
                         'volume': row['vol'] * 100,
@@ -360,32 +275,11 @@ class DataSourceManager:
             except Exception as e:
                 print(f"[Tushare] ❌ 获取失败: {e}")
         
-        # === 第三兜底：TDX（取最近一条K线近似） ===
-        if self.tdx_enabled:
-            try:
-                df = self._get_hist_tdx(clean_symbol)
-                if df is not None and not df.empty:
-                    last = df.iloc[-1]
-                    quotes = {
-                        'symbol': clean_symbol,
-                        'price': last['close'],
-                        'high': last['high'],
-                        'low': last['low'],
-                        'open': last['open'],
-                        'volume': last['volume']
-                    }
-                    print(f"[TDX] ✅ 使用最近K线近似实时行情")
-                    return quotes
-            except Exception as e:
-                print(f"[TDX] ❌ 获取失败: {e}")
-        
         return quotes
-    
-    # ==================== 财务数据 ====================
     
     def get_financial_data(self, symbol, report_type='income'):
         """
-        获取财务数据（优先akshare → tushare，TDX不支持）
+        获取财务数据（优先akshare，失败时使用tushare）
         
         Args:
             symbol: 股票代码
@@ -394,19 +288,17 @@ class DataSourceManager:
         Returns:
             DataFrame: 财务数据
         """
-        clean_symbol = symbol.split('.')[0]
-        
-        # === 第一优先：akshare ===
+        # 优先使用akshare
         try:
             import akshare as ak
-            print(f"[Akshare] 正在获取 {clean_symbol} 的财务数据...")
+            print(f"[Akshare] 正在获取 {symbol} 的财务数据...")
             
             if report_type == 'income':
-                df = ak.stock_financial_report_sina(stock=clean_symbol, symbol="利润表")
+                df = ak.stock_financial_report_sina(stock=symbol, symbol="利润表")
             elif report_type == 'balance':
-                df = ak.stock_financial_report_sina(stock=clean_symbol, symbol="资产负债表")
+                df = ak.stock_financial_report_sina(stock=symbol, symbol="资产负债表")
             elif report_type == 'cashflow':
-                df = ak.stock_financial_report_sina(stock=clean_symbol, symbol="现金流量表")
+                df = ak.stock_financial_report_sina(stock=symbol, symbol="现金流量表")
             else:
                 df = None
             
@@ -416,12 +308,12 @@ class DataSourceManager:
         except Exception as e:
             print(f"[Akshare] ❌ 获取失败: {e}")
         
-        # === 第二优先：tushare ===
+        # akshare失败，尝试tushare
         if self.tushare_available:
             try:
-                print(f"[Tushare] 正在获取 {clean_symbol} 的财务数据（备用数据源）...")
+                print(f"[Tushare] 正在获取 {symbol} 的财务数据（备用数据源）...")
                 
-                ts_code = self._convert_to_ts_code(clean_symbol)
+                ts_code = self._convert_to_ts_code(symbol)
                 
                 if report_type == 'income':
                     df = self.tushare_api.income(ts_code=ts_code)
@@ -438,13 +330,7 @@ class DataSourceManager:
             except Exception as e:
                 print(f"[Tushare] ❌ 获取失败: {e}")
         
-        # TDX不支持财务数据
-        if self.tdx_enabled:
-            print(f"[TDX] ⚠️ TDX数据源不支持财务数据查询")
-        
         return None
-    
-    # ==================== 工具方法 ====================
     
     def _convert_to_ts_code(self, symbol):
         """
@@ -456,20 +342,22 @@ class DataSourceManager:
         Returns:
             str: tushare格式代码（如：000001.SZ）
         """
-        # 先清理可能的后缀
-        clean = symbol.split('.')[0]
-        
-        if not clean or len(clean) != 6:
+        if not symbol or len(symbol) != 6:
             return symbol
         
-        if clean.startswith('6'):
-            return f"{clean}.SH"
-        elif clean.startswith(('0', '3')):
-            return f"{clean}.SZ"
-        elif clean.startswith(('8', '4')):
-            return f"{clean}.BJ"
+        # 根据代码判断市场
+        if symbol.startswith('6'):
+            # 上海主板
+            return f"{symbol}.SH"
+        elif symbol.startswith('0') or symbol.startswith('3'):
+            # 深圳主板和创业板
+            return f"{symbol}.SZ"
+        elif symbol.startswith('8') or symbol.startswith('4'):
+            # 北交所
+            return f"{symbol}.BJ"
         else:
-            return f"{clean}.SZ"
+            # 默认深圳
+            return f"{symbol}.SZ"
     
     def _convert_from_ts_code(self, ts_code):
         """
@@ -488,3 +376,4 @@ class DataSourceManager:
 
 # 全局数据源管理器实例
 data_source_manager = DataSourceManager()
+
