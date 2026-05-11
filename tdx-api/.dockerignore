@@ -1,0 +1,49 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+!README.md
+docs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Go
+vendor/
+*.sum.lock
+
+# Web compiled
+web/stock-web
+web/*.exe
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.log
+
+# Example directories (optional, if not needed in production)
+example/
+
+# Test files
+*_test.go
+

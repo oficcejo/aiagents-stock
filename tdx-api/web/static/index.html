@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>股票数据查询系统</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- 使用国内CDN镜像 -->
+    <script src="https://cdn.bootcdn.net/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+    <style>
+        /* 确保图表容器占满宽度 */
+        #klineChart, #minuteChart {
+            width: 100% !important;
+            min-height: 600px;
+        }
+        .card {
+            width: 100%;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 头部 -->
+        <header class="header">
+            <h1>📈 股票数据查询系统</h1>
+            <p class="subtitle">基于通达信数据源的实时行情查询</p>
+        </header>
+
+        <!-- 搜索区域 -->
+        <div class="search-section">
+            <div class="search-box">
+                <input type="text" id="stockCode" placeholder="请输入股票代码或名称（如：000001 或 平安银行）" />
+                <button onclick="searchStock()" class="btn-primary">搜索</button>
+            </div>
+            <div id="searchResults" class="search-results"></div>
+        </div>
+
+        <!-- 主内容区域 -->
+        <div id="mainContent" style="display: none;">
+            <!-- 股票基本信息卡片 -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 id="stockName">--</h2>
+                    <span id="stockCode2" class="stock-code">--</span>
+                </div>
+                <div class="stock-info-grid" id="stockBasicInfo">
+                    <div class="info-item">
+                        <span class="label">最新价</span>
+                        <span id="lastPrice" class="value price">--</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">涨跌额</span>
+                        <span id="priceChange" class="value">--</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">涨跌幅</span>
+                        <span id="priceChangePercent" class="value">--</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">成交量</span>
+                        <span id="volume" class="value">--</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">成交额</span>
+                        <span id="amount" class="value">--</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">开盘价</span>
+                        <span id="openPrice" class="value">--</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">最高价</span>
+                        <span id="highPrice" class="value">--</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">最低价</span>
+                        <span id="lowPrice" class="value">--</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 标签页导航 -->
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab(event, 'quote')">五档行情</button>
+                <button class="tab-btn" onclick="switchTab(event, 'kline')">K线图</button>
+                <button class="tab-btn" onclick="switchTab(event, 'minute')">分时图</button>
+                <button class="tab-btn" onclick="switchTab(event, 'trade')">分时成交</button>
+            </div>
+
+            <!-- 五档行情 -->
+            <div id="quoteTab" class="tab-content active">
+                <div class="card">
+                    <h3>买卖盘口</h3>
+                    <div class="quote-panel">
+                        <div class="sell-panel">
+                            <table class="quote-table">
+                                <tbody id="sellLevels">
+                                    <tr><td>卖五</td><td>--</td><td>--</td></tr>
+                                    <tr><td>卖四</td><td>--</td><td>--</td></tr>
+                                    <tr><td>卖三</td><td>--</td><td>--</td></tr>
+                                    <tr><td>卖二</td><td>--</td><td>--</td></tr>
+                                    <tr><td>卖一</td><td>--</td><td>--</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="buy-panel">
+                            <table class="quote-table">
+                                <tbody id="buyLevels">
+                                    <tr><td>买一</td><td>--</td><td>--</td></tr>
+                                    <tr><td>买二</td><td>--</td><td>--</td></tr>
+                                    <tr><td>买三</td><td>--</td><td>--</td></tr>
+                                    <tr><td>买四</td><td>--</td><td>--</td></tr>
+                                    <tr><td>买五</td><td>--</td><td>--</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- K线图 -->
+            <div id="klineTab" class="tab-content">
+                <div class="card">
+                    <div class="chart-controls">
+                        <button onclick="loadKline('day', this)" class="btn-control active">日K</button>
+                        <button onclick="loadKline('week', this)" class="btn-control">周K</button>
+                        <button onclick="loadKline('month', this)" class="btn-control">月K</button>
+                        <button onclick="loadKline('minute30', this)" class="btn-control">30分</button>
+                        <button onclick="loadKline('minute15', this)" class="btn-control">15分</button>
+                        <button onclick="loadKline('minute5', this)" class="btn-control">5分</button>
+                    </div>
+                    <div id="klineChart" style="width: 100%; height: 600px;"></div>
+                </div>
+            </div>
+
+            <!-- 分时图 -->
+            <div id="minuteTab" class="tab-content">
+                <div class="card">
+                    <h3>分时走势</h3>
+                    <div id="minuteChart" style="width: 100%; height: 400px;"></div>
+                </div>
+            </div>
+
+            <!-- 分时成交 -->
+            <div id="tradeTab" class="tab-content">
+                <div class="card">
+                    <h3>分时成交明细</h3>
+                    <div class="trade-list" id="tradeList">
+                        <table class="trade-table">
+                            <thead>
+                                <tr>
+                                    <th>时间</th>
+                                    <th>价格</th>
+                                    <th>成交量(手)</th>
+                                    <th>成交额</th>
+                                    <th>性质</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tradeTableBody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 加载指示器 -->
+        <div id="loading" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>加载中...</p>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
+
