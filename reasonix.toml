@@ -1,0 +1,84 @@
+# Reasonix configuration.
+# Resolution order: flag > ./reasonix.toml > ~/AppData/Roaming/reasonix/config.toml > built-in defaults.
+# Secrets come from the environment via api_key_env; never put keys here.
+
+config_version = 3   # schema marker for diagnostics; old versions may ignore it
+default_model = "deepseek-flash"
+# language      = "zh"   # ui/model language; empty = auto-detect from $LANG / $REASONIX_LANG
+
+[agent]
+# system_prompt = """..."""   # omit to use the built-in prompt for this version
+# system_prompt_file = "prompts/system.md"   # overrides system_prompt when set
+# max_steps         = 0   # executor tool-call rounds; 0 = no limit
+# planner_max_steps = 12   # planner read-only tool-call rounds; 0 = no limit
+temperature       = 0.0
+auto_plan   = "off"   # off|on; off keeps plan mode manual
+# reasoning_language = "zh"   # visible reasoning language: auto|zh|en
+# auto_plan_classifier = "deepseek-flash"   # optional; only used for borderline tasks
+soft_compact_ratio  = 0.5   # notice only; keeps cache-first prefix intact
+compact_ratio       = 0.8   # try compacting when prompt reaches this fraction
+compact_force_ratio = 0.9   # force compacting at this high-water mark
+# keep                = ["errors"]   # compaction keep policy: errors, user_marked
+# recent_keep         = 2   # minimum recent messages kept verbatim
+cold_resume_prune   = true   # elide stale tool results when reopening a session past the provider cache window
+# planner_model = "mimo"   # optional: enable two-model collaboration
+# subagent_model = "deepseek-pro"   # optional default for runAs=subagent skills
+# subagent_models = { review = "deepseek-pro", security_review = "deepseek-pro" }   # per-skill overrides
+# subagent_effort = "high"   # optional default effort for subagents
+# subagent_efforts = { review = "max", task = "high" }   # per-tool/skill effort overrides
+# output_style = "explanatory"   # explanatory | learning | concise | custom; empty = default
+
+[tools]
+enabled = []   # empty = all built-in tools
+bash_timeout_seconds = 120   # foreground safety cap; set 0 for no tool-local cap
+
+[tools.background_jobs]
+stalled_warning_seconds = 900   # warn once per background job after this many quiet seconds; 0 disables
+
+[lsp]
+enabled = true   # language server tools; servers launch lazily when used
+# [lsp.servers.go]
+# command = "gopls"
+# args = []
+# extensions = [".go"]
+
+[skills]
+# paths = ["~/my-skills", "../shared/skills"]   # extra custom skill roots
+# excluded_paths = ["~/.agents/skills"]   # hide convention roots without deleting folders
+# max_depth = 3   # nested scan depth; set 1 for legacy root-only discovery
+# disabled_skills = ["review"]   # hide noisy or unwanted skills
+
+[permissions]
+# Per-call gating. mode = writer fallback when no rule matches: ask|allow|deny.
+# Readers always default to allow. Precedence: deny > ask > allow > fallback.
+# Rules are "Tool" or "Tool(specifier)"; e.g. Bash(go test:*), Edit(src/**).
+mode  = "ask"
+# deny = ["Bash(rm -rf*)", "Bash(git push*)"]   # hard-blocked in every mode
+allow = ["explore", "Bash(cd D:\\web\\agentsstock1; python -c \"\nimport akshare\nprint('Akshare版本:', akshare.__version__)\n\")", "Bash(cd D:\\web\\agentsstock1; .\\venv\\Scripts\\python -c \"\nimport akshare\nprint('Akshare版本:', akshare.__version__)\n\")", "Bash(cd D:\\web\\agentsstock1; .\\venv\\Scripts\\python -c \"\nimport urllib.request\nimport ssl\n\n# 测试东方财富\nurls = [\n    'https://www.eastmoney.com/',\n    'https://push2.eastmoney.com/api/qt/stock/get',\n    'https://datacenter.eastmoney.com/',\n]\nfor url in urls:\n    try:\n        ctx = ssl.create_default_context()\n        ctx.check_hostname = False\n        ctx.verify_mode = ssl.CERT_NONE\n        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'})\n        resp = urllib.request.urlopen(req, context=ctx, timeout=10)\n        print(f'✅ {url} -> HTTP {resp.status}')\n    except Exception as e:\n        print(f'❌ {url} -> {e}')\n\")", "Bash(cd D:\\web\\agentsstock1; .\\venv\\Scripts\\python -c \"\nimport urllib.request\nimport ssl\n\nurls = [\n    'https://www.eastmoney.com/',\n    'https://push2.eastmoney.com/api/qt/stock/get',\n    'https://datacenter.eastmoney.com/',\n]\nfor url in urls:\n    try:\n        ctx = ssl.create_default_context()\n        ctx.check_hostname = False\n        ctx.verify_mode = ssl.CERT_NONE\n        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'})\n        resp = urllib.request.urlopen(req, context=ctx, timeout=10)\n        print(f'OK {url} -> HTTP {resp.status}')\n    except Exception as e:\n        print(f'FAIL {url} -> {e}')\n\")", "Bash(cd D:\\web\\agentsstock1; .\\venv\\Scripts\\python -c \"\nimport akshare as ak\nimport sys\n\n# 测试Akshare的核心接口 - 获取个股历史数据\ntry:\n    df = ak.stock_zh_a_hist(symbol='603212', period='daily', start_date='20250101', end_date='20250301', adjust='')\n    print(f'OK stock_zh_a_hist: {len(df)} rows')\n    print(df.head(2))\nexcept Exception as e:\n    print(f'FAIL stock_zh_a_hist: {e}')\n\n# 测试个股信息\ntry:\n    df = ak.stock_individual_info_em(symbol='603212')\n    print(f'OK stock_individual_info_em: {df}')\nexcept Exception as e:\n    print(f'FAIL stock_individual_info_em: {e}')\n\" 2>&1)", "Bash(cd D:\\web\\agentsstock1; .\\venv\\Scripts\\python -c \"\nimport akshare as ak\n# 看看akshare是否有session配置\nprint(dir(ak))\nprint('---')\n# 检查是否有get/set选项\nif hasattr(ak, 'get_option'):\n    print('get_option:', ak.get_option())\n\" 2>&1)", "Bash(cd D:\\web\\agentsstock1; .\\venv\\Scripts\\python -c \"\n# 检查akshare请求内部如何工作\nimport akshare as ak\n# 看看request模块\nimport inspect\nif hasattr(ak, 'request'):\n    print('request 类型:', type(ak.request))\n    print(dir(ak.request))\n\n# 检查session\nprint('---')\n# 看看akshare的底层请求函数\nsrc = inspect.getfile(ak)\nprint('akshare 路径:', src)\n\" 2>&1)", "Bash(cd D:\\web\\agentsstock1; .\\venv\\Scripts\\python -c \"\nimport akshare as ak\nimport inspect\n\n# 看request模块源码\nprint('=== config ===')\nprint(dir(ak.request.config))\nfor attr in dir(ak.request.config):\n    if not attr.startswith('__'):\n        print(f'{attr} = {getattr(ak.request.config, attr)}')\n\nprint()\nprint('=== make_request_with_retry_json 源码 ===')\nsrc = inspect.getsource(ak.request.make_request_with_retry_json)\nprint(src[:2000])\n\" 2>&1)", "Bash(cd D:\\web\\agentsstock1; .\\venv\\Scripts\\python -c \"\nimport akshare as ak\nimport inspect\n\n# 看stock_individual_info_em源码\nsrc = inspect.getsource(ak.stock_individual_info_em)\nprint(src[:3000])\n\" 2>&1)", "Bash(cd D:\\web\\agentsstock1; .\\venv\\Scripts\\python -c \"\nimport akshare as ak\nimport inspect\n\n# 看stock_zh_a_hist的请求方式\nsrc = inspect.getsource(ak.stock_zh_a_hist)\n# 只看请求部分\nlines = src.split('\\n')\nfor i, line in enumerate(lines):\n    if 'requests' in line.lower() or 'url' in line.lower() or 'headers' in line.lower() or 'get(' in line:\n        print(f'{i}: {line}')\n\" 2>&1)"]
+# ask = ["Edit(src/**)"]   # force a prompt even if otherwise allowed
+
+[sandbox]
+# Confine tool blast radius. File-writers (write_file/edit_file/multi_edit/move_file)
+# may only write under workspace_root (empty = current dir) and allow_write extras.
+# bash = "enforce" (default) jails each command in an OS sandbox (macOS now;
+# graceful fallback elsewhere); "off" disables it. network allows egress.
+# workspace_root = ""            # default: current working directory
+# allow_write = ["/tmp"]          # extra dirs writers may also modify
+bash    = "enforce"
+network = true
+
+[statusline]
+# A custom status line: a command whose first stdout line replaces the built-in
+# data row. It receives {"model","contextUsed","contextWindow","cwd"} as JSON on stdin.
+# command = "my-statusline.sh"
+
+# External MCP servers. type: "stdio" (default, a subprocess) | "http" | "sse".
+# ${VAR} / ${VAR:-default} are expanded from the environment in command/args/env/url/headers.
+# [[plugins]]
+# name    = "example"
+# command = "reasonix-plugin-example"
+# [[plugins]]                                  # a remote server over Streamable HTTP
+# name    = "stripe"
+# type    = "http"
+# url     = "https://mcp.stripe.com"
+# headers = { Authorization = "Bearer ${STRIPE_KEY}" }
