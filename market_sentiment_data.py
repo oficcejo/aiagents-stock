@@ -12,6 +12,10 @@ import sys
 import io
 from data_source_manager import data_source_manager
 
+# 应用请求补丁（请求头/超时）
+from utils.akshare_helper import patch_requests
+patch_requests()
+
 warnings.filterwarnings('ignore')
 
 # 设置标准输出编码为UTF-8（仅在命令行环境，避免streamlit冲突）

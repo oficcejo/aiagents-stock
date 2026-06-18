@@ -13,6 +13,10 @@ import os
 from dotenv import load_dotenv
 from sector_strategy_db import SectorStrategyDatabase
 
+# 应用请求补丁（请求头/超时）
+from utils.akshare_helper import patch_requests
+patch_requests()
+
 # 加载环境变量
 load_dotenv()
 
@@ -24,9 +28,9 @@ class SectorStrategyDataFetcher:
     
     def __init__(self):
         print("[智策] 板块数据获取器初始化...")
-        self.max_retries = 3  # 最大重试次数
-        self.retry_delay = 2  # 重试延迟（秒）
-        self.request_delay = 1  # 请求间隔（秒）
+        self.max_retries = 2  # 最大重试次数（东方财富接口受限，快速跳过）
+        self.retry_delay = 1  # 重试延迟（秒）
+        self.request_delay = 0.5  # 请求间隔（秒）
         
         # 初始化数据库和日志
         self.database = SectorStrategyDatabase()

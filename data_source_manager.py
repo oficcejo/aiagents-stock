@@ -4,12 +4,21 @@
 """
 
 import os
+import time
 import pandas as pd
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
 # 加载环境变量
 load_dotenv()
+
+# ============================================================
+# 关键修复: 在引入 akshare 之前打上请求补丁
+# 为所有 requests 请求注入 User-Agent 等请求头，
+# 解决东方财富服务器 RemoteDisconnected 问题
+# ============================================================
+from utils.akshare_helper import patch_requests, retry_on_failure
+patch_requests()
 
 
 class DataSourceManager:
@@ -55,39 +64,56 @@ class DataSourceManager:
         else:
             end_date = datetime.now().strftime('%Y%m%d')
         
-        # 优先使用akshare
-        try:
-            import akshare as ak
-            print(f"[Akshare] 正在获取 {symbol} 的历史数据...")
-            
-            df = ak.stock_zh_a_hist(
-                symbol=symbol,
-                period="daily",
-                start_date=start_date,
-                end_date=end_date,
-                adjust=adjust
-            )
-            
-            if df is not None and not df.empty:
-                # 标准化列名
-                df = df.rename(columns={
-                    '日期': 'date',
-                    '开盘': 'open',
-                    '收盘': 'close',
-                    '最高': 'high',
-                    '最低': 'low',
-                    '成交量': 'volume',
-                    '成交额': 'amount',
-                    '振幅': 'amplitude',
-                    '涨跌幅': 'pct_change',
-                    '涨跌额': 'change',
-                    '换手率': 'turnover'
-                })
-                df['date'] = pd.to_datetime(df['date'])
-                print(f"[Akshare] ✅ 成功获取 {len(df)} 条数据")
-                return df
-        except Exception as e:
-            print(f"[Akshare] ❌ 获取失败: {e}")
+        # 优先使用akshare（带重试机制）
+        for retry_count in range(3):
+            try:
+                import akshare as ak
+                print(f"[Akshare-腾讯] 正在获取 {symbol} 的历史数据..." +
+                      (f" (第{retry_count+1}次)" if retry_count > 0 else ""))
+                
+                # 使用腾讯数据源（proxy.finance.qq.com），避免东方财富API屏蔽
+                tx_symbol = self._convert_to_tx_code(symbol)
+                df = ak.stock_zh_a_hist_tx(
+                    symbol=tx_symbol,
+                    start_date=f"{start_date[:4]}-{start_date[4:6]}-{start_date[6:]}",
+                    end_date=f"{end_date[:4]}-{end_date[4:6]}-{end_date[6:]}",
+                    adjust=adjust
+                )
+                
+                if df is not None and not df.empty:
+                    # Tencent 返回列名: ['date', 'open', 'close', 'high', 'low', 'amount']
+                    # 补充标准列名
+                    column_map = {
+                        'date': 'date',
+                        'open': 'open',
+                        'close': 'close',
+                        'high': 'high',
+                        'low': 'low',
+                        'amount': 'amount',
+                    }
+                    df = df.rename(columns=column_map)
+                    df['date'] = pd.to_datetime(df['date'])
+                    # 腾讯 amount 单位是万元，转为元
+                    if 'amount' in df.columns:
+                        df['amount'] = df['amount'] * 10000
+                    # 估算成交量（成交额/均价），作为备选
+                    if 'volume' not in df.columns:
+                        avg_price = (df['open'] + df['close'] + df['high'] + df['low']) / 4
+                        df['volume'] = (df['amount'] / avg_price.replace(0, float('nan'))).fillna(0).astype('int64')
+                    print(f"[Akshare-腾讯] ✅ 成功获取 {len(df)} 条数据")
+                    return df
+                else:
+                    print(f"[Akshare-腾讯] ⚠️ 获取到空数据，重试中...")
+                    time.sleep(1)
+                    continue
+            except Exception as e:
+                print(f"[Akshare-腾讯] ❌ 获取失败: {e}")
+                if retry_count < 2:
+                    delay = (retry_count + 1) * 2
+                    print(f"[Akshare-腾讯] ⏳ {delay}s 后重试...")
+                    time.sleep(delay)
+                else:
+                    print(f"[Akshare-腾讯] ❌ 已重试 3 次，放弃")
         
         # akshare失败，尝试tushare
         if self.tushare_available:
@@ -154,34 +180,60 @@ class DataSourceManager:
             "market": "未知"
         }
         
-        # 优先使用akshare
-        try:
-            import akshare as ak
-            print(f"[Akshare] 正在获取 {symbol} 的基本信息...")
-            
-            stock_info = ak.stock_individual_info_em(symbol=symbol)
-            if stock_info is not None and not stock_info.empty:
-                for _, row in stock_info.iterrows():
-                    key = row['item']
-                    value = row['value']
-                    
-                    if key == '股票简称':
-                        info['name'] = value
-                    elif key == '所处行业':
-                        info['industry'] = value
-                    elif key == '上市时间':
-                        info['list_date'] = value
-                    elif key == '总市值':
-                        info['market_cap'] = value
-                    elif key == '流通市值':
-                        info['circulating_market_cap'] = value
+        # 优先使用akshare（仅尝试1次，失败快速降级到新浪）
+        for retry_count in range(1):
+            try:
+                import akshare as ak
+                print(f"[Akshare] 正在获取 {symbol} 的基本信息...")
                 
-                print(f"[Akshare] ✅ 成功获取基本信息")
-                return info
-        except Exception as e:
-            print(f"[Akshare] ❌ 获取失败: {e}")
+                stock_info = ak.stock_individual_info_em(symbol=symbol)
+                if stock_info is not None and not stock_info.empty:
+                    for _, row in stock_info.iterrows():
+                        key = row['item']
+                        value = row['value']
+                        
+                        if key == '股票简称':
+                            info['name'] = value
+                        elif key == '所处行业':
+                            info['industry'] = value
+                        elif key == '上市时间':
+                            info['list_date'] = value
+                        elif key == '总市值':
+                            info['market_cap'] = value
+                        elif key == '流通市值':
+                            info['circulating_market_cap'] = value
+                    
+                    print(f"[Akshare] ✅ 成功获取基本信息")
+                    return info
+            except Exception as e:
+                print(f"[Akshare] ❌ 获取失败: {e}")
         
-        # akshare失败，尝试tushare
+        # akshare（东方财富）失败，尝试新浪单只股票接口获取名称
+        try:
+            import requests as req
+            tx_code = self._convert_to_tx_code(symbol)
+            url = f'https://hq.sinajs.cn/list={tx_code}'
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Referer': 'https://finance.sina.com.cn/',
+            }
+            r = req.get(url, headers=headers, timeout=10)
+            # 返回格式: var hq_str_sh603212="名称,open,pre_close,current,...";
+            if r.status_code == 200 and f'hq_str_{tx_code}' in r.text:
+                # 提取引号内的数据
+                start = r.text.find('"') + 1
+                end = r.text.find('"', start)
+                if start > 0 and end > start:
+                    fields = r.text[start:end].split(',')
+                    if len(fields) >= 1 and fields[0]:
+                        info['name'] = fields[0]
+                        info['market'] = '中国A股'
+                        print(f"[新浪个股] ✅ 成功获取基本信息: {info['name']}")
+                        return info
+        except Exception as e:
+            print(f"[新浪个股] ❌ 获取失败: {e}")
+        
+        # akshare失败，尝试tushare（备用数据源）
         if self.tushare_available:
             try:
                 print(f"[Tushare] 正在获取 {symbol} 的基本信息（备用数据源）...")
@@ -217,33 +269,53 @@ class DataSourceManager:
         """
         quotes = {}
         
-        # 优先使用akshare
-        try:
-            import akshare as ak
-            print(f"[Akshare] 正在获取 {symbol} 的实时行情...")
-            
-            df = ak.stock_zh_a_spot_em()
-            stock_df = df[df['代码'] == symbol]
-            
-            if not stock_df.empty:
-                row = stock_df.iloc[0]
-                quotes = {
-                    'symbol': symbol,
-                    'name': row['名称'],
-                    'price': row['最新价'],
-                    'change_percent': row['涨跌幅'],
-                    'change': row['涨跌额'],
-                    'volume': row['成交量'],
-                    'amount': row['成交额'],
-                    'high': row['最高'],
-                    'low': row['最低'],
-                    'open': row['今开'],
-                    'pre_close': row['昨收']
+        # 优先使用新浪个股接口（比全市场遍历快得多）
+        for retry_count in range(3):
+            try:
+                import requests as req_sina
+                tx_code = self._convert_to_tx_code(symbol)
+                url = f'https://hq.sinajs.cn/list={tx_code}'
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                    'Referer': 'https://finance.sina.com.cn/',
                 }
-                print(f"[Akshare] ✅ 成功获取实时行情")
-                return quotes
-        except Exception as e:
-            print(f"[Akshare] ❌ 获取失败: {e}")
+                r = req_sina.get(url, headers=headers, timeout=10)
+                
+                if r.status_code == 200 and f'hq_str_{tx_code}' in r.text:
+                    start = r.text.find('"') + 1
+                    end = r.text.find('"', start)
+                    if start > 0 and end > start:
+                        fields = r.text[start:end].split(',')
+                        if len(fields) >= 32:
+                            def safe_float(val, default=0):
+                                try: return float(val) if val else default
+                                except: return default
+                            
+                            quotes = {
+                                'symbol': symbol,
+                                'name': fields[0] if fields[0] else '',
+                                'open': safe_float(fields[1]),
+                                'pre_close': safe_float(fields[2]),
+                                'price': safe_float(fields[3]),
+                                'high': safe_float(fields[4]),
+                                'low': safe_float(fields[5]),
+                                'volume': safe_float(fields[8]),
+                                'amount': safe_float(fields[9]),
+                            }
+                            # 计算涨跌幅
+                            if quotes['pre_close'] > 0:
+                                quotes['change'] = round(quotes['price'] - quotes['pre_close'], 3)
+                                quotes['change_percent'] = round(
+                                    (quotes['change'] / quotes['pre_close']) * 100, 2
+                                )
+                            print(f"[新浪个股] ✅ 成功获取实时行情: {quotes['name']} {quotes['price']}")
+                            return quotes
+            except Exception as e:
+                print(f"[新浪个股] ❌ 获取失败: {e}")
+                if retry_count < 2:
+                    delay = (retry_count + 1) * 2
+                    print(f"[新浪个股] ⏳ {delay}s 后重试...")
+                    time.sleep(delay)
         
         # akshare失败，尝试tushare
         if self.tushare_available:
@@ -288,25 +360,31 @@ class DataSourceManager:
         Returns:
             DataFrame: 财务数据
         """
-        # 优先使用akshare
-        try:
-            import akshare as ak
-            print(f"[Akshare] 正在获取 {symbol} 的财务数据...")
-            
-            if report_type == 'income':
-                df = ak.stock_financial_report_sina(stock=symbol, symbol="利润表")
-            elif report_type == 'balance':
-                df = ak.stock_financial_report_sina(stock=symbol, symbol="资产负债表")
-            elif report_type == 'cashflow':
-                df = ak.stock_financial_report_sina(stock=symbol, symbol="现金流量表")
-            else:
-                df = None
-            
-            if df is not None and not df.empty:
-                print(f"[Akshare] ✅ 成功获取财务数据")
-                return df
-        except Exception as e:
-            print(f"[Akshare] ❌ 获取失败: {e}")
+        # 优先使用akshare（带重试机制）
+        for retry_count in range(3):
+            try:
+                import akshare as ak
+                print(f"[Akshare] 正在获取 {symbol} 的财务数据..." +
+                      (f" (第{retry_count+1}次)" if retry_count > 0 else ""))
+                
+                if report_type == 'income':
+                    df = ak.stock_financial_report_sina(stock=symbol, symbol="利润表")
+                elif report_type == 'balance':
+                    df = ak.stock_financial_report_sina(stock=symbol, symbol="资产负债表")
+                elif report_type == 'cashflow':
+                    df = ak.stock_financial_report_sina(stock=symbol, symbol="现金流量表")
+                else:
+                    df = None
+                
+                if df is not None and not df.empty:
+                    print(f"[Akshare] ✅ 成功获取财务数据")
+                    return df
+            except Exception as e:
+                print(f"[Akshare] ❌ 获取失败: {e}")
+                if retry_count < 2:
+                    delay = (retry_count + 1) * 2
+                    print(f"[Akshare] ⏳ {delay}s 后重试...")
+                    time.sleep(delay)
         
         # akshare失败，尝试tushare
         if self.tushare_available:
@@ -372,6 +450,28 @@ class DataSourceManager:
         if '.' in ts_code:
             return ts_code.split('.')[0]
         return ts_code
+    
+    def _convert_to_tx_code(self, symbol):
+        """
+        将6位股票代码转换为腾讯数据源格式（带 sh/sz 前缀）
+        
+        Args:
+            symbol: 6位股票代码
+            
+        Returns:
+            str: 腾讯格式代码（如：sh603212, sz000001）
+        """
+        if not symbol or len(symbol) != 6:
+            return symbol
+        
+        if symbol.startswith('6'):
+            return f"sh{symbol}"
+        elif symbol.startswith('0') or symbol.startswith('3'):
+            return f"sz{symbol}"
+        elif symbol.startswith('8') or symbol.startswith('4'):
+            return f"bj{symbol}"
+        else:
+            return f"sz{symbol}"
 
 
 # 全局数据源管理器实例

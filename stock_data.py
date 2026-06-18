@@ -7,7 +7,12 @@ from datetime import datetime, timedelta
 import requests
 import json
 import pywencai
+import time
 from data_source_manager import data_source_manager
+
+# 应用 akshare 请求补丁（确保请求头/超时/重试）
+from utils.akshare_helper import patch_requests, retry_on_failure
+patch_requests()
 
 class StockDataFetcher:
     """股票数据获取类"""
@@ -89,41 +94,82 @@ class StockDataFetcher:
             if basic_info:
                 info.update(basic_info)
             
-            # 方法1: 尝试获取个股详细信息（akshare）
-            try:
-                stock_info = ak.stock_individual_info_em(symbol=symbol)
-                if stock_info is not None and not stock_info.empty:
-                    for _, row in stock_info.iterrows():
-                        key = row['item']
-                        value = row['value']
-                        
-                        if key == '股票简称':
-                            info['name'] = value
-                        elif key == '总市值':
-                            try:
-                                if value and value != '-':
-                                    info['market_cap'] = float(value)
-                            except:
-                                pass
-                        elif key == '市盈率-动态':
-                            try:
-                                if value and value != '-':
-                                    pe_value = float(value)
-                                    if 0 < pe_value <= 1000:
-                                        info['pe_ratio'] = pe_value
-                            except:
-                                pass
-                        elif key == '市净率':
-                            try:
-                                if value and value != '-':
-                                    pb_value = float(value)
-                                    if 0 < pb_value <= 100:
-                                        info['pb_ratio'] = pb_value
-                            except:
-                                pass
-            except Exception as e:
-                print(f"[Akshare] 获取个股详细信息失败: {e}")
-                # 如果akshare失败，尝试从tushare获取
+            # 方法1: 尝试获取个股详细信息（akshare，带重试）
+            for retry_count in range(3):
+                try:
+                    stock_info = ak.stock_individual_info_em(symbol=symbol)
+                    if stock_info is not None and not stock_info.empty:
+                        for _, row in stock_info.iterrows():
+                            key = row['item']
+                            value = row['value']
+                            
+                            if key == '股票简称':
+                                info['name'] = value
+                            elif key == '总市值':
+                                try:
+                                    if value and value != '-':
+                                        info['market_cap'] = float(value)
+                                except:
+                                    pass
+                            elif key == '市盈率-动态':
+                                try:
+                                    if value and value != '-':
+                                        pe_value = float(value)
+                                        if 0 < pe_value <= 1000:
+                                            info['pe_ratio'] = pe_value
+                                except:
+                                    pass
+                            elif key == '市净率':
+                                try:
+                                    if value and value != '-':
+                                        pb_value = float(value)
+                                        if 0 < pb_value <= 100:
+                                            info['pb_ratio'] = pb_value
+                                except:
+                                    pass
+                        break  # 成功则跳出重试循环
+                except Exception as e:
+                    print(f"[Akshare] 获取个股详细信息失败: {e}")
+                    if retry_count < 2:
+                        delay = (retry_count + 1) * 2
+                        print(f"[Akshare] ⏳ {delay}s 后重试...")
+                        time.sleep(delay)
+            else:
+                # 所有重试均失败，尝试新浪数据源获取基本信息
+                print(f"[Akshare-新浪] 尝试从新浪获取基本信息...")
+                try:
+                    import requests as req_sina
+                    tx_code = self.data_source_manager._convert_to_tx_code(symbol)
+                    url = f'https://hq.sinajs.cn/list={tx_code}'
+                    headers = {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                        'Referer': 'https://finance.sina.com.cn/',
+                    }
+                    r = req_sina.get(url, headers=headers, timeout=10)
+                    if r.status_code == 200 and f'hq_str_{tx_code}' in r.text:
+                        start = r.text.find('"') + 1
+                        end = r.text.find('"', start)
+                        if start > 0 and end > start:
+                            fields = r.text[start:end].split(',')
+                            if len(fields) >= 1 and fields[0]:
+                                if info['name'] == '未知':
+                                    info['name'] = fields[0]
+                                if len(fields) >= 4 and fields[3]:
+                                    info['current_price'] = fields[3]
+                                if len(fields) >= 2 and fields[1] and fields[2]:
+                                    try:
+                                        current = float(fields[3]) if fields[3] else 0
+                                        prev_close = float(fields[2]) if fields[2] else 0
+                                        if prev_close > 0:
+                                            change = ((current - prev_close) / prev_close) * 100
+                                            info['change_percent'] = round(change, 2)
+                                    except:
+                                        pass
+                                print(f"[Akshare-新浪] ✅ 成功获取基本信息: {info['name']}")
+                except Exception as e2:
+                    print(f"[Akshare-新浪] ❌ 获取失败: {e2}")
+                
+                # 如果新浪也失败，尝试从tushare获取
                 if self.data_source_manager.tushare_available and info['name'] == '未知':
                     print(f"[Tushare] 尝试获取基本信息（tushare）...")
                     try:
