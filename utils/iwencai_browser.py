@@ -28,24 +28,29 @@ _cookie_time = 0
 _COOKIE_TTL = 300  # 5秒后重新获取
 
 
-def get_browser_cookies():
+def get_browser_cookies(force_refresh=False):
     """
     通过 Playwright 无头浏览器获取 iwencai 的有效 cookies。
     
     适用于 pywencai 因 TLS 指纹问题被 iwencai 服务器要求验证码的场景。
     浏览器环境提供真实的 TLS 握手和 JavaScript 执行环境。
     
+    Args:
+        force_refresh: 是否强制刷新（忽略缓存）
+    
     Returns:
-        str: cookie 字符串 (key1=value1; key2=value2)，可用于 pywencai.get(cookie=...)
-              或 requests.Session 的 Cookie 头。
+        str: cookie 字符串，可用于 pywencai.get(cookie=...)
               失败时返回空字符串。
     """
     global _cookie_cache, _cookie_time
     
     # 如果缓存还在有效期内，直接返回
     now = time.time()
-    if _cookie_cache and (now - _cookie_time) < _COOKIE_TTL:
+    if not force_refresh and _cookie_cache and (now - _cookie_time) < _COOKIE_TTL:
         return _cookie_cache
+    
+    print(f"[iwencai] 🚀 启动浏览器获取会话...")
+    print(f"[iwencai] 💡 如果获取失败，请确保在浏览器中登录了 https://www.iwencai.com")
     
     try:
         from playwright.sync_api import sync_playwright
@@ -82,10 +87,14 @@ def get_browser_cookies():
             if cookie_str:
                 _cookie_cache = cookie_str
                 _cookie_time = time.time()
+                print(f"[iwencai] ✅ 成功获取浏览器会话")
                 return cookie_str
             else:
+                print(f"[iwencai] ⚠️ 浏览器未返回任何 cookies")
+                print(f"[iwencai] 💡 请用浏览器打开 https://www.iwencai.com 并确保已登录")
                 return ""
             
     except Exception as e:
-        logger.error(f"获取浏览器 cookies 失败: {e}")
+        print(f"[iwencai] ❌ 获取浏览器会话失败: {e}")
+        print(f"[iwencai] 💡 请尝试手动打开 https://www.iwencai.com/screener 并登录")
         return ""

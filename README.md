@@ -49,6 +49,75 @@
 
 ---
 
+## ⭐ 2026.6.18更新 - 选股数据源修复 + 环境配置指南 🚀
+
+**修复同花顺问财(iwencai.com) TLS指纹验证导致的选股功能不可用问题**
+
+由于 `iwencai.com` 的服务器对 Python `requests` 库进行 **TLS 指纹识别**，触发验证码/403，导致所有基于 pywencai 的选股功能（主力选股、低价擒牛、净利增长选股、小盘选股、价值选股等）全部崩溃。
+
+### 修复内容
+
+**新增模块（utils/iwencai_browser.py）**
+- 🎭 **Playwright 浏览器自动化** — 启动无头 Chromium 获取真实浏览器 cookies
+- 🔑 **TLS 指纹绕过** — 真实浏览器环境避免 captcha 验证
+- ⏱ **5分钟会话缓存** — 避免重复启动浏览器
+
+**新增模块（utils/pywencai_helper.py）**
+- 🛡️ **safe_get 安全调用** — 双路径降级（直接调用 → 浏览器 cookies 重试）
+- 📋 **涵盖 8 个文件** — 所有 pywencai.get() 调用全部替换为 safe_get()
+
+### 使用前提
+
+选股功能需要 **浏览器登录同花顺问财**：
+
+1. 在浏览器中打开 https://www.iwencai.com/screener
+2. 点击右上角「登录」按钮，登录同花顺账号
+3. 保持浏览器登录状态，系统会自动使用你的会话
+
+> 首次使用 Playwright 时需要安装 Chromium：
+> ```bash
+> pip install playwright
+> playwright install chromium
+> ```
+
+### 环境变量配置（.env）
+
+```env
+# ===== 必填 =====
+DEEPSEEK_API_KEY=your_key_here        # DeepSeek API密钥（核心AI引擎）
+
+# ===== 数据源（可选）=====
+TUSHARE_TOKEN=your_token_here          # Tushare Token（https://tushare.pro）
+
+# ===== 通知配置（可选）=====
+SMTP_SERVER=smtp.qq.com
+SMTP_PORT=465
+SMTP_USER=your_email@qq.com
+SMTP_PASSWORD=your_password
+NOTIFY_EMAIL=receiver@qq.com
+WEBHOOK_URL=https://oapi.dingtalk.com/robot/send?access_token=xxx
+WEBHOOK_TYPE=dingtalk
+
+# ===== 量化交易（可选）=====
+MINIQMT_ENABLED=false
+MINIQMT_ACCOUNT_ID=
+MINIQMT_HOST=127.0.0.1
+MINIQMT_PORT=58080
+```
+
+### 当前完整数据链路
+```
+历史K线      → 腾讯 proxy.finance.qq.com         ✅
+个股基本信息  → 新浪 hq.sinajs.cn                 ✅
+实时行情      → 新浪 hq.sinajs.cn                 ✅
+财务数据      → 同花顺/新浪                      ✅
+选股数据      → iwencai.com (浏览器 cookies)      ✅ (需登录)
+资金流向      → 东方财富(受限) → 跳过            ⚠️
+备用          → Tushare (配置Token后可启用)        ⏳
+```
+
+---
+
 ## ⭐ 2026.3.23更新 - 宏观分析 🌏
 
 **新增独立板块：国家统计局官方宏观数据 × A股行业映射 × 优质标的筛选**

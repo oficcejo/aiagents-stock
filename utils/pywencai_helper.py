@@ -7,6 +7,8 @@ pywencai.get() 内部抛出 NoneType 异常的问题。
 工作流程：
 1. 先用 pywencai 直接调用（快速路径）
 2. 失败后通过 Playwright 获取浏览器 cookies 重试（绕过 TLS 指纹限制）
+
+💡 如遇选股失败，请在浏览器中登录 https://www.iwencai.com/screener
 """
 
 import sys
@@ -36,8 +38,9 @@ def safe_get(query, loop=True, **kwargs):
     if result is not None:
         return result
 
+    print(f"[pywencai] ⚠️ 直接调用失败，尝试浏览器会话...")
+
     # 尝试2: 用浏览器 cookies 重试（绕过 TLS 指纹验证）  
-    logger.debug("pywencai 直接调用失败，尝试浏览器 cookies...")
     try:
         from utils.iwencai_browser import get_browser_cookies
         cookie_str = get_browser_cookies()
@@ -46,7 +49,11 @@ def safe_get(query, loop=True, **kwargs):
             kwargs_with_cookie['cookie'] = cookie_str
             result = _try_call(query, loop, **kwargs_with_cookie)
             if result is not None:
+                print(f"[pywencai] ✅ 浏览器会话成功，共获取 {len(result) if hasattr(result,'__len__') else '?'} 条数据")
                 return result
+            else:
+                print(f"[pywencai] ❌ 浏览器会话也失败，选股功能暂时不可用")
+                print(f"[pywencai] 💡 请用浏览器打开 https://www.iwencai.com/screener 并登录")
     except Exception as e:
         logger.debug(f"浏览器 cookies 方案也失败: {e}")
 

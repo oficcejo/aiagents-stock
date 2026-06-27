@@ -2257,6 +2257,38 @@ def display_config_manager():
 
         st.info("💡 如何获取Tushare Token？\n\n1. 访问 https://tushare.pro\n2. 注册账号\n3. 进入个人中心\n4. 获取Token\n5. 复制并粘贴到上方输入框")
 
+        st.markdown("---")
+        st.markdown("### 同花顺问财 iwencai（选股数据源）")
+        st.markdown("""
+        问财用于选股板块（主力选股、低价擒牛等）的数据查询。如遇到 **"所有查询方案都失败了"** 的错误，
+        请按以下步骤配置浏览器登录：
+        """)
+        
+        # iwencai 登录状态提示
+        if "iwencai_login_checked" not in st.session_state:
+            st.session_state.iwencai_login_checked = False
+        
+        col_iw1, col_iw2 = st.columns([1, 3])
+        with col_iw1:
+            if st.button("🔄 检测登录状态", key="check_iwencai"):
+                with st.spinner("正在启动浏览器检测..."):
+                    try:
+                        from utils.iwencai_browser import get_browser_cookies
+                        cookies = get_browser_cookies(force_refresh=True)
+                        if cookies and len(cookies) > 50:
+                            st.session_state.iwencai_login_checked = True
+                            st.success("✅ iwencai 会话有效，选股功能将正常工作")
+                        else:
+                            st.warning("⚠️ 未获取到有效会话，请登录 iwencai")
+                    except Exception as e:
+                        st.error(f"❌ 检测失败: {e}")
+        with col_iw2:
+            st.info("💡 **使用方法**\n\n"
+                    "1. 用浏览器打开 https://www.iwencai.com/screener\n"
+                    "2. 登录你的同花顺账号（右上角「登录」按钮）\n"
+                    "3. 保持浏览器登录状态即可\n\n"
+                    "系统会自动使用你的登录会话获取选股数据。")
+
     with tab3:
         st.markdown("### MiniQMT量化交易配置（可选）")
         st.markdown("配置后可以使用量化交易功能，自动执行交易策略。")
