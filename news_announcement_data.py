@@ -9,6 +9,7 @@ import sys
 import io
 import warnings
 from datetime import datetime
+from utils.pywencai_helper import safe_get
 
 warnings.filterwarnings('ignore')
 
@@ -100,7 +101,7 @@ class NewsAnnouncementDataFetcher:
             print(f"   使用问财查询: {query}")
             
             # 使用pywencai查询
-            result = pywencai.get(query=query, loop=True)
+            result = safe_get(query=query, loop=True)
             
             if result is None:
                 print(f"   问财查询返回None")
@@ -191,7 +192,7 @@ class NewsAnnouncementDataFetcher:
             print(f"   使用问财查询: {query}")
             
             # 使用pywencai查询
-            result = pywencai.get(query=query, loop=True)
+            result = safe_get(query=query, loop=True)
             
             if result is None:
                 print(f"   问财查询返回None")

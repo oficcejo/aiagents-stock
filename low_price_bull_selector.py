@@ -6,10 +6,12 @@
 """
 
 import pandas as pd
-import pywencai
+from utils.pywencai_helper import safe_get
 from datetime import datetime
 from typing import Tuple, Optional
 import time
+
+from utils.pywencai_helper import safe_get
 
 
 class LowPriceBullSelector:
@@ -59,8 +61,8 @@ class LowPriceBullSelector:
             print(f"\n查询语句: {query}")
             print(f"正在调用问财接口...")
             
-            # 调用pywencai
-            result = pywencai.get(query=query, loop=True)
+            # 调用pywencai（安全调用，处理接口不可用）
+            result = safe_get(query=query, loop=True)
             
             if result is None:
                 return False, None, "问财接口返回None，请检查网络或稍后重试"

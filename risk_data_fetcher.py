@@ -12,6 +12,7 @@ from typing import Dict, Any
 import time
 import warnings
 import os
+from utils.pywencai_helper import safe_get
 
 # 屏蔽pywencai的Node.js警告信息（不影响功能）
 warnings.filterwarnings('ignore', category=DeprecationWarning)
@@ -108,7 +109,7 @@ class RiskDataFetcher:
             query = f"{symbol}限售解禁"
             
             # 使用pywencai查询
-            response = pywencai.get(query=query, loop=True)
+            response = safe_get(query=query, loop=True)
             
             if response is None:
                 return result
@@ -171,7 +172,7 @@ class RiskDataFetcher:
             query = f"{symbol}大股东减持公告"
             
             # 使用pywencai查询
-            response = pywencai.get(query=query, loop=True)
+            response = safe_get(query=query, loop=True)
             
             if response is None:
                 return result
@@ -234,7 +235,7 @@ class RiskDataFetcher:
             query = f"{symbol}近期重要事件"
             
             # 使用pywencai查询
-            response = pywencai.get(query=query, loop=True)
+            response = safe_get(query=query, loop=True)
             
             if response is None:
                 return result

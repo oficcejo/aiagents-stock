@@ -11,6 +11,7 @@ import pywencai
 from datetime import datetime, timedelta
 from typing import Dict, List, Tuple
 import time
+from utils.pywencai_helper import safe_get
 
 class MainForceStockSelector:
     """主力选股类"""
@@ -71,7 +72,7 @@ class MainForceStockSelector:
                 print(f"查询语句: {query[:100]}...")
                 
                 try:
-                    result = pywencai.get(query=query, loop=True)
+                    result = safe_get(query=query, loop=True)
                     
                     if result is None:
                         print(f"  ⚠️ 方案{i}返回None，尝试下一个方案")
