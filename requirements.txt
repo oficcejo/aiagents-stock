@@ -2,6 +2,7 @@ streamlit>=1.28.0
 requests>=2.31.0
 pandas>=2.0.3
 numpy>=1.24.3
+playwright>=1.47.0
 plotly>=5.15.0
 yfinance>=0.2.18
 akshare>=1.11.0
