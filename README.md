@@ -12,44 +12,7 @@
 ## 价值投资核心逻辑：https://www.bilibili.com/video/BV1eJfxBrEjZ
 
 
-## ⭐ 2026.6.18更新 - 数据源修复 🔧
-
-**修复东方财富API屏蔽导致的Akshare数据获取失败问题**
-
-由于东方财富API服务器（`push2.eastmoney.com`）对本机IP的访问限制，Akshare核心接口全部返回 `RemoteDisconnected` 错误，导致应用完全无法获取A股数据。
-
-### 修复内容
-
-**数据源切换（data_source_manager.py + stock_data.py）**
-- 🏆 **历史K线数据** → 由东方财富（`stock_zh_a_hist`）切换为**腾讯数据源**（`stock_zh_a_hist_tx`，`proxy.finance.qq.com`）
-- 📛 **个股基本信息** → 由东方财富（`stock_individual_info_em`）切换为**新浪个股接口**（`hq.sinajs.cn`，毫秒级响应）
-- 📊 **实时行情** → 由东方财富（`stock_zh_a_spot_em`）切换为**新浪单只个股API**（`hq.sinajs.cn`，即时返回）
-- 📋 **财务数据** → 同花顺/新浪源不受影响，继续正常工作
-
-**新增模块（utils/akshare_helper.py）**
-- 🌐 **全局请求补丁** — 为所有HTTP请求注入Chrome级浏览器请求头（5个User-Agent随机轮换）
-- ⏱ **默认30秒超时** — 避免请求卡死
-- 🔄 **retry_on_failure 装饰器** — 可重试任意不稳定接口
-
-**增强功能**
-- ✅ **3次自动重试** — 所有数据获取方法带指数退避重试，失败后自动切换备用数据源
-- ✅ **新增 `_convert_to_tx_code`** — 将6位股票代码转换为腾讯格式（`sh603212`/`sz000001`/`bj830799`）
-- ✅ **新浪单只个股API** — 替代全市场5000+股票遍历（响应时间从15秒降至1秒以内）
-
-### 当前数据链路
-```
-历史数据   → 腾讯 proxy.finance.qq.com  ✅  即时
-基本信息   → 新浪 hq.sinajs.cn           ✅  即时  
-实时行情   → 新浪 hq.sinajs.cn           ✅  即时
-财务数据   → 同花顺/新浪                 ✅  即时
-备用       → Tushare (需配置有效Token)
-```
-
-> 💡 如后续网络环境恢复正常，数据源会优先尝试东方财富接口并自动降级到备用数据源。
-
----
-
-## ⭐ 2026.6.18更新 - 选股数据源修复 + 环境配置指南 🚀
+## ⭐ 2026.6.27更新 - 选股数据源修复 + 环境配置指南 🚀
 
 **修复同花顺问财(iwencai.com) TLS指纹验证导致的选股功能不可用问题**
 
@@ -66,6 +29,16 @@
 - 🛡️ **safe_get 安全调用** — 双路径降级（直接调用 → 浏览器 cookies 重试）
 - 📋 **涵盖 8 个文件** — 所有 pywencai.get() 调用全部替换为 safe_get()
 
+### 安装依赖
+
+```bash
+# 安装 Python 依赖
+pip install -r requirements.txt
+
+# 安装 Playwright 浏览器（用于选股功能）
+playwright install chromium
+```
+
 ### 使用前提
 
 选股功能需要 **浏览器登录同花顺问财**：
@@ -73,12 +46,6 @@
 1. 在浏览器中打开 https://www.iwencai.com/screener
 2. 点击右上角「登录」按钮，登录同花顺账号
 3. 保持浏览器登录状态，系统会自动使用你的会话
-
-> 首次使用 Playwright 时需要安装 Chromium：
-> ```bash
-> pip install playwright
-> playwright install chromium
-> ```
 
 ### 环境变量配置（.env）
 
@@ -116,9 +83,46 @@ MINIQMT_PORT=58080
 备用          → Tushare (配置Token后可启用)        ⏳
 ```
 
+> 💡 如后续网络环境恢复正常，数据源会优先尝试东方财富接口并自动降级到备用数据源。
+
 ---
 
-## ⭐ 2026.3.23更新 - 宏观分析 🌏
+## ⭐ 2026.6.18更新 - 数据源修复 🔧
+
+**修复东方财富API屏蔽导致的Akshare数据获取失败问题**
+
+由于东方财富API服务器（`push2.eastmoney.com`）对本机IP的访问限制，Akshare核心接口全部返回 `RemoteDisconnected` 错误，导致应用完全无法获取A股数据。
+
+### 修复内容
+
+**数据源切换（data_source_manager.py + stock_data.py）**
+- 🏆 **历史K线数据** → 由东方财富（`stock_zh_a_hist`）切换为**腾讯数据源**（`stock_zh_a_hist_tx`，`proxy.finance.qq.com`）
+- 📛 **个股基本信息** → 由东方财富（`stock_individual_info_em`）切换为**新浪个股接口**（`hq.sinajs.cn`，毫秒级响应）
+- 📊 **实时行情** → 由东方财富（`stock_zh_a_spot_em`）切换为**新浪单只个股API**（`hq.sinajs.cn`，即时返回）
+- 📋 **财务数据** → 同花顺/新浪源不受影响，继续正常工作
+
+**新增模块（utils/akshare_helper.py）**
+- 🌐 **全局请求补丁** — 为所有HTTP请求注入Chrome级浏览器请求头（5个User-Agent随机轮换）
+- ⏱ **默认30秒超时** — 避免请求卡死
+- 🔄 **retry_on_failure 装饰器** — 可重试任意不稳定接口
+
+**增强功能**
+- ✅ **3次自动重试** — 所有数据获取方法带指数退避重试，失败后自动切换备用数据源
+- ✅ **新增 `_convert_to_tx_code`** — 将6位股票代码转换为腾讯格式（`sh603212`/`sz000001`/`bj830799`）
+- ✅ **新浪单只个股API** — 替代全市场5000+股票遍历（响应时间从15秒降至1秒以内）
+
+### 当前数据链路
+```
+历史数据   → 腾讯 proxy.finance.qq.com  ✅  即时
+基本信息   → 新浪 hq.sinajs.cn           ✅  即时  
+实时行情   → 新浪 hq.sinajs.cn           ✅  即时
+财务数据   → 同花顺/新浪                 ✅  即时
+备用       → Tushare (需配置有效Token)
+```
+
+> 💡 如后续网络环境恢复正常，数据源会优先尝试东方财富接口并自动降级到备用数据源。
+
+**## ⭐ 2026.3.23更新 - 宏观分析 🌏
 
 **新增独立板块：国家统计局官方宏观数据 × A股行业映射 × 优质标的筛选**
 
