@@ -160,6 +160,9 @@ def display_analysis_tab():
         # 准备参数（使用.env中配置的默认模型）
         if analysis_mode == "指定日期":
             date_str = selected_date.strftime('%Y-%m-%d')
+            # 检查是否周末
+            if selected_date.weekday() >= 5:
+                st.warning(f"⚠️ {date_str} 是周末，A股休市，龙虎榜无数据")
             run_longhubang_analysis(date=date_str)
         else:
             run_longhubang_analysis(days=days)

@@ -9,6 +9,10 @@ from datetime import datetime, timedelta
 import time
 import warnings
 
+# 应用请求补丁（请求头/超时）
+from utils.akshare_helper import patch_requests
+patch_requests()
+
 warnings.filterwarnings('ignore')
 
 
