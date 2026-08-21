@@ -24,6 +24,7 @@ _preset_models = {
     "moonshotai/Kimi-K2-Instruct-0905": "Kimi (硅基流动)",
     "Ring-1T": "蚂蚁百灵 (硅基流动)",
     "step3": "阶跃星辰(硅基流动)",
+    "orcarouter/auto": "OrcaRouter 自动路由",
 }
 
 # 获取 .env 中配置的默认模型名称

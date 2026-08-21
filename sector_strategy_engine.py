@@ -5,7 +5,7 @@
 
 from sector_strategy_agents import SectorStrategyAgents
 from sector_strategy_db import SectorStrategyDatabase
-from deepseek_client import DeepSeekClient
+from llm_client import get_llm_client
 from typing import Dict, Any
 import time
 import json
@@ -16,11 +16,11 @@ import config
 
 class SectorStrategyEngine:
     """板块策略综合研判引擎"""
-    
+
     def __init__(self, model=None):
         self.model = model or config.DEFAULT_MODEL_NAME
         self.agents = SectorStrategyAgents(model=self.model)
-        self.deepseek_client = DeepSeekClient(model=self.model)
+        self.deepseek_client = get_llm_client(model=model)
         self.database = SectorStrategyDatabase()
         self.logger = logging.getLogger(__name__)
         if not self.logger.handlers:

@@ -53,6 +53,13 @@ playwright install chromium
 # ===== 必填 =====
 DEEPSEEK_API_KEY=your_key_here        # DeepSeek API密钥（核心AI引擎）
 
+# ===== AI 引擎（可选，二选一）=====
+# 设置了 ORCAROUTER_API_KEY 后，系统优先使用 OrcaRouter 作为 AI 引擎（无需再配 DeepSeek）
+# OrcaRouter：https://www.orcarouter.ai | API：https://api.orcarouter.ai/v1
+ORCAROUTER_API_KEY=your_orcarouter_key_here
+ORCAROUTER_BASE_URL=https://api.orcarouter.ai/v1
+ORCAROUTER_MODEL=orcarouter/auto
+
 # ===== 数据源（可选）=====
 TUSHARE_TOKEN=your_token_here          # Tushare Token（https://tushare.pro）
 YDC_API_KEY=your_ydc_api_key_here     # You.com API密钥（智策板块Research功能用）
@@ -73,6 +80,24 @@ MINIQMT_ACCOUNT_ID=
 MINIQMT_HOST=127.0.0.1
 MINIQMT_PORT=58080
 ```
+
+### 使用 OrcaRouter 作为 AI 引擎（可选）
+
+[OrcaRouter](https://www.orcarouter.ai) 是 OpenAI 兼容的统一模型网关，一个 key 即可路由到 DeepSeek、Qwen、Kimi 等主流模型。在 `.env` 中设置 `ORCAROUTER_API_KEY` 后，系统将**优先使用 OrcaRouter** 作为所有分析模块的 AI 引擎（无需配置 DeepSeek）：
+
+```env
+# ===== OrcaRouter 配置 =====
+ORCAROUTER_API_KEY=your_orcarouter_key_here
+ORCAROUTER_BASE_URL=https://api.orcarouter.ai/v1   # 一般无需修改
+ORCAROUTER_MODEL=orcarouter/auto                    # 自动路由最优模型
+```
+
+支持的模型（也可在「环境配置」界面查看与修改）：
+- `orcarouter/auto` — 自动路由（默认）
+- `deepseek/deepseek-v4-pro` — DeepSeek V4 Pro
+- `qwen/qwen3.6-flash` — Qwen 3.6 Flash
+
+未设置 `ORCAROUTER_API_KEY` 时，系统照常使用上方 DeepSeek 配置，两者互不影响。
 
 ### 测试
 
@@ -208,6 +233,7 @@ python3 -m pytest utils/test_youchannels_research.py::TestGetYoudotcomResearchIn
 - ✅ **移除所有模型选择下拉框** — 龙虎榜、主力选股、智策板块等页面不再需要手动选模型
 - ✅ **环境配置 UI 新增模型输入** — 在「环境配置」中可直接输入模型名称，附常用模型参考
 - ✅ **支持任意 OpenAI 兼容模型** — DeepSeek、通义千问、GPT-4o 等一键切换
+- ✅ **支持 [OrcaRouter](https://www.orcarouter.ai) 网关** — 设置 `ORCAROUTER_API_KEY` 后一键切换到 OrcaRouter 统一网关，路由 DeepSeek/Qwen/Kimi 等模型
 
 **切换模型只需一步：**
 ```env

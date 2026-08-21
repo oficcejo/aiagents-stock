@@ -10,7 +10,7 @@ import time
 from typing import Any, Dict, List
 
 import config
-from deepseek_client import DeepSeekClient
+from llm_client import get_llm_client
 
 
 class MacroAnalysisAgents:
@@ -18,7 +18,7 @@ class MacroAnalysisAgents:
 
     def __init__(self, model: str | None = None) -> None:
         self.model = model or config.DEFAULT_MODEL_NAME
-        self.client = DeepSeekClient(model=self.model)
+        self.client = get_llm_client(model=model)
 
     def macro_analyst_agent(self, context_text: str) -> Dict[str, Any]:
         prompt = f"""

@@ -32,6 +32,24 @@ class ConfigManager:
                 "required": False,
                 "type": "text"
             },
+            "ORCAROUTER_API_KEY": {
+                "value": "",
+                "description": "OrcaRouter API密钥（可选，设置后优先使用OrcaRouter引擎）",
+                "required": False,
+                "type": "password"
+            },
+            "ORCAROUTER_BASE_URL": {
+                "value": "https://api.orcarouter.ai/v1",
+                "description": "OrcaRouter API地址",
+                "required": False,
+                "type": "text"
+            },
+            "ORCAROUTER_MODEL": {
+                "value": "orcarouter/auto",
+                "description": "OrcaRouter模型名称",
+                "required": False,
+                "type": "text"
+            },
             "TUSHARE_TOKEN": {
                 "value": "",
                 "description": "Tushare数据接口Token（可选）",
@@ -202,6 +220,9 @@ class ConfigManager:
             lines.append(f'DEEPSEEK_API_KEY="{full_config.get("DEEPSEEK_API_KEY", "")}"')
             lines.append(f'DEEPSEEK_BASE_URL="{full_config.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")}"')
             lines.append(f'DEFAULT_MODEL_NAME="{full_config.get("DEFAULT_MODEL_NAME", "deepseek-chat")}"')
+            lines.append(f'ORCAROUTER_API_KEY="{full_config.get("ORCAROUTER_API_KEY", "")}"')
+            lines.append(f'ORCAROUTER_BASE_URL="{full_config.get("ORCAROUTER_BASE_URL", "https://api.orcarouter.ai/v1")}"')
+            lines.append(f'ORCAROUTER_MODEL="{full_config.get("ORCAROUTER_MODEL", "orcarouter/auto")}"')
             lines.append("")
             
             # 数据接口配置
@@ -240,6 +261,7 @@ class ConfigManager:
             # 保留其他非标准自定义键
             written_keys = {
                 "DEEPSEEK_API_KEY", "DEEPSEEK_BASE_URL", "DEFAULT_MODEL_NAME",
+                "ORCAROUTER_API_KEY", "ORCAROUTER_BASE_URL", "ORCAROUTER_MODEL",
                 "TUSHARE_TOKEN", "TDX_BASE_URL", "YDC_API_KEY", "YDC_RESEARCH_EFFORT",
                 "MINIQMT_ENABLED", "MINIQMT_ACCOUNT_ID", "MINIQMT_HOST", "MINIQMT_PORT",
                 "EMAIL_ENABLED", "SMTP_SERVER", "SMTP_PORT", "EMAIL_FROM", "EMAIL_PASSWORD", "EMAIL_TO",
@@ -280,17 +302,22 @@ class ConfigManager:
     
     def validate_config(self, config: Dict[str, str]) -> tuple[bool, str]:
         """验证配置"""
+        # 设置了 OrcaRouter 密钥时，DeepSeek 密钥不再是必填项（二选一）
+        has_orcarouter = bool(config.get("ORCAROUTER_API_KEY"))
+
         # 检查必填项
         for key, info in self.default_config.items():
+            if key == "DEEPSEEK_API_KEY" and has_orcarouter:
+                continue
             if info["required"] and not config.get(key):
                 return False, f"必填项 {info['description']} 不能为空"
-        
+
         # 验证API Key格式（简单检查长度）
         if config.get("DEEPSEEK_API_KEY"):
             api_key = config.get("DEEPSEEK_API_KEY", "")
             if len(api_key) < 20:
                 return False, "DeepSeek API Key格式不正确（长度太短）"
-        
+
         return True, "配置验证通过"
     
     def reload_config(self):

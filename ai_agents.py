@@ -1,14 +1,14 @@
-from deepseek_client import DeepSeekClient
+from llm_client import get_llm_client
 from typing import Dict, Any
 import time
 import config
 
 class StockAnalysisAgents:
     """股票分析AI智能体集合"""
-    
+
     def __init__(self, model=None):
         self.model = model or config.DEFAULT_MODEL_NAME
-        self.deepseek_client = DeepSeekClient(model=self.model)
+        self.deepseek_client = get_llm_client(model=model)
         
     def technical_analyst_agent(self, stock_info: Dict, stock_data: Any, indicators: Dict) -> Dict[str, Any]:
         """技术面分析智能体"""

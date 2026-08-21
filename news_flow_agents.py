@@ -29,13 +29,13 @@ class NewsFlowAgents:
         self._init_client()
     
     def _init_client(self):
-        """初始化DeepSeek客户端"""
+        """初始化AI客户端（OrcaRouter 或 DeepSeek）"""
         try:
-            from deepseek_client import DeepSeekClient
-            self.deepseek_client = DeepSeekClient(model=self.model)
-            logger.info(f"✅ DeepSeek客户端初始化成功，模型: {self.model}")
+            from llm_client import get_llm_client
+            self.deepseek_client = get_llm_client(model=self.model)
+            logger.info(f"✅ AI客户端初始化成功，模型: {self.model}")
         except Exception as e:
-            logger.error(f"❌ DeepSeek客户端初始化失败: {e}")
+            logger.error(f"❌ AI客户端初始化失败: {e}")
             self.deepseek_client = None
     
     def is_available(self) -> bool:

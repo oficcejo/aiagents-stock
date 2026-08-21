@@ -19,6 +19,14 @@ DEEPSEEK_API_KEY=your_actual_deepseek_api_key_here
 DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
 
 
+# ========== OrcaRouter API配置（可选）==========
+# 设置了 ORCAROUTER_API_KEY 后，系统将优先使用 OrcaRouter 作为 AI 引擎
+# OrcaRouter：https://www.orcarouter.ai | API：https://api.orcarouter.ai/v1
+ORCAROUTER_API_KEY=
+ORCAROUTER_BASE_URL=https://api.orcarouter.ai/v1
+ORCAROUTER_MODEL=orcarouter/auto
+
+
 # ========== Tushare数据接口（可选）==========
 # Tushare Token（可选，用于获取更多金融数据）
 # 获取地址：https://tushare.pro/register

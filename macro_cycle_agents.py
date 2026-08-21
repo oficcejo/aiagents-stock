@@ -3,7 +3,7 @@
 包含四位专业分析师：康波周期分析师、美林时钟分析师、中国政策分析师、首席宏观策略师
 """
 
-from deepseek_client import DeepSeekClient
+from llm_client import get_llm_client
 from typing import Dict, Any
 import time
 import config
@@ -14,7 +14,7 @@ class MacroCycleAgents:
 
     def __init__(self, model=None):
         self.model = model or config.DEFAULT_MODEL_NAME
-        self.deepseek_client = DeepSeekClient(model=self.model)
+        self.deepseek_client = get_llm_client(model=model)
         print(f"[宏观周期] AI智能体系统初始化 (模型: {self.model})")
 
     def kondratieff_wave_agent(self, macro_data_text: str) -> Dict[str, Any]:

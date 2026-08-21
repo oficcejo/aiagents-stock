@@ -2234,6 +2234,62 @@ def display_config_manager():
 
         st.info("💡 如何获取DeepSeek API密钥？\n\n1. 访问 https://platform.deepseek.com\n2. 注册/登录账号\n3. 进入API密钥管理页面\n4. 创建新的API密钥\n5. 复制密钥并粘贴到上方输入框")
 
+        st.markdown("---")
+        st.markdown("### OrcaRouter API配置（可选）")
+        st.markdown("[OrcaRouter](https://www.orcarouter.ai) 是 OpenAI 兼容的统一模型网关，设置 `ORCAROUTER_API_KEY` 后将优先使用 OrcaRouter 作为 AI 引擎（未设置时仍使用上方 DeepSeek）。")
+        st.markdown("OrcaRouter: https://api.orcarouter.ai/v1")
+
+        orca_api_key_info = config_info["ORCAROUTER_API_KEY"]
+        current_orca_api_key = st.session_state.temp_config.get("ORCAROUTER_API_KEY", "")
+
+        new_orca_api_key = st.text_input(
+            f"🔑 {orca_api_key_info['description']}",
+            value=current_orca_api_key,
+            type="password",
+            help="从 https://www.orcarouter.ai 获取API密钥",
+            key="input_orcarouter_api_key"
+        )
+        st.session_state.temp_config["ORCAROUTER_API_KEY"] = new_orca_api_key
+
+        if new_orca_api_key:
+            st.success("✅ OrcaRouter 已启用，系统将使用 OrcaRouter 引擎")
+
+        st.markdown("---")
+
+        orca_base_url_info = config_info["ORCAROUTER_BASE_URL"]
+        current_orca_base_url = st.session_state.temp_config.get("ORCAROUTER_BASE_URL", "https://api.orcarouter.ai/v1")
+
+        new_orca_base_url = st.text_input(
+            f"🌐 {orca_base_url_info['description']}",
+            value=current_orca_base_url,
+            help="一般无需修改，保持默认即可",
+            key="input_orcarouter_base_url"
+        )
+        st.session_state.temp_config["ORCAROUTER_BASE_URL"] = new_orca_base_url
+
+        st.markdown("---")
+
+        orca_model_info = config_info["ORCAROUTER_MODEL"]
+        current_orca_model = st.session_state.temp_config.get("ORCAROUTER_MODEL", "orcarouter/auto")
+
+        new_orca_model = st.text_input(
+            f"🤖 {orca_model_info['description']}",
+            value=current_orca_model,
+            help="OrcaRouter 自动路由模型，修改后重启生效",
+            key="input_orcarouter_model"
+        )
+        st.session_state.temp_config["ORCAROUTER_MODEL"] = new_orca_model
+
+        if new_orca_model:
+            st.success(f"✅ OrcaRouter 模型: **{new_orca_model}**")
+
+        st.markdown("""
+        **OrcaRouter 常用模型：**
+        - `orcarouter/auto` — 自动路由（默认）
+        - `deepseek/deepseek-v4-pro` — DeepSeek V4 Pro
+        - `qwen/qwen3.6-flash` — Qwen 3.6 Flash
+        """)
+
     with tab2:
         st.markdown("### Tushare数据接口（可选）")
         st.markdown("Tushare提供更丰富的A股财务数据，配置后可以获取更详细的财务分析。")

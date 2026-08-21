@@ -8,11 +8,20 @@ load_dotenv(override=True)
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
 DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")
 
-# You.com API配置
-YDC_API_KEY = os.getenv("YDC_API_KEY", "")
+# OrcaRouter API配置（可选，设置了 ORCAROUTER_API_KEY 后作为 AI 引擎使用）
+ORCAROUTER_API_KEY = os.getenv("ORCAROUTER_API_KEY", "")
+ORCAROUTER_BASE_URL = os.getenv("ORCAROUTER_BASE_URL", "https://api.orcarouter.ai/v1")
+ORCAROUTER_MODEL = os.getenv("ORCAROUTER_MODEL", "orcarouter/auto")
 
 # 默认AI模型名称（支持任何OpenAI兼容的模型）
-DEFAULT_MODEL_NAME = os.getenv("DEFAULT_MODEL_NAME", "deepseek-chat")
+# 设置了 ORCAROUTER_API_KEY 时，默认模型自动落到 OrcaRouter 的配置模型
+DEFAULT_MODEL_NAME = os.getenv(
+    "DEFAULT_MODEL_NAME",
+    ORCAROUTER_MODEL if ORCAROUTER_API_KEY else "deepseek-chat"
+)
+
+# You.com API配置
+YDC_API_KEY = os.getenv("YDC_API_KEY", "")
 
 # 其他配置
 TUSHARE_TOKEN = os.getenv("TUSHARE_TOKEN", "")
