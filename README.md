@@ -750,7 +750,7 @@ DEEPSEEK_API_KEY=sk-your-actual-api-key-here
 ```bash
 # 使用国内源版Dockerfile构建
 docker build -f "Dockerfile国内源版" -t agentsstock1 .
-docker run -d -p 8503:8501 -v $(pwd)/.env:/app/.env --name agentsstock1 agentsstock1
+docker run -d -p 8503:8503 -v $(pwd)/.env:/app/.env --name agentsstock1 agentsstock1
 ```
 
 **标准构建方式**：
@@ -760,7 +760,7 @@ docker-compose up -d
 
 # 或使用标准 Dockerfile
 docker build -t agentsstock1 .
-docker run -d -p 8503:8501 -v $(pwd)/.env:/app/.env --name agentsstock1 agentsstock1
+docker run -d -p 8503:8503 -v $(pwd)/.env:/app/.env --name agentsstock1 agentsstock1
 ```
 
 #### 4. 访问系统（为避免端口冲突，已将运行端口改为8503）

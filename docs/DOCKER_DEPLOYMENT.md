@@ -105,7 +105,7 @@ mkdir -p data
 ```bash
 docker run -d \
   --name agentsstock1 \
-  -p 8501:8501 \
+  -p 8503:8503 \
   -v $(pwd)/data:/app/data \
   -v $(pwd)/.env:/app/.env \
   -v $(pwd)/stock_analysis.db:/app/stock_analysis.db \
@@ -119,7 +119,7 @@ docker run -d \
 ```powershell
 docker run -d `
   --name agentsstock1 `
-  -p 8503:8501 `
+  -p 8503:8503 `
   -v ${PWD}/data:/app/data `
   -v ${PWD}/.env:/app/.env `
   -v ${PWD}/stock_analysis.db:/app/stock_analysis.db `
@@ -232,7 +232,7 @@ docker logs agentsstock1
 
 **常见原因**：
 - `.env` 文件未配置或配置错误
-- 端口 8501 已被占用
+- 端口 8503 已被占用
 - Docker 资源不足
 
 ### 2. 端口被占用
@@ -240,12 +240,12 @@ docker logs agentsstock1
 修改 `docker-compose.yml` 中的端口映射：
 ```yaml
 ports:
-  - "8502:8501"  # 改为其他端口
+  - "8504:8503"  # 改为其他端口
 ```
 
 或在 docker run 命令中修改：
 ```bash
-docker run ... -p 8502:8501 ...
+docker run ... -p 8504:8503 ...
 ```
 
 ### 3. 无法访问网页
@@ -266,7 +266,7 @@ docker inspect agentsstock1 | grep Health -A 10
 docker port agentsstock1
 
 # 尝试从容器内访问
-docker exec agentsstock1 curl http://localhost:8501
+docker exec agentsstock1 curl http://localhost:8503
 ```
 
 ### 4. 数据库权限问题
@@ -342,7 +342,7 @@ server {
     server_name yourdomain.com;
 
     location / {
-        proxy_pass http://localhost:8501;
+        proxy_pass http://localhost:8503;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
