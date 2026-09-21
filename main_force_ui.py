@@ -848,6 +848,8 @@ def display_main_force_batch_results(batch_results):
                 '股票名称': stock_info.get('name', ''),
                 '评级': f"{rating_emoji} {rating}",
                 '信心度': final_decision.get('confidence_level', 'N/A'),
+                '综合评分': final_decision.get('jev_composite_score', 'N/A'),
+                '决策来源': 'Jev' if final_decision.get('decision_source') == 'jev' else ('文本' if final_decision.get('decision_source') else 'N/A'),
                 '进场区间': final_decision.get('entry_range', 'N/A'),
                 '止盈位': final_decision.get('take_profit', 'N/A'),
                 '止损位': final_decision.get('stop_loss', 'N/A'),
@@ -857,12 +859,12 @@ def display_main_force_batch_results(batch_results):
         df_display = pd.DataFrame(display_data)
 
         # 类型统一，避免Arrow序列化错误
-        numeric_cols = ['信心度', '止盈位', '止损位', '目标价']
+        numeric_cols = ['信心度', '综合评分', '止盈位', '止损位', '目标价']
         for col in numeric_cols:
             if col in df_display.columns:
                 df_display[col] = pd.to_numeric(df_display[col], errors='coerce')
 
-        text_cols = ['股票代码', '股票名称', '评级', '进场区间']
+        text_cols = ['股票代码', '股票名称', '评级', '决策来源', '进场区间']
         for col in text_cols:
             if col in df_display.columns:
                 df_display[col] = df_display[col].astype(str)

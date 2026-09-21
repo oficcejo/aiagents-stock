@@ -1809,13 +1809,22 @@ def display_add_to_monitor_dialog(record):
 
     # 从final_decision中提取关键数据
     if isinstance(final_decision, dict):
+        # Jev 链路结果自带数值字段，优先直接使用，跳过正则提取（见 UNIFIED_ANALYSIS_SPEC 强制条款）
+        if final_decision.get('decision_source') == 'jev':
+            entry_min = float(final_decision.get('entry_min') or 0.0)
+            entry_max = float(final_decision.get('entry_max') or 0.0)
+            take_profit = float(final_decision.get('take_profit_value') or 0.0)
+            stop_loss = float(final_decision.get('stop_loss_value') or 0.0)
+            rating = final_decision.get('rating', '买入')
+            jev_price_skip = True
+        else:
+            jev_price_skip = False
+
         # 解析进场区间
         entry_range_str = final_decision.get('entry_range', 'N/A')
-        entry_min = 0.0
-        entry_max = 0.0
 
         # 尝试解析进场区间字符串，支持多种格式
-        if entry_range_str and entry_range_str != 'N/A':
+        if not jev_price_skip and entry_range_str and entry_range_str != 'N/A':
             try:
                 import re
                 # 移除常见的前缀和单位
@@ -1845,11 +1854,12 @@ def display_add_to_monitor_dialog(record):
         take_profit_str = final_decision.get('take_profit', 'N/A')
         stop_loss_str = final_decision.get('stop_loss', 'N/A')
 
-        take_profit = 0.0
-        stop_loss = 0.0
+        if not jev_price_skip:
+            take_profit = 0.0
+            stop_loss = 0.0
 
         # 解析止盈位
-        if take_profit_str and take_profit_str != 'N/A':
+        if not jev_price_skip and take_profit_str and take_profit_str != 'N/A':
             try:
                 import re
                 # 移除单位和符号
@@ -1862,7 +1872,7 @@ def display_add_to_monitor_dialog(record):
                 pass
 
         # 解析止损位
-        if stop_loss_str and stop_loss_str != 'N/A':
+        if not jev_price_skip and stop_loss_str and stop_loss_str != 'N/A':
             try:
                 import re
                 # 移除单位和符号
@@ -1875,7 +1885,7 @@ def display_add_to_monitor_dialog(record):
                 pass
 
         # 获取评级
-        rating = final_decision.get('rating', '买入')
+        rating = rating if jev_price_skip else final_decision.get('rating', '买入')
 
         # 检查是否已经在监测列表中
         from monitor_db import monitor_db

@@ -1,6 +1,6 @@
 """
 新闻流量预警系统模块
-实现6种预警类型和通知推送
+实现7种预警类型和通知推送
 """
 import logging
 from datetime import datetime, timedelta
@@ -45,6 +45,11 @@ class NewsFlowAlertSystem:
             'level': 'warning',
             'description': 'K值超过阈值，流量呈指数型增长',
         },
+        'news_stance': {
+            'name': 'Jev新闻立场',
+            'level': 'warning',
+            'description': '高置信度Jev利好/利空新闻结论（置信度门控）',
+        },
     }
     
     # 预警级别定义
@@ -67,6 +72,8 @@ class NewsFlowAlertSystem:
             'sentiment_high_threshold': 90,
             'sentiment_low_threshold': 20,
             'viral_k_threshold': 1.5,
+            # Jev 立场告警门控：仅置信度不低于该值的 Jev 利好/利空结论才推送
+            'jev_min_alert_confidence': 0.6,
         }
     
     def _init_dependencies(self):
@@ -160,6 +167,13 @@ class NewsFlowAlertSystem:
         if viral_alert:
             viral_alert['snapshot_id'] = snapshot_id
             alerts.append(viral_alert)
+
+        # 7. 检查 Jev 新闻立场（高置信度利好/利空才触发 Webhook 推送）
+        if sentiment_data:
+            stance_alert = self._check_news_stance_alert(sentiment_data)
+            if stance_alert:
+                stance_alert['snapshot_id'] = snapshot_id
+                alerts.append(stance_alert)
         
         # 按优先级排序
         alerts.sort(key=lambda x: self.ALERT_LEVELS.get(
@@ -344,6 +358,52 @@ class NewsFlowAlertSystem:
             }
         return None
     
+    def _check_news_stance_alert(self, sentiment_data: Dict) -> Optional[Dict]:
+        """Jev 新闻立场告警（置信度门控）。
+
+        数据来源：sentiment_analyzer 汇总的 stance_summary.alerts（上游已按
+        config.JEV_ALERT_MIN_CONFIDENCE 过滤）；本方法再用阈值配置二次门控，
+        支持通过 db 告警配置覆盖。
+        """
+        try:
+            stance_summary = (sentiment_data.get('sentiment') or {}).get('stance_summary') or {}
+            candidates = stance_summary.get('alerts') or []
+            if not candidates:
+                return None
+            min_conf = self.get_threshold('jev_min_alert_confidence')
+            qualified = [c for c in candidates if (c.get('confidence') or 0) >= min_conf]
+            if not qualified:
+                return None
+            neg = [c for c in qualified if c.get('stance') == '利空']
+            pos = [c for c in qualified if c.get('stance') == '利好']
+            # 利空优先（风控价值更高）
+            if neg:
+                top = max(neg, key=lambda c: c.get('confidence') or 0)
+                return {
+                    'alert_type': 'news_stance',
+                    'alert_level': 'warning',
+                    'title': f"Jev利空提醒（置信度{top['confidence']:.2f}）",
+                    'content': f"高置信度利空新闻 {len(neg)} 条：{top.get('title', '')}\n"
+                               f"持仓请注意风险，考虑减仓或收紧止损。",
+                    'related_topics': [c.get('title', '') for c in neg[:3]],
+                    'trigger_value': top['confidence'],
+                    'threshold_value': min_conf,
+                }
+            top = max(pos, key=lambda c: c.get('confidence') or 0)
+            return {
+                'alert_type': 'news_stance',
+                'alert_level': 'info',
+                'title': f"Jev利好提示（置信度{top['confidence']:.2f}）",
+                'content': f"高置信度利好新闻 {len(pos)} 条：{top.get('title', '')}\n"
+                           f"可关注相关机会，注意快进快出与仓位控制。",
+                'related_topics': [c.get('title', '') for c in pos[:3]],
+                'trigger_value': top['confidence'],
+                'threshold_value': min_conf,
+            }
+        except Exception as e:
+            logger.warning(f"Jev 立场告警检查失败: {e}")
+            return None
+
     def send_notification(self, alerts: List[Dict]) -> bool:
         """
         发送通知

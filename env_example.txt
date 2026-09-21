@@ -13,6 +13,15 @@ ORCAROUTER_API_KEY=
 ORCAROUTER_BASE_URL=https://api.orcarouter.ai/v1
 ORCAROUTER_MODEL=orcarouter/auto
 
+# TypeSafe Jev 结构化决策引擎配置（可选，设置了 TYPESAFE_API_KEY 后启用；
+# 用于最终决策/新闻情绪/批量打分的结构化收口，失败自动降级 DeepSeek，不配置则功能关闭）
+# 获取地址：https://console.typesafe.ai/keys | 文档：https://docs.typesafe.ai/introduction
+TYPESAFE_API_KEY=
+TYPESAFE_BASE_URL=https://api.typesafe.ai/v1
+TYPESAFE_MODEL=jev-latest
+JEV_MIN_CONFIDENCE=0.5
+JEV_ALERT_MIN_CONFIDENCE=0.6
+
 # Tushare数据源配置（备用数据源）
 TUSHARE_TOKEN=your_tushare_token_here
 

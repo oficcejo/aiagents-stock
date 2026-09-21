@@ -1,4 +1,4 @@
-from llm_client import get_llm_client
+from llm_client import get_llm_client, get_jev_client, compute_price_fields
 from typing import Dict, Any
 import time
 import config
@@ -536,11 +536,110 @@ class StockAnalysisAgents:
         return discussion_result
     
     def make_final_decision(self, discussion_result: str, stock_info: Dict, indicators: Dict) -> Dict[str, Any]:
-        """制定最终投资决策"""
+        """制定最终投资决策（适配层：优先 Jev 结构化决策，失败降级 DeepSeek 文本链路）。
+
+        降级触发条件（任一）：
+        - 未配置 TYPESAFE_API_KEY（get_jev_client 返回 None）
+        - Jev 调用抛出 JevError（网络/超时/响应异常）
+        - 评级置信度低于 config.JEV_MIN_CONFIDENCE（低质量响应）
+        - 无法获得合法现价（无法计算价位字段）
+        无论哪条路径，输出都遵循统一字段，并携带 decision_source 标记来源。
+        """
         print("📋 正在制定最终投资决策...")
-        time.sleep(1)
-        
+        jev_client = get_jev_client()
+        if jev_client is not None:
+            try:
+                decision = self._final_decision_via_jev(jev_client, discussion_result, stock_info, indicators)
+                if decision is not None:
+                    _conf = decision.pop("_jev_confidence", None)
+                    print(f"✅ 最终投资决策完成（来源: Jev, confidence={_conf:.2f}）" if _conf is not None else "✅ 最终投资决策完成（来源: Jev）")
+                    return decision
+            except Exception as e:  # JevError 及任何异常均降级
+                print(f"⚠️ Jev 决策失败，降级回 DeepSeek 文本链路: {e}")
+        # 降级：既有 DeepSeek 文本 + 正则解析链路（行为与本变更合入前完全一致）
         decision = self.deepseek_client.final_decision(discussion_result, stock_info, indicators)
-        
-        print("✅ 最终投资决策完成")
+        if isinstance(decision, dict):
+            decision.setdefault("decision_source", "deepseek_fallback")
+        print("✅ 最终投资决策完成（来源: DeepSeek 文本链路）")
         return decision
+
+    def _final_decision_via_jev(self, jev_client, discussion_result: str,
+                                stock_info: Dict, indicators: Dict) -> Dict[str, Any]:
+        """Jev 结构化决策路径。不适合 Jev 的字段（价位）由代码计算。
+
+        返回 None 表示不适合走 Jev（如置信度过低/现价非法），由适配层降级。
+        """
+        from typesafe_decision_client import (
+            build_analysis_state, rating_of, confidence_of, composite_decision_score,
+        )
+
+        state = build_analysis_state(stock_info, {}, discussion_result, indicators)
+        answers = jev_client.ask_final_decision(state, include_scores=True)
+
+        rating = rating_of(answers)
+        jev_confidence = confidence_of(answers)
+        if not rating or jev_confidence is None:
+            return None
+        if jev_confidence < config.JEV_MIN_CONFIDENCE:
+            print(f"⚠️ Jev 评级置信度过低（{jev_confidence:.2f} < {config.JEV_MIN_CONFIDENCE}），降级到文本链路")
+            return None
+
+        # 价位字段由代码按现价计算（Jev 不擅长精确算术，不询问模型）
+        price_fields = compute_price_fields(stock_info.get('current_price'))
+        if price_fields is None:
+            print("⚠️ 无法获得合法现价，价位无法由代码计算，降级到文本链路")
+            return None
+
+        # 重大风险（Noul）影响仓位建议
+        major_risk = bool((answers.get('major_risk') or {}).get('noul', 0) >= 0.5)
+        confidence_level = round(jev_confidence * 10, 1)
+        decision = {
+            "rating": rating,
+            "confidence_level": confidence_level,
+            "operation_advice": self._jev_operation_advice(rating, major_risk),
+            "holding_period": self._jev_holding_period(rating),
+            "position_size": self._jev_position_size(rating, major_risk),
+            "risk_warning": ("存在重大风险项（质押/商誉/监管/业绩等），建议回避或严格限仓。"
+                             if major_risk else "未识别到质押/商誉/监管等重大风险，常规风险控制即可。"),
+            "decision_source": "jev",
+            "_jev_confidence": jev_confidence,
+        }
+        decision.update(price_fields)
+        # 多维度加权总分（供批量选股排序使用）
+        composite = composite_decision_score(answers)
+        if composite is not None:
+            decision["jev_composite_score"] = composite
+            decision["score_source"] = "jev"
+        return decision
+
+    @staticmethod
+    def _jev_operation_advice(rating: str, major_risk: bool) -> str:
+        if major_risk and ("买入" in rating):
+            return f"评级为{rating}但存在重大风险，建议观望为主，若参与务必轻仓并严设止损。"
+        base = {
+            "强烈买入": "可逢低分批建仓，控制节奏，避免追高。",
+            "买入": "可逢回调适度建仓，分批买入。",
+            "持有": "已有仓位可持有观察，暂不加仓。",
+            "卖出": "建议逢高减仓，逐步退出。",
+            "强烈卖出": "建议尽快减仓或清仓离场，规避下行风险。",
+        }
+        return base.get(rating, "谨慎操作，结合个人风险承受力决策。")
+
+    @staticmethod
+    def _jev_holding_period(rating: str) -> str:
+        if "买入" in rating:
+            return "中期（2-8周）"
+        if "卖出" in rating:
+            return "短期（规避为主）"
+        return "观望（视后续走势调整）"
+
+    @staticmethod
+    def _jev_position_size(rating: str, major_risk: bool) -> str:
+        if major_risk:
+            return "轻仓"
+        if rating == "强烈买入":
+            return "中等仓位"
+        if rating == "买入":
+            return "轻到中等仓位"
+        return "轻仓/空仓"
+

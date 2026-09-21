@@ -7,6 +7,8 @@ from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 import statistics
 
+import config
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -54,6 +56,116 @@ class SentimentAnalyzer:
             '回调', '减仓', '卖出', '减持', '风险', '看空', '危机',
             '政策收紧', '业绩下滑', '不及预期', '亏损', '退市',
         ]
+
+        # Jev 结构化情绪分类：懒加载客户端（未配置 TYPESAFE_API_KEY 时为 None）
+        self._jev_initialized = False
+        self._jev_client = None
+
+    def _get_jev_client(self):
+        """懒加载 Jev 决策客户端；未配置或初始化失败返回 None。"""
+        if not self._jev_initialized:
+            try:
+                from llm_client import get_jev_client
+                self._jev_client = get_jev_client()
+            except Exception as e:
+                logger.warning(f"Jev 客户端获取失败，新闻情绪分类将走文本/关键词链路: {e}")
+                self._jev_client = None
+            self._jev_initialized = True
+        return self._jev_client
+
+    def classify_news_stance(self, title: str, content: str = "",
+                             stock_name: str = "") -> Optional[Dict]:
+        """单条新闻立场分类（适配层：优先 Jev，失败降级 DeepSeek 文本+正则）。
+
+        返回 {stance, urgency, relevant, confidence, decision_source}；完全不可用时返回 None。
+        """
+        jev = self._get_jev_client()
+        if jev is not None:
+            try:
+                from typesafe_decision_client import build_news_state, stance_label
+                state = build_news_state(title, content, stock_name)
+                answers = jev.ask_news_stance(state)
+                label = stance_label(answers)
+                if label:
+                    confidence = float((answers.get('stance') or {}).get('confidence', 0.0) or 0.0)
+                    result = {
+                        'stance': label,
+                        'urgency': (answers.get('urgency') or {}).get('score'),
+                        'relevant': bool((answers.get('relevant') or {}).get('noul', 0) >= 0.5),
+                        'confidence': confidence,
+                        'decision_source': 'jev',
+                        'title': (title or '')[:80],
+                    }
+                    # 灰度双写：同时记录关键词启发式结果，供分歧分析（6.3）
+                    logger.info(f"[双写] 新闻立场 jev={label}(conf={confidence:.2f}) "
+                                f"keyword={self._keyword_stance(title, content)} | {title[:30]}")
+                    return result
+            except Exception as e:
+                logger.warning(f"Jev 新闻分类失败，降级 DeepSeek 文本链路: {e}")
+        # 降级：DeepSeek 文本 + 正则
+        text_result = self._classify_via_text(title, content, stock_name)
+        if text_result is not None:
+            return text_result
+        # 最终兜底：关键词启发式（不调用任何 LLM，永远可用）
+        kw = self._keyword_stance(title, content)
+        if kw is None:
+            return None
+        return {'stance': kw, 'urgency': None, 'relevant': None,
+                'confidence': None, 'decision_source': 'keyword_fallback'}
+
+    def _classify_via_text(self, title: str, content: str, stock_name: str) -> Optional[Dict]:
+        """DeepSeek 文本分类降级链路：生成文本再用正则提取立场。"""
+        try:
+            import re
+            from llm_client import get_llm_client
+            client = get_llm_client()
+            prompt = (
+                f"判断以下新闻对{'股票' if not stock_name else stock_name}的整体立场，"
+                f"只回答一个词：利好/中性/利空。\n"
+                f"标题：{title}\n内容：{content[:500]}"
+            )
+            messages = [
+                {"role": "system", "content": "你是新闻情绪分类器，只输出'利好'、'中性'或'利空'一个词。"},
+                {"role": "user", "content": prompt},
+            ]
+            response = client.call_api(messages, temperature=0.2, max_tokens=16)
+            text = str(response)
+            stance = None
+            if re.search(r'利空', text):
+                stance = '利空'
+            elif re.search(r'利好', text):
+                stance = '利好'
+            elif re.search(r'中性', text):
+                stance = '中性'
+            if stance:
+                return {'stance': stance, 'urgency': None, 'relevant': None,
+                        'confidence': None, 'decision_source': 'deepseek_fallback'}
+            return None
+        except Exception as e:
+            logger.warning(f"DeepSeek 文本新闻分类失败: {e}")
+            return None
+
+    def _keyword_stance(self, title: str, content: str) -> Optional[str]:
+        """关键词启发式立场（供双写对比与无网络兜底）。"""
+        text = f"{title} {content}"
+        pos = sum(1 for kw in self.positive_keywords if kw in text)
+        neg = sum(1 for kw in self.negative_keywords if kw in text)
+        if pos == 0 and neg == 0:
+            return None
+        if pos > neg:
+            return '利好'
+        if neg > pos:
+            return '利空'
+        return '中性'
+
+    def classify_batch_stances(self, stock_news: List[Dict], max_items: int = 10) -> List[Dict]:
+        """批量分类（限制条数避免逐条过多调用）。返回带 stance 的结果列表。"""
+        results = []
+        for news in (stock_news or [])[:max_items]:
+            r = self.classify_news_stance(news.get('title', ''), news.get('content', ''))
+            if r and r.get('stance'):
+                results.append(r)
+        return results
     
     def calculate_sentiment_index(self, platforms_data: List[Dict], 
                                    stock_news: List[Dict] = None) -> Dict:
@@ -132,6 +244,14 @@ class SentimentAnalyzer:
             keyword_factor = int(positive_ratio * 100)
         else:
             keyword_factor = 50  # 中性
+
+        # 3.5 Jev/文本分类层（仅当启用时）：用高置信度立场细化 keyword_factor
+        stance_summary = self._apply_stance_refinement(stock_news)
+        if stance_summary:
+            sp, sn = stance_summary['positive'], stance_summary['negative']
+            st = sp + sn
+            if st > 0:
+                keyword_factor = int(sp / st * 100)
         
         # 4. 综合计算情绪指数
         sentiment_index = int(
@@ -161,7 +281,35 @@ class SentimentAnalyzer:
             'negative_count': negative_count,
             'sentiment_class': sentiment_class,
             'analysis': analysis,
+            'stance_summary': stance_summary,
         }
+
+    def _apply_stance_refinement(self, stock_news: List[Dict]) -> Optional[Dict]:
+        """仅当 Jev 启用时，对新闻做立场分类并汇总（降级链已在 classify_news_stance 内部）。
+
+        返回 {positive, negative, neutral, sources}；未启用 Jev 时返回 None（保持原关键词链路）。
+        """
+        if self._get_jev_client() is None or not stock_news:
+            return None
+        stances = self.classify_batch_stances(stock_news, max_items=10)
+        if not stances:
+            return None
+        pos = sum(1 for s in stances if s['stance'] == '利好')
+        neg = sum(1 for s in stances if s['stance'] == '利空')
+        neu = sum(1 for s in stances if s['stance'] == '中性')
+        sources = {}
+        for s in stances:
+            sources[s.get('decision_source')] = sources.get(s.get('decision_source'), 0) + 1
+        # 告警候选：仅高置信度的 Jev 利好/利空结论（门控阈值 config.JEV_ALERT_MIN_CONFIDENCE）
+        alerts = [
+            {'stance': s['stance'], 'confidence': s['confidence'], 'title': s.get('title', ''),
+             'urgency': s.get('urgency')}
+            for s in stances
+            if s.get('decision_source') == 'jev' and s.get('stance') in ('利好', '利空')
+            and (s.get('confidence') or 0) >= config.JEV_ALERT_MIN_CONFIDENCE
+        ]
+        return {'positive': pos, 'negative': neg, 'neutral': neu,
+                'total': len(stances), 'sources': sources, 'alerts': alerts}
     
     def classify_sentiment(self, index: int) -> str:
         """

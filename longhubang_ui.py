@@ -1537,6 +1537,11 @@ def display_longhubang_batch_results(batch_results: dict):
                 st.markdown("**基本信息**")
                 st.write(f"当前价: {stock_info.get('current_price', 'N/A')}")
                 st.write(f"目标价: {target_price}")
+                # 决策来源与 Jev 多维加权综合评分（启用 Jev 时才有评分）
+                _src = final_decision.get("decision_source", "")
+                st.write(f"决策来源: {'Jev' if _src == 'jev' else ('文本' if _src else 'N/A')}")
+                if final_decision.get("jev_composite_score") is not None:
+                    st.write(f"综合评分: {final_decision.get('jev_composite_score')}")
             
             with col2:
                 st.markdown("**进出场位置**")

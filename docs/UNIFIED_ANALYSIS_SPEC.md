@@ -186,6 +186,25 @@ result = agents.technical_analyst_agent(...)  # 禁止！
 
 ---
 
+## 🧠 Jev 结构化决策链路（可选）
+
+当环境变量 `TYPESAFE_API_KEY` 配置后，`make_final_decision` 会优先走 TypeSafe Jev（System One 模型）直接返回类型化结果，失败则自动降级回 DeepSeek 文本+正则链路。**调用方无需修改，以下字段含义与格式不变**（由 `llm_client.compute_price_fields()` 按现价±配置百分比计算，与本文档解析方式完全兼容）。
+
+新增两个只读字段（向后兼容，旧记录缺省视为文本链路）：
+
+- `decision_source`: `"jev"` | `"deepseek_fallback"`，标记最终决策来源
+- `jev_composite_score`: 0-10 多维度加权总分（仅启用 Jev 且打分成功时存在），供批量选股排序
+
+⚠️ **强制条款**：
+
+1. 启用 Jev 时，`entry_range` / `take_profit` / `stop_loss` / `target_price` **由代码按现价计算**，严禁再对 `decision_source == "jev"` 的结果做“从模型文本抽取价格”的提示词设计
+2. 下游若需数值价位，**优先读取新增数值字段** `entry_min` / `entry_max` / `take_profit_value` / `stop_loss_value`；无则仍可回退到对统一字符串字段的 `split("-")` / `re.findall()` 解析（二者结果一致）
+3. 任何新增决策类结构化字段都应同时提供 Jev 路径与文本降级路径，并写入 `decision_source`
+
+参考实现：`typesafe_decision_client.py`、`llm_client.py:get_jev_client/compute_price_fields`、`ai_agents.py:make_final_decision`；详细设计见 `openspec/changes/add-typesafe-jev-decision/`。
+
+---
+
 ## 🔍 代码审查检查清单
 
 提交涉及股票分析的代码时，请确认：
@@ -193,7 +212,7 @@ result = agents.technical_analyst_agent(...)  # 禁止！
 - [ ] 使用了 `app.analyze_single_stock_for_batch()` 而非直接调用 `ai_agents`
 - [ ] 使用了正确的字段名（`rating`, `confidence_level`, `entry_range`等）
 - [ ] 没有使用废弃字段名（`investment_rating`, `entry_exit_positions`等）
-- [ ] 数据解析逻辑与规范一致（split("-"), re.findall()）
+- [ ] 数据解析逻辑与规范一致（split("-"), re.findall()）；若启用 Jev 优先读数值字段，不再从文本抽价
 - [ ] UI展示格式与其他模块保持一致
 - [ ] 通知推送使用相同的数据结构
 
@@ -264,7 +283,8 @@ A: **不可以！** 所有涉及股票分析的功能都必须遵循此规范，
 ## 📝 更新日志
 
 - **2024-10-20**: 初始版本，基于持仓定时分析功能的实践总结
-- **规范来源**: OpenSpec - `add-portfolio-scheduled-analysis` - Decision 4
+- **2026-09-21**: 新增 “Jev 结构化决策链路” 章节与 `decision_source` / `jev_composite_score` 字段（OpenSpec - `add-typesafe-jev-decision`）
+- **规范来源**: OpenSpec - `add-portfolio-scheduled-analysis` - Decision 4；`add-typesafe-jev-decision`
 
 ---
 
