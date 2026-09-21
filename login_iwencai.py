@@ -31,6 +31,11 @@ def login():
     print("登录成功后，脚本会自动检测并保存登录状态！")
     print("=" * 65)
 
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+
     PROFILE_DIR.mkdir(exist_ok=True)
 
     with sync_playwright() as p:
@@ -38,28 +43,48 @@ def login():
             user_data_dir=str(PROFILE_DIR),
             headless=False,
             viewport={'width': 1280, 'height': 800},
+            ignore_default_args=['--enable-automation'],
+            args=[
+                '--disable-blink-features=AutomationControlled',
+                '--no-sandbox',
+            ],
             user_agent=(
                 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
                 'AppleWebKit/537.36 (KHTML, like Gecko) '
                 'Chrome/120.0.0.0 Safari/537.36'
             ),
         )
-        page = context.new_page()
+        context.add_init_script(
+            "delete Object.getPrototypeOf(navigator).webdriver;\n"
+            "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});"
+        )
+        page = context.pages[0] if context.pages else context.new_page()
         page.goto('https://www.iwencai.com/screener', timeout=60000)
 
-        # 循环检测登录状态（最长等待 3 分钟）
-        print("\n⏳ 等待用户登录中（可扫码或输入同花顺账号登录）...")
+        # 自动尝试点击登录按钮弹出登录框
+        try:
+            page.wait_for_selector('span.login', timeout=8000)
+            page.click('span.login')
+            print("💡 已自动为您弹出登录窗口，请在弹出的框中【微信扫码】或【账号密码】登录。")
+        except Exception:
+            print("💡 请点击页面右上角的「登录」按钮。")
+
+        # 循环检测登录状态（最长等待 5 分钟）
+        print("\n⏳ 等待登录中（扫码成功后脚本将自动识别并保存）...")
         logged_in = False
         cookie_str = ""
 
         start_time = time.time()
-        while time.time() - start_time < 180:
+        while time.time() - start_time < 300:
             cookies = context.cookies()
             cookie_names = [c["name"] for c in cookies]
             
             # 检测同花顺登录特征 Cookie
             login_tokens = ["ticket", "escapename", "wencai_user", "user", "userid", "user_id"]
             if any(t in cookie_names for t in login_tokens):
+                # 确认登录后稍微多等 1 秒让全部鉴权 cookie 写入完成
+                time.sleep(1)
+                cookies = context.cookies()
                 logged_in = True
                 cookie_str = "; ".join(f'{c["name"]}={c["value"]}' for c in cookies)
                 break
@@ -69,7 +94,7 @@ def login():
         if not logged_in:
             # 如果自动识别未触发，也可以直接抓取当前所有 Cookie
             cookies = context.cookies()
-            if cookies:
+            if cookies and len(cookies) > 3:
                 cookie_str = "; ".join(f'{c["name"]}={c["value"]}' for c in cookies)
                 logged_in = True
 

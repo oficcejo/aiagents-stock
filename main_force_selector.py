@@ -46,24 +46,29 @@ class MainForceStockSelector:
             print(f"开始日期: {start_date}")
             print(f"目标: 获取主力资金净流入排名前100名股票")
             
+            # 处理市值限制条件，避免生成 None-None亿
+            cap_str = ""
+            if min_market_cap is not None and max_market_cap is not None:
+                cap_str = f"市值{min_market_cap}-{max_market_cap}亿，"
+            elif min_market_cap is not None:
+                cap_str = f"市值大于{min_market_cap}亿，"
+            elif max_market_cap is not None:
+                cap_str = f"市值小于{max_market_cap}亿，"
+
             # 构建查询语句 - 使用多个备选方案，所有方案都要求计算区间涨跌幅
             queries = [
-                # 方案1: 完整查询（最优）
-                f"{start_date}以来主力资金净流入排名，并计算区间涨跌幅，市值{min_market_cap}-{max_market_cap}亿之间，非科创非st，"
-                f"所属同花顺行业，总市值，净利润，营收，市盈率，市净率，"
-                f"盈利能力评分，成长能力评分，营运能力评分，偿债能力评分，"
-                f"现金流评分，资产质量评分，流动性评分，资本充足性评分",
+                # 方案1: 资金净流入排名（非VIP专享）
+                f"{start_date}以来资金净流入前100名，并计算区间涨跌幅，{cap_str}非st非科创板，所属行业，总市值",
                 
-                # 方案2: 简化查询
-                f"{start_date}以来主力资金净流入，并计算区间涨跌幅，市值{min_market_cap}-{max_market_cap}亿，非科创非st，"
-                f"所属同花顺行业，总市值，净利润，营收，市盈率，市净率",
+                # 方案2: 资金净流入基础查询
+                f"资金净流入前100名，{cap_str}非st非科创板，所属行业，总市值",
                 
-                # 方案3: 基础查询
-                f"{start_date}以来主力资金净流入排名，并计算区间涨跌幅，市值{min_market_cap}-{max_market_cap}亿，非科创非st，"
-                f"所属行业，总市值",
-                
-                # 方案4: 最简查询
-                f"{start_date}以来主力资金净流入前100名，并计算区间涨跌幅，市值{min_market_cap}-{max_market_cap}亿，非st非科创板，所属行业，总市值",
+                # 方案3: 机构净买入查询
+                f"机构净买入前100名，{cap_str}非st非科创板，所属行业，总市值",
+
+                # 方案4: 主力资金（若用户账号拥有VIP权限可走此方案）
+                f"{start_date}以来主力资金净流入排名，并计算区间涨跌幅，{cap_str}非科创非st，所属行业，总市值",
+                f"{start_date}以来主力资金净流入前100名，并计算区间涨跌幅，{cap_str}非st非科创板，所属行业，总市值",
             ]
             
             # 尝试不同的查询方案

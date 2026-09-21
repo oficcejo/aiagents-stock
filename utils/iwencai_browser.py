@@ -108,10 +108,12 @@ def get_browser_cookies(force_refresh=False):
             if cookie_str:
                 _cookie_cache = cookie_str
                 _cookie_time = time.time()
-                try:
-                    COOKIE_FILE.write_text(cookie_str, encoding="utf-8")
-                except Exception:
-                    pass
+                # 仅在获取到的 cookie 包含有效登录或未保存过时写入
+                if not COOKIE_FILE.exists() or any(k in cookie_str for k in ['ticket', 'user=', 'escapename']):
+                    try:
+                        COOKIE_FILE.write_text(cookie_str, encoding="utf-8")
+                    except Exception:
+                        pass
                 print(f"[iwencai] ✅ 成功获取浏览器会话")
                 return cookie_str
             else:
@@ -121,3 +123,105 @@ def get_browser_cookies(force_refresh=False):
     except Exception as e:
         print(f"[iwencai] ❌ 获取浏览器会话失败: {e}")
         return ""
+
+
+def query_wencai_browser(query: str, timeout_ms: int = 15000):
+    """
+    通过 Chromium 浏览器引擎直接向同花顺问财实时选股接口查询，
+    解析返回的数据流并转换成 pandas DataFrame。
+    绕过旧版 pywencai 的 403 屏蔽与老旧 API 弃用问题。
+    """
+    import urllib.parse
+    import json
+    import pandas as pd
+
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        logger.warning("未安装 playwright，无法使用浏览器选股")
+        return None
+
+    raw_cookies = get_browser_cookies()
+    cookies_to_add = []
+    if raw_cookies:
+        for item in raw_cookies.split(';'):
+            if '=' in item:
+                name, val = item.strip().split('=', 1)
+                for dom in ['.iwencai.com', '.10jqka.com.cn']:
+                    cookies_to_add.append({
+                        'name': name.strip(),
+                        'value': val.strip(),
+                        'domain': dom,
+                        'path': '/'
+                    })
+
+    encoded_query = urllib.parse.quote(query)
+    target_url = f"https://www.iwencai.com/screener/result?w={encoded_query}&querytype=stock"
+
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(
+                headless=True,
+                args=['--disable-blink-features=AutomationControlled', '--no-sandbox']
+            )
+            context = browser.new_context(
+                user_agent=(
+                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                    'AppleWebKit/537.36 (KHTML, like Gecko) '
+                    'Chrome/120.0.0.0 Safari/537.36'
+                ),
+            )
+            context.add_init_script(
+                "delete Object.getPrototypeOf(navigator).webdriver;\n"
+                "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});"
+            )
+            if cookies_to_add:
+                context.add_cookies(cookies_to_add)
+
+            page = context.new_page()
+
+            datas_result = []
+
+            def on_response(res):
+                if 'stream-query' in res.url:
+                    try:
+                        body = res.text()
+                        for line in body.split('\n'):
+                            if line.startswith('data:'):
+                                d = json.loads(line[5:])
+                                if d.get('answer_path') == 'other/openAnswer':
+                                    comps = d.get('section', {}).get('result_page', {}).get('components', [])
+                                    for comp in comps:
+                                        datas = comp.get('data', {}).get('datas', [])
+                                        if datas:
+                                            datas_result.extend(datas)
+                    except Exception:
+                        pass
+
+            page.on('response', on_response)
+
+            try:
+                page.goto(target_url, wait_until='domcontentloaded', timeout=timeout_ms)
+                # 动态等待数据流返回（最多等待 8 秒，一旦获取到数据立刻返回）
+                start_w = time.time()
+                while time.time() - start_w < 8:
+                    if datas_result:
+                        break
+                    page.wait_for_timeout(300)
+            except Exception as e:
+                logger.debug(f"页面加载超时或等待中止: {e}")
+
+            browser.close()
+
+            if datas_result:
+                df = pd.DataFrame(datas_result)
+                print(f"[iwencai-browser] ✅ 成功获取到 {len(df)} 只股票数据")
+                return df
+            else:
+                logger.warning(f"[iwencai-browser] 查询未能返回股票列表（可能为付费受限或无匹配结果）")
+                return None
+
+    except Exception as e:
+        print(f"[iwencai-browser] ❌ 浏览器选股执行异常: {e}")
+        return None
+
