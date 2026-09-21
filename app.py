@@ -2320,30 +2320,59 @@ def display_config_manager():
         请按以下步骤配置浏览器登录：
         """)
         
-        # iwencai 登录状态提示
-        if "iwencai_login_checked" not in st.session_state:
-            st.session_state.iwencai_login_checked = False
-        
-        col_iw1, col_iw2 = st.columns([1, 3])
+        # 检测本地已保存的问财登录状态
+        cookie_file = Path(".iwencai_cookie.txt")
+        has_login_cookie = False
+        cookie_user = ""
+        if cookie_file.exists():
+            try:
+                c_content = cookie_file.read_text(encoding="utf-8", errors="ignore")
+                if any(t in c_content for t in ["ticket", "user=", "escapename"]):
+                    has_login_cookie = True
+                    import re
+                    m = re.search(r'escapename=([^;]+)', c_content) or re.search(r'u_name=([^;]+)', c_content)
+                    if m:
+                        cookie_user = m.group(1)
+            except Exception:
+                pass
+
+        if has_login_cookie:
+            st.success(f"✅ 问财登录状态有效（账号: **{cookie_user or '已授权用户'}**），选股策略已就绪可正常运行。")
+        else:
+            st.warning("⚠️ 未检测到有效问财登录凭证。同花顺已限制未登录用户的选股请求，请按下方指引登录或配置 Cookie。")
+
+        col_iw1, col_iw2 = st.columns([1, 1])
         with col_iw1:
-            if st.button("🔄 检测登录状态", key="check_iwencai"):
-                with st.spinner("正在启动浏览器检测..."):
-                    try:
-                        from utils.iwencai_browser import get_browser_cookies
-                        cookies = get_browser_cookies(force_refresh=True)
-                        if cookies and len(cookies) > 50:
-                            st.session_state.iwencai_login_checked = True
-                            st.success("✅ iwencai 会话有效，选股功能将正常工作")
-                        else:
-                            st.warning("⚠️ 未获取到有效会话，请登录 iwencai")
-                    except Exception as e:
-                        st.error(f"❌ 检测失败: {e}")
+            st.markdown("#### 📱 方法一：一键终端扫码登录（最推荐）")
+            st.markdown("""
+            在项目目录终端中运行以下命令，会自动弹出登录窗口，微信扫码完成后自动保存会话：
+            ```powershell
+            python login_iwencai.py
+            ```
+            """)
+            if st.button("🔄 刷新检测本地登录状态", key="check_iwencai"):
+                st.rerun()
+
         with col_iw2:
-            st.info("💡 **使用方法**\n\n"
-                    "1. 用浏览器打开 https://www.iwencai.com/screener\n"
-                    "2. 登录你的同花顺账号（右上角「登录」按钮）\n"
-                    "3. 保持浏览器登录状态即可\n\n"
-                    "系统会自动使用你的登录会话获取选股数据。")
+            st.markdown("#### 🌐 方法二：从浏览器复制 Cookie 配置")
+            st.markdown("""
+            1. 用浏览器登录 [问财官网](https://www.iwencai.com/screener)
+            2. 按 **F12** 打开开发者工具 -> 切换到 **Network (网络)** -> **F5** 刷新网页
+            3. 点击第一条请求 -> 在 **Headers -> Request Headers** 中复制 **Cookie** 字段值
+            """)
+
+        with st.expander("📋 手动粘贴 Cookie 保存至本地", expanded=not has_login_cookie):
+            pasted_cookie = st.text_area("粘贴完整 Cookie 字符串", placeholder="粘贴格式如: other_uid=...; ticket=...; escapename=...", height=90)
+            if st.button("💾 保存 Cookie", key="save_iwencai_cookie"):
+                if pasted_cookie.strip():
+                    try:
+                        cookie_file.write_text(pasted_cookie.strip(), encoding="utf-8")
+                        st.success("✅ Cookie 已成功保存到 .iwencai_cookie.txt！")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ 保存失败: {e}")
+                else:
+                    st.error("❌ 请先粘贴 Cookie 内容")
 
     with tab3:
         st.markdown("### MiniQMT量化交易配置（可选）")

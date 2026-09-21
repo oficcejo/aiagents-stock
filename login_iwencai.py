@@ -103,12 +103,63 @@ def login():
         if logged_in and cookie_str:
             COOKIE_FILE.write_text(cookie_str, encoding="utf-8")
             print("\n" + "=" * 65)
-            print("✅ 登录 Cookie 已成功保存到:", COOKIE_FILE)
+            print("✅ 登录凭证已成功保存到:", COOKIE_FILE)
             print("=" * 65)
-            print("选股策略模块现在可以直接读取该会话！")
+            print("🎉 所有问财选股策略（主力选股、低价擒牛、净利增长等）现已就绪！")
         else:
-            print("\n❌ 未能获取到 Cookie，请稍后重试。")
+            print("\n❌ 未能检测到有效登录状态。")
+            print_manual_guide()
+
+
+def save_manual_cookie(cookie_str: str):
+    """手动保存用户提供的 Cookie"""
+    cookie_str = cookie_str.strip()
+    if not cookie_str:
+        print("❌ Cookie 不能为空")
+        return False
+    COOKIE_FILE.write_text(cookie_str, encoding="utf-8")
+    print("\n" + "=" * 65)
+    print("✅ Cookie 已成功保存到:", COOKIE_FILE)
+    print("=" * 65)
+    print("🎉 所有问财选股策略现已就绪！")
+    return True
+
+
+def print_manual_guide():
+    """打印从 Chrome 手动抓取 Cookie 的详细指南"""
+    print("\n" + "=" * 70)
+    print("📖【如何从已登录的 Chrome 浏览器获取完整 Cookie】")
+    print("=" * 70)
+    print("1. 用普通 Chrome 打开并登录：https://www.iwencai.com/screener")
+    print("2. 按键盘 F12 打开开发者工具，切换到「Network」(网络) 标签页")
+    print("3. 按键盘 F5 刷新一下问财页面")
+    print("4. 在左侧请求列表中点击最上面任意一条请求（如 screener）")
+    print("5. 在右侧窗口点击「Headers」(标头) -> 往下找到「Request Headers」(请求标头)")
+    print("6. 找到「Cookie:」行，鼠标右键点击并选择「Copy value」(复制值)")
+    print("7. 运行命令保存：")
+    print('   python login_iwencai.py --set-cookie "你的Cookie内容"')
+    print("   或者直接将复制内容粘贴保存到项目根目录下的 .iwencai_cookie.txt 文件中。")
+    print("=" * 70 + "\n")
+
+
+def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="同花顺问财登录与Cookie配置工具")
+    parser.add_argument("--set-cookie", type=str, help="直接保存手动复制的 Cookie 字符串")
+    parser.add_argument("--guide", action="store_true", help="显示从浏览器抓取 Cookie 的图文操作指南")
+    args = parser.parse_args()
+
+    if args.guide:
+        print_manual_guide()
+        return
+
+    if args.set_cookie:
+        save_manual_cookie(args.set_cookie)
+        return
+
+    # 默认执行交互式扫码登录
+    login()
 
 
 if __name__ == "__main__":
-    login()
+    main()

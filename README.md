@@ -39,13 +39,30 @@ pip install -r requirements.txt
 playwright install chromium
 ```
 
-### 使用前提
+### 使用前提：问财选股登录配置（二选一即可）
 
-选股功能需要 **浏览器登录同花顺问财**：
+同花顺问财对未登录访问限制严格，选股功能（主力选股、低价擒牛、净利增长、小市值、低估值等）需要登录凭证：
 
-1. 在浏览器中打开 https://www.iwencai.com/screener
-2. 点击右上角「登录」按钮，登录同花顺账号
-3. 保持浏览器登录状态，系统会自动使用你的会话
+#### 方案一：一键终端扫码登录（本地桌面推荐，最简便）
+在项目根目录下直接运行登录脚本：
+```bash
+python login_iwencai.py
+```
+* 系统会自动弹出专属窗口并呼出同花顺登录界面；
+* 微信扫码或账号密码登录完成后，脚本会自动识别并保存 Cookie 至 `.iwencai_cookie.txt`，永久生效！
+
+#### 方案二：从已登录的 Chrome 浏览器抓取 Cookie（免重复扫码 / 远程服务器推荐）
+1. 在普通 Chrome 浏览器中打开并登录 [问财选股页面](https://www.iwencai.com/screener)；
+2. 键盘按 **F12** 打开开发者工具，切换到 **Network (网络)** 标签页；
+3. 按 **F5** 刷新一下网页；
+4. 在左侧请求列表中点击最上方第一条请求（如 `screener`）；
+5. 在右侧窗口点击 **Headers (标头)**，往下滚动找到 **Request Headers (请求标头)** 中的 **Cookie** 字段；
+6. 鼠标右键点击该行选择 **Copy value (复制值)**；
+7. 将复制的内容保存：
+   - 运行命令：`python login_iwencai.py --set-cookie "你的Cookie内容"`
+   - 或者直接粘贴覆盖保存到项目根目录下的 `.iwencai_cookie.txt`
+   - 或者在 `.env` 中添加配置：`IWENCAI_COOKIE=你的Cookie内容`
+
 
 ### 环境变量配置（.env）
 
