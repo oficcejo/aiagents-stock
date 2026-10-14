@@ -62,6 +62,18 @@ class ConfigManager:
                 "required": False,
                 "type": "text"
             },
+            "ATLASCLOUD_API_KEY": {
+                "value": "",
+                "description": "Atlas Cloud API密钥（可选，OpenAI 兼容）",
+                "required": False,
+                "type": "password"
+            },
+            "ATLASCLOUD_BASE_URL": {
+                "value": "https://api.atlascloud.ai/v1",
+                "description": "Atlas Cloud API地址",
+                "required": False,
+                "type": "text"
+            },
             "TDX_ENABLED": {
                 "value": "false",
                 "description": "启用TDX本地行情数据源",
@@ -321,6 +333,7 @@ class ConfigManager:
         has_alt_engine = bool(
             config.get("ORCAROUTER_API_KEY")
             or config.get("NVIDIA_API_KEY")
+            or config.get("ATLASCLOUD_API_KEY")
         )
 
         # 检查必填项

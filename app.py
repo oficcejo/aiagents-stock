@@ -2428,6 +2428,43 @@ def display_config_manager():
         - `nvidia/llama-3.1-nemotron-70b-instruct`
         """)
 
+        st.markdown("---")
+        st.markdown("### Atlas Cloud API配置（可选）")
+        st.markdown("[Atlas Cloud](https://www.atlascloud.ai) 提供 OpenAI 兼容接口。设置 `ATLASCLOUD_API_KEY` 后（未设置 OrcaRouter / NVIDIA 时）优先使用 Atlas Cloud 引擎。")
+
+        atlas_api_key_info = config_info["ATLASCLOUD_API_KEY"]
+        current_atlas_api_key = st.session_state.temp_config.get("ATLASCLOUD_API_KEY", "")
+        new_atlas_api_key = st.text_input(
+            f"🔑 {atlas_api_key_info['description']}",
+            value=current_atlas_api_key,
+            type="password",
+            help="从 https://console.atlascloud.ai/api-keys 获取 API Key",
+            key="input_atlascloud_api_key"
+        )
+        st.session_state.temp_config["ATLASCLOUD_API_KEY"] = new_atlas_api_key
+
+        if new_atlas_api_key:
+            st.success("✅ Atlas Cloud 已配置")
+
+        atlas_base_url_info = config_info["ATLASCLOUD_BASE_URL"]
+        current_atlas_base_url = st.session_state.temp_config.get(
+            "ATLASCLOUD_BASE_URL", "https://api.atlascloud.ai/v1"
+        )
+        new_atlas_base_url = st.text_input(
+            f"🌐 {atlas_base_url_info['description']}",
+            value=current_atlas_base_url,
+            help="一般无需修改",
+            key="input_atlascloud_base_url"
+        )
+        st.session_state.temp_config["ATLASCLOUD_BASE_URL"] = new_atlas_base_url
+
+        st.markdown("""
+        **Atlas Cloud 常用模型（填入上方「AI模型名称」）：**
+        - `deepseek-ai/deepseek-v4-flash`
+        - `moonshotai/kimi-k3`
+        - `zai-org/glm-5.2`
+        """)
+
     with tab2:
         st.markdown("### Tushare数据接口（可选）")
         st.markdown("Tushare提供更丰富的A股财务数据，配置后可以获取更详细的财务分析。")

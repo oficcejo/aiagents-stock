@@ -4,7 +4,7 @@ from typing import Dict, List, Any, Optional
 import config
 
 class DeepSeekClient:
-    """DeepSeek / OpenAI 兼容 API 客户端（支持 NVIDIA NIM 等，issue #47）"""
+    """DeepSeek / OpenAI 兼容 API 客户端（支持 NVIDIA NIM、Atlas Cloud 等）"""
 
     def __init__(self, model=None, api_key=None, base_url=None):
         self.model = model or config.DEFAULT_MODEL_NAME

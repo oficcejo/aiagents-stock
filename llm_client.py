@@ -3,6 +3,7 @@ LLM客户端工厂
 
 根据 .env 配置自动选择 AI 引擎：
 - 设置了 ORCAROUTER_API_KEY → 使用 OrcaRouter（命名 OpenAI 兼容网关）
+- 设置了 ATLASCLOUD_API_KEY（且未设置 OrcaRouter / NVIDIA）→ 使用 Atlas Cloud（OpenAI 兼容网关）
 - 否则回落到 DeepSeek（原有默认引擎）
 
 另提供 TypeSafe Jev 结构化决策客户端工厂（与聊天引擎独立）：
@@ -16,7 +17,7 @@ from deepseek_client import DeepSeekClient
 def get_llm_client(model=None):
     """返回当前配置对应的 LLM 客户端。
 
-    优先级：OrcaRouter > NVIDIA NIM > DeepSeek（issue #47）。
+    优先级：OrcaRouter > NVIDIA NIM > Atlas Cloud > DeepSeek。
 
     Args:
         model: 可选的模型名称覆盖，默认从对应 provider 的配置读取。
@@ -29,6 +30,12 @@ def get_llm_client(model=None):
             model=model,
             api_key=config.NVIDIA_API_KEY,
             base_url=getattr(config, 'NVIDIA_BASE_URL', 'https://integrate.api.nvidia.com/v1'),
+        )
+    if getattr(config, 'ATLASCLOUD_API_KEY', ''):
+        return DeepSeekClient(
+            model=model,
+            api_key=config.ATLASCLOUD_API_KEY,
+            base_url=getattr(config, 'ATLASCLOUD_BASE_URL', 'https://api.atlascloud.ai/v1'),
         )
     return DeepSeekClient(model=model)
 
