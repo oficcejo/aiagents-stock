@@ -32,6 +32,10 @@ _preset_models = {
     "deepseek-ai/deepseek-r1": "DeepSeek-R1 (NVIDIA)",
     "mistralai/mistral-large-2-instruct": "Mistral Large 2 (NVIDIA)",
     "nvidia/llama-3.1-nemotron-70b-instruct": "Nemotron 70B (NVIDIA)",
+    # Atlas Cloud（OpenAI 兼容，需配置 ATLASCLOUD_API_KEY）
+    "deepseek-ai/deepseek-v4-flash": "DeepSeek V4 Flash (Atlas Cloud)",
+    "moonshotai/kimi-k3": "Kimi K3 (Atlas Cloud)",
+    "zai-org/glm-5.2": "GLM-5.2 (Atlas Cloud)",
 }
 
 # 获取 .env 中配置的默认模型名称

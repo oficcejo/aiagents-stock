@@ -154,6 +154,11 @@ DEFAULT_MODEL_NAME=deepseek-chat
 ORCAROUTER_API_KEY=
 ORCAROUTER_BASE_URL=https://api.orcarouter.ai/v1
 ORCAROUTER_MODEL=orcarouter/auto
+
+# ===== 可选：Atlas Cloud（OpenAI 兼容，未设置 OrcaRouter / NVIDIA 时优先于 DeepSeek）=====
+# https://console.atlascloud.ai/api-keys | 模型示例：deepseek-ai/deepseek-v4-flash
+ATLASCLOUD_API_KEY=
+ATLASCLOUD_BASE_URL=https://api.atlascloud.ai/v1
 ```
 
 ### 2. TypeSafe Jev 结构化决策（可选，不配置则功能关闭）
@@ -326,7 +331,7 @@ UI层 (Streamlit *_ui.py) → 引擎层 (*_engine.py / *_scheduler.py)
 ├── app.py                     # Streamlit 主界面与统一批量分析出口
 ├── ai_agents.py               # 6位AI分析师团队 + 最终决策（Jev优先）
 ├── stock_data.py              # A股/港股/美股数据获取与技术指标
-├── llm_client.py              # LLM工厂（OrcaRouter/DeepSeek）+ get_jev_client + 价位计算
+├── llm_client.py              # LLM工厂（OrcaRouter/NVIDIA/Atlas Cloud/DeepSeek）+ get_jev_client + 价位计算
 ├── typesafe_decision_client.py# TypeSafe Jev 客户端（SDK/HTTP双路径+三级降级链）⭐ NEW
 ├── deepseek_client.py         # DeepSeek API 封装
 ├── data_source_manager.py     # 多数据源管理与降级
