@@ -12,7 +12,7 @@ from typing import Dict, Any
 import time
 import warnings
 import os
-from utils.pywencai_helper import safe_get
+from utils.pywencai_helper import safe_get, flatten_cell
 
 # 屏蔽pywencai的Node.js警告信息（不影响功能）
 warnings.filterwarnings('ignore', category=DeprecationWarning)
@@ -425,7 +425,7 @@ class RiskDataFetcher:
             
             # 显示每个字段的值
             for col in df.columns:
-                value = row[col]
+                value = flatten_cell(row[col])
                 
                 # 处理不同类型的值
                 if pd.isna(value):

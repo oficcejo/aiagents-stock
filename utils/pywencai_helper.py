@@ -17,6 +17,17 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def flatten_cell(value):
+    """问财数据单元格可能为列表（如一股多行业），转为顿号分隔字符串；其余类型原样返回。
+
+    背景：pd.isna(列表) 会返回布尔数组导致 ValueError，
+    因此凡是把问财 DataFrame 单元格传给 pd.isna / 展示逻辑前，应先经过本函数。
+    """
+    if isinstance(value, (list, tuple)):
+        return '、'.join(str(v) for v in value)
+    return value
+
+
 def safe_get(query, loop=True, **kwargs):
     """
     安全调用 pywencai.get，捕获内部 NoneType 异常。

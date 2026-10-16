@@ -9,6 +9,7 @@ import pandas as pd
 from datetime import datetime
 from value_stock_selector import ValueStockSelector
 from value_stock_strategy import ValueStockStrategy
+from utils.pywencai_helper import flatten_cell
 
 
 def display_value_stock():
@@ -167,7 +168,7 @@ def display_stock_results(stocks_df: pd.DataFrame, selector):
         for pattern in ['市盈率', '市盈率(动态)']:
             matching = [col for col in stocks_df.columns if pattern in col]
             if matching:
-                v = row.get(matching[0])
+                v = flatten_cell(row.get(matching[0]))
                 if v is not None and not pd.isna(v):
                     try:
                         pe_val = f" PE:{float(v):.1f}"
@@ -178,7 +179,7 @@ def display_stock_results(stocks_df: pd.DataFrame, selector):
         pb_val = ''
         matching = [col for col in stocks_df.columns if '市净率' in col]
         if matching:
-            v = row.get(matching[0])
+            v = flatten_cell(row.get(matching[0]))
             if v is not None and not pd.isna(v):
                 try:
                     pb_val = f" PB:{float(v):.2f}"

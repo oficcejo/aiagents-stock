@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from main_force_analysis import MainForceAnalyzer
 from main_force_pdf_generator import display_report_download_section
 from main_force_history_ui import display_batch_history
+from utils.pywencai_helper import flatten_cell
 import pandas as pd
 
 def display_main_force_selector():
@@ -372,7 +373,8 @@ def display_recommendation_detail(rec: dict):
             # 显示行业
             industry_keys = [k for k in stock_data.keys() if '行业' in k]
             if industry_keys:
-                st.metric("所属行业", stock_data.get(industry_keys[0], 'N/A'))
+                industry_value = flatten_cell(stock_data.get(industry_keys[0], 'N/A'))
+                st.metric("所属行业", str(industry_value))
 
         with col2:
             # 显示主力资金
