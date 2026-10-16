@@ -9,11 +9,13 @@ import json
 import pandas as pd
 import logging
 
+from utils.data_paths import data_file
+
 
 class SectorStrategyDatabase:
     """智策板块数据库管理类"""
     
-    def __init__(self, db_path='sector_strategy.db'):
+    def __init__(self, db_path=data_file('sector_strategy.db')):
         """
         初始化数据库
         

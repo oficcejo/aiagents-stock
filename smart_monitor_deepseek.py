@@ -27,9 +27,9 @@ class SmartMonitorDeepSeek:
             self.provider_name = "OrcaRouter"
         else:
             self.api_key = api_key
-            self.base_url = config.DEEPSEEK_BASE_URL
+            self.base_url = config.LLM_BASE_URL
             self.default_model = config.DEFAULT_MODEL_NAME
-            self.provider_name = "DeepSeek"
+            self.provider_name = "AI大模型"
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"

@@ -10,6 +10,7 @@ def reload_from_env():
     原先 load_dotenv 后 config.DEFAULT_MODEL_NAME 等模块级常量不会更新，
     导致 Web 保存配置后仍使用旧模型，必须重启才生效。
     """
+    global LLM_API_KEY, LLM_BASE_URL
     global DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
     global ORCAROUTER_API_KEY, ORCAROUTER_BASE_URL, ORCAROUTER_MODEL
     global NVIDIA_API_KEY, NVIDIA_BASE_URL
@@ -19,6 +20,12 @@ def reload_from_env():
     global YDC_API_KEY, TUSHARE_TOKEN, MINIQMT_CONFIG, TDX_CONFIG
 
     load_dotenv(override=True)
+
+    # 通用 AI 引擎配置（任意 OpenAI 兼容平台），未设置时回退到旧 DEEPSEEK_* 变量
+    LLM_API_KEY = os.getenv("LLM_API_KEY") or os.getenv("DEEPSEEK_API_KEY", "")
+    LLM_BASE_URL = os.getenv("LLM_BASE_URL") or os.getenv(
+        "DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1"
+    )
 
     DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
     DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")
@@ -57,7 +64,14 @@ def reload_from_env():
         'base_url': os.getenv("TDX_BASE_URL", "http://192.168.1.222:8181"),
     }
 
-# DeepSeek API配置
+# 通用 AI 引擎配置（任意 OpenAI 兼容平台，如 DeepSeek、硅基流动、火山引擎、阿里百炼等）
+# 未设置 LLM_* 时回退到旧 DEEPSEEK_* 变量，老配置文件无需修改即可继续使用
+LLM_API_KEY = os.getenv("LLM_API_KEY") or os.getenv("DEEPSEEK_API_KEY", "")
+LLM_BASE_URL = os.getenv("LLM_BASE_URL") or os.getenv(
+    "DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1"
+)
+
+# DeepSeek API配置（旧变量，保留兼容；推荐改用上面的 LLM_API_KEY / LLM_BASE_URL）
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
 DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")
 

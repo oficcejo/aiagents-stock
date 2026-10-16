@@ -5,6 +5,8 @@ from datetime import datetime
 import streamlit as st
 import pandas as pd
 
+from utils.pywencai_helper import flatten_cell
+
 def generate_main_force_markdown_report(analyzer, result):
     """生成主力选股Markdown格式的分析报告"""
     
@@ -180,7 +182,7 @@ def generate_main_force_markdown_report(analyzer, result):
             for idx, (_, row) in enumerate(df_sorted[final_display_cols].iterrows(), 1):
                 row_data = [str(idx)]
                 for col in final_display_cols:
-                    value = row[col]
+                    value = flatten_cell(row[col])
                     if pd.isna(value):
                         row_data.append('N/A')
                     else:

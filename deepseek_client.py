@@ -8,8 +8,8 @@ class DeepSeekClient:
 
     def __init__(self, model=None, api_key=None, base_url=None):
         self.model = model or config.DEFAULT_MODEL_NAME
-        self.api_key = api_key or config.DEEPSEEK_API_KEY
-        self.base_url = base_url or config.DEEPSEEK_BASE_URL
+        self.api_key = api_key or config.LLM_API_KEY
+        self.base_url = base_url or config.LLM_BASE_URL
         self.client = openai.OpenAI(
             api_key=self.api_key,
             base_url=self.base_url

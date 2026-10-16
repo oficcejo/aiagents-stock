@@ -14,15 +14,15 @@ class ConfigManager:
     def __init__(self, env_file: str = ".env"):
         self.env_file = Path(env_file)
         self.default_config = {
-            "DEEPSEEK_API_KEY": {
+            "LLM_API_KEY": {
                 "value": "",
-                "description": "DeepSeek API密钥",
+                "description": "AI大模型 API密钥（必填，任意OpenAI兼容平台）",
                 "required": True,
                 "type": "password"
             },
-            "DEEPSEEK_BASE_URL": {
+            "LLM_BASE_URL": {
                 "value": "https://api.deepseek.com/v1",
-                "description": "DeepSeek API地址",
+                "description": "AI大模型 API地址（OpenAI兼容，可自定义平台）",
                 "required": False,
                 "type": "text"
             },
@@ -317,24 +317,25 @@ class ConfigManager:
     
     def validate_config(self, config: Dict[str, str]) -> tuple[bool, str]:
         """验证配置"""
-        # 设置了任一备用 OpenAI 兼容网关密钥时，DeepSeek 密钥不再是必填项
+        # 设置了任一备用 AI 引擎密钥时（含旧 DEEPSEEK 变量），LLM_API_KEY 不再是必填项
         has_alt_engine = bool(
             config.get("ORCAROUTER_API_KEY")
             or config.get("NVIDIA_API_KEY")
+            or config.get("DEEPSEEK_API_KEY")
         )
 
         # 检查必填项
         for key, info in self.default_config.items():
-            if key == "DEEPSEEK_API_KEY" and has_alt_engine:
+            if key == "LLM_API_KEY" and has_alt_engine:
                 continue
             if info["required"] and not config.get(key):
                 return False, f"必填项 {info['description']} 不能为空"
 
         # 验证API Key格式（简单检查长度）
-        if config.get("DEEPSEEK_API_KEY"):
-            api_key = config.get("DEEPSEEK_API_KEY", "")
+        if config.get("LLM_API_KEY"):
+            api_key = config.get("LLM_API_KEY", "")
             if len(api_key) < 20:
-                return False, "DeepSeek API Key格式不正确（长度太短）"
+                return False, "AI大模型 API Key格式不正确（长度太短）"
 
         return True, "配置验证通过"
 

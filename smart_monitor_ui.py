@@ -694,8 +694,8 @@ def render_settings():
     col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown("**🤖 DeepSeek API**")
-        api_key = config.get('DEEPSEEK_API_KEY', '')
+        st.markdown("**🤖 AI大模型 API**")
+        api_key = config.get('LLM_API_KEY') or config.get('DEEPSEEK_API_KEY', '')
         if api_key:
             st.success(f"✅ 已配置（{api_key[:8]}...）")
         else:

@@ -7,6 +7,7 @@ from datetime import datetime
 import time
 import base64
 import os
+from pathlib import Path
 import config
 
 from stock_data import StockDataFetcher
@@ -843,7 +844,7 @@ def check_api_key():
     """检查API密钥是否配置"""
     try:
         import config
-        return bool(config.DEEPSEEK_API_KEY and config.DEEPSEEK_API_KEY.strip())
+        return bool(config.LLM_API_KEY and config.LLM_API_KEY.strip())
     except:
         return False
 
@@ -1754,7 +1755,7 @@ def show_example_interface():
         - NVDA (英伟达)
         """)
 
-    st.info("💡 提示：首次运行需要配置DeepSeek API Key，请在.env中设置DEEPSEEK_API_KEY")
+    st.info("💡 提示：首次运行需要配置 AI 大模型 API Key，请在.env中设置 LLM_API_KEY（支持任意 OpenAI 兼容平台）")
 
     st.markdown("---")
     st.markdown("""
@@ -2260,25 +2261,26 @@ def display_config_manager():
         st.session_state.temp_config = {key: info["value"] for key, info in config_info.items()}
 
     with tab1:
-        st.markdown("### DeepSeek API配置")
-        st.markdown("DeepSeek是系统的核心AI引擎，必须配置才能使用分析功能。")
+        st.markdown("### AI大模型 API配置")
+        st.markdown("支持任意 OpenAI 兼容平台，填入对应平台的 API地址 和 模型名称 即可，不强制使用某一家。")
+        st.markdown("**常用平台 API地址参考：**")
         st.markdown("DeepSeek:https://api.deepseek.com/v1")
         st.markdown("硅基流动:https://api.siliconflow.cn/v1")
         st.markdown("火山引擎:https://ark.cn-beijing.volces.com/api/v3")
         st.markdown("阿里:https://dashscope.aliyuncs.com/compatible-mode/v1")
 
-    # DeepSeek API Key
-        api_key_info = config_info["DEEPSEEK_API_KEY"]
-        current_api_key = st.session_state.temp_config.get("DEEPSEEK_API_KEY", "")
+    # AI大模型 API Key
+        api_key_info = config_info["LLM_API_KEY"]
+        current_api_key = st.session_state.temp_config.get("LLM_API_KEY", "")
 
         new_api_key = st.text_input(
             f"🔑 {api_key_info['description']} {'*' if api_key_info['required'] else ''}",
             value=current_api_key,
             type="password",
-            help="从 https://platform.deepseek.com 获取API密钥",
-            key="input_deepseek_api_key"
+            help="在所选平台官网获取API密钥，如 https://platform.deepseek.com",
+            key="input_llm_api_key"
         )
-        st.session_state.temp_config["DEEPSEEK_API_KEY"] = new_api_key
+        st.session_state.temp_config["LLM_API_KEY"] = new_api_key
 
         # 显示当前状态
         if new_api_key:
@@ -2289,17 +2291,17 @@ def display_config_manager():
 
         st.markdown("---")
 
-        # DeepSeek Base URL
-        base_url_info = config_info["DEEPSEEK_BASE_URL"]
-        current_base_url = st.session_state.temp_config.get("DEEPSEEK_BASE_URL", "")
+        # AI大模型 Base URL
+        base_url_info = config_info["LLM_BASE_URL"]
+        current_base_url = st.session_state.temp_config.get("LLM_BASE_URL", "")
 
         new_base_url = st.text_input(
             f"🌐 {base_url_info['description']}",
             value=current_base_url,
-            help="一般无需修改，保持默认即可",
-            key="input_deepseek_base_url"
+            help="填所选平台的OpenAI兼容API地址，参考上方列表",
+            key="input_llm_base_url"
         )
-        st.session_state.temp_config["DEEPSEEK_BASE_URL"] = new_base_url
+        st.session_state.temp_config["LLM_BASE_URL"] = new_base_url
 
         st.markdown("---")
 
@@ -2823,9 +2825,9 @@ def display_config_manager():
         st.code(f"""# AI股票分析系统环境配置
 # 由系统自动生成和管理
 
-# ========== DeepSeek API配置 ==========
-DEEPSEEK_API_KEY="{current_config.get('DEEPSEEK_API_KEY', '')}"
-DEEPSEEK_BASE_URL="{current_config.get('DEEPSEEK_BASE_URL', '')}"
+# ========== AI大模型 API配置 ==========
+LLM_API_KEY="{current_config.get('LLM_API_KEY', '')}"
+LLM_BASE_URL="{current_config.get('LLM_BASE_URL', '')}"
 
 # ========== Tushare数据接口（可选）==========
 TUSHARE_TOKEN="{current_config.get('TUSHARE_TOKEN', '')}"

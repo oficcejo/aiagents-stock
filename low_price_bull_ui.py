@@ -12,6 +12,7 @@ from low_price_bull_strategy import LowPriceBullStrategy
 from notification_service import notification_service
 from low_price_bull_monitor import low_price_bull_monitor
 from low_price_bull_service import low_price_bull_service
+from utils.pywencai_helper import flatten_cell
 
 
 def display_low_price_bull():
@@ -239,14 +240,16 @@ def display_stock_detail(row: pd.Series):
         """判断值是否有效（非None、非NaN、非空字符串、非'N/A'）"""
         if value is None:
             return False
+        value = flatten_cell(value)
         if pd.isna(value):
             return False
         if str(value).strip() in ['', 'N/A', 'nan', 'None']:
             return False
         return True
-    
+
     def format_value(value, suffix=''):
         """格式化显示值"""
+        value = flatten_cell(value)
         if isinstance(value, float):
             if abs(value) >= 100000000:  # 亿
                 return f"{value/100000000:.2f}亿{suffix}"
@@ -513,7 +516,7 @@ def send_dingtalk_notification(stocks_df: pd.DataFrame, top_n: int):
             message_text += f"{idx+1}. **{code} {name}**\n"
             
             # 股价
-            price = row.get('股价', row.get('最新价', None))
+            price = flatten_cell(row.get('股价', row.get('最新价', None)))
             if price is not None and not pd.isna(price) and str(price).strip() not in ['', 'N/A']:
                 try:
                     price_float = float(price)
@@ -522,7 +525,7 @@ def send_dingtalk_notification(stocks_df: pd.DataFrame, top_n: int):
                     pass
             
             # 净利润增长率
-            growth = row.get('净利润增长率', row.get('净利润同比增长率', None))
+            growth = flatten_cell(row.get('净利润增长率', row.get('净利润同比增长率', None)))
             if growth is not None and not pd.isna(growth) and str(growth).strip() not in ['', 'N/A']:
                 try:
                     growth_float = float(growth)
@@ -531,7 +534,7 @@ def send_dingtalk_notification(stocks_df: pd.DataFrame, top_n: int):
                     pass
             
             # 成交额
-            turnover = row.get('成交额', None)
+            turnover = flatten_cell(row.get('成交额', None))
             if turnover is not None and not pd.isna(turnover) and str(turnover).strip() not in ['', 'N/A']:
                 try:
                     turnover_float = float(turnover)
@@ -545,7 +548,7 @@ def send_dingtalk_notification(stocks_df: pd.DataFrame, top_n: int):
                     pass
             
             # 所属行业
-            industry = row.get('所属行业', row.get('所属同花顺行业', None))
+            industry = flatten_cell(row.get('所属行业', row.get('所属同花顺行业', None)))
             if industry is not None and not pd.isna(industry) and str(industry).strip() not in ['', 'N/A']:
                 message_text += f"   - 所属行业: {industry}\n"
             

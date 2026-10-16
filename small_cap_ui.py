@@ -11,6 +11,7 @@ from small_cap_selector import small_cap_selector
 from notification_service import notification_service
 from low_price_bull_monitor import low_price_bull_monitor
 from low_price_bull_service import low_price_bull_service
+from utils.pywencai_helper import flatten_cell
 
 
 def display_small_cap():
@@ -199,6 +200,7 @@ def is_valid_value(value):
     """判断值是否有效"""
     if value is None:
         return False
+    value = flatten_cell(value)
     if pd.isna(value):
         return False
     if str(value).strip() in ['', 'N/A', 'nan', 'None']:
@@ -208,6 +210,7 @@ def is_valid_value(value):
 
 def format_value(value, suffix=''):
     """格式化显示值"""
+    value = flatten_cell(value)
     if isinstance(value, (int, float)):
         if abs(value) >= 100000000:  # 亿
             return f"{value/100000000:.2f}亿{suffix}"

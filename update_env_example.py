@@ -10,13 +10,23 @@ env_example_content = """# =====================================================
 # 3. 敏感信息（如API密钥、密码）请妥善保管，不要提交到版本控制
 # ============================================================
 
-# ========== DeepSeek API配置 ==========
-# DeepSeek API密钥（必填）
-# 获取地址：https://platform.deepseek.com/api_keys
-DEEPSEEK_API_KEY=your_actual_deepseek_api_key_here
+# ========== AI大模型 API配置（必填）==========
+# 支持任意 OpenAI 兼容平台，填对应平台的 API地址 + 密钥 + 模型名称即可，不强制使用 DeepSeek
+#
+# 常用平台 API地址参考：
+#   DeepSeek  : https://api.deepseek.com/v1
+#   硅基流动  : https://api.siliconflow.cn/v1
+#   火山引擎  : https://ark.cn-beijing.volces.com/api/v3
+#   阿里百炼  : https://dashscope.aliyuncs.com/compatible-mode/v1
+LLM_API_KEY=your_actual_api_key_here
+LLM_BASE_URL=https://api.deepseek.com/v1
 
-# DeepSeek API基础URL（可选，使用默认值即可）
-DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
+# AI模型名称（可选，需与所选平台匹配）
+DEFAULT_MODEL_NAME=deepseek-chat
+
+# 旧变量（可选，仍兼容）：未设置 LLM_* 时自动回退使用
+# DEEPSEEK_API_KEY=
+# DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
 
 
 # ========== OrcaRouter API配置（可选）==========

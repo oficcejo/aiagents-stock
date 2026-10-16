@@ -11,6 +11,7 @@ from typing import List, Dict
 from profit_growth_selector import profit_growth_selector
 from notification_service import notification_service
 from profit_growth_monitor import profit_growth_monitor
+from utils.pywencai_helper import flatten_cell
 
 
 def display_profit_growth():
@@ -342,6 +343,7 @@ def is_valid_value(value):
     """判断值是否有效"""
     if value is None:
         return False
+    value = flatten_cell(value)
     if pd.isna(value):
         return False
     if str(value).strip() in ['', 'N/A', 'nan', 'None']:
@@ -351,6 +353,7 @@ def is_valid_value(value):
 
 def format_value(value, suffix=''):
     """格式化显示值"""
+    value = flatten_cell(value)
     if isinstance(value, (int, float)):
         if abs(value) >= 100000000:  # 亿
             return f"{value/100000000:.2f}亿{suffix}"

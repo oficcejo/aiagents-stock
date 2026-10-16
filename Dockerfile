@@ -55,6 +55,10 @@ RUN pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple/ &&
     pip config set global.trusted-host pypi.tuna.tsinghua.edu.cn && \
     pip install --no-cache-dir --default-timeout=1000 -r requirements.txt
 
+# 安装 Playwright Chromium（问财选股浏览器引擎依赖；--with-deps 同时装系统依赖库）
+ENV PLAYWRIGHT_DOWNLOAD_HOST=https://npmmirror.com/mirrors/playwright/
+RUN playwright install --with-deps chromium
+
 # 复制项目文件
 COPY . .
 

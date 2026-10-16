@@ -3,9 +3,19 @@
 # 将此文件重命名为 .env 并填写实际配置
 # ============================================
 
-# DeepSeek API配置
-DEEPSEEK_API_KEY=your_deepseek_api_key_here
-DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
+# AI大模型 API配置（必填，支持任意OpenAI兼容平台，不强制使用DeepSeek）
+# 常用平台地址：DeepSeek https://api.deepseek.com/v1
+#              硅基流动 https://api.siliconflow.cn/v1
+#              火山引擎 https://ark.cn-beijing.volces.com/api/v3
+#              阿里百炼 https://dashscope.aliyuncs.com/compatible-mode/v1
+LLM_API_KEY=your_api_key_here
+LLM_BASE_URL=https://api.deepseek.com/v1
+# 模型名称需与所选平台匹配，如 deepseek-chat / Qwen/Qwen2.5-72B-Instruct / qwen-plus
+DEFAULT_MODEL_NAME=deepseek-chat
+
+# 旧变量（可选，仍兼容）：未设置 LLM_* 时自动回退使用
+# DEEPSEEK_API_KEY=your_deepseek_api_key_here
+# DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
 
 # OrcaRouter API配置（可选，设置了 ORCAROUTER_API_KEY 后优先使用 OrcaRouter 引擎）
 # OrcaRouter：https://www.orcarouter.ai | API：https://api.orcarouter.ai/v1
