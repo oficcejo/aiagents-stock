@@ -28,9 +28,9 @@ def check_config():
     """检查配置文件"""
     try:
         import config
-        if not config.DEEPSEEK_API_KEY:
-            print("⚠️  警告: DeepSeek API Key 未配置")
-            print("请在config.py中设置 DEEPSEEK_API_KEY")
+        if not config.LLM_API_KEY:
+            print("⚠️  警告: AI大模型 API Key 未配置")
+            print("请在.env中设置 LLM_API_KEY 和 LLM_BASE_URL（支持任意OpenAI兼容平台）")
             return False
         print("✅ 配置文件检查通过")
         return True
