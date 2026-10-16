@@ -12,11 +12,13 @@ from typing import Dict, List, Optional, Tuple
 import logging
 import os
 
+from utils.data_paths import data_file
+
 
 class LowPriceBullMonitor:
     """低价擒牛策略监控器"""
     
-    def __init__(self, db_path: str = "low_price_bull_monitor.db"):
+    def __init__(self, db_path: str = data_file("low_price_bull_monitor.db")):
         """
         初始化监控器
         

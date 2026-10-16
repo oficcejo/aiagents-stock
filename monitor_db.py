@@ -4,10 +4,12 @@ from datetime import datetime
 from typing import Dict, List, Optional
 import os
 
+from utils.data_paths import data_file
+
 class StockMonitorDatabase:
     """股票监测数据库管理类"""
-    
-    def __init__(self, db_path: str = "stock_monitor.db"):
+
+    def __init__(self, db_path: str = data_file("stock_monitor.db")):
         self.db_path = db_path
         # 确保数据库所在目录存在
         db_dir = os.path.dirname(self.db_path)

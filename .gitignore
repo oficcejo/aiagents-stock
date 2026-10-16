@@ -4,7 +4,9 @@
 /test_pdf_export.py
 /test_pe_pb.py
 /venv
-/__pycache__
+__pycache__/
+# 运行时数据库（挂载持久化目录，不入库）
+data/
 # 环境变量文件
 .env
 /.cursor

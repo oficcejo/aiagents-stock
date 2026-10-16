@@ -10,10 +10,12 @@ from datetime import datetime
 from typing import List, Dict, Optional, Tuple
 import pandas as pd
 
+from utils.data_paths import data_file
+
 class MainForceBatchDatabase:
     """主力选股批量分析历史数据库管理类"""
     
-    def __init__(self, db_path: str = "main_force_batch.db"):
+    def __init__(self, db_path: str = data_file("main_force_batch.db")):
         """初始化数据库连接"""
         self.db_path = db_path
         self._init_database()
