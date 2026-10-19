@@ -15,16 +15,21 @@ class SmartMonitorDeepSeek:
 
     def __init__(self, api_key: str):
         """
-        初始化AI客户端（OrcaRouter 优先，否则 DeepSeek）
+        初始化AI客户端（OrcaRouter 优先，其次 Cheaper Inference，否则 DeepSeek）
 
         Args:
-            api_key: DeepSeek API密钥（未配置 OrcaRouter 时使用）
+            api_key: DeepSeek API密钥（未配置 OrcaRouter / Cheaper Inference 时使用）
         """
         if config.ORCAROUTER_API_KEY:
             self.api_key = config.ORCAROUTER_API_KEY
             self.base_url = config.ORCAROUTER_BASE_URL
             self.default_model = config.ORCAROUTER_MODEL
             self.provider_name = "OrcaRouter"
+        elif getattr(config, "CHEAPER_INFERENCE_API_KEY", ""):
+            self.api_key = config.CHEAPER_INFERENCE_API_KEY
+            self.base_url = config.CHEAPER_INFERENCE_BASE_URL
+            self.default_model = config.CHEAPER_INFERENCE_MODEL
+            self.provider_name = "Cheaper Inference"
         else:
             self.api_key = api_key
             self.base_url = config.DEEPSEEK_BASE_URL

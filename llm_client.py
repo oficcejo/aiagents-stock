@@ -3,6 +3,7 @@ LLM客户端工厂
 
 根据 .env 配置自动选择 AI 引擎：
 - 设置了 ORCAROUTER_API_KEY → 使用 OrcaRouter（命名 OpenAI 兼容网关）
+- 设置了 CHEAPER_INFERENCE_API_KEY → 使用 Cheaper Inference（OpenAI 兼容网关）
 - 否则回落到 DeepSeek（原有默认引擎）
 
 另提供 TypeSafe Jev 结构化决策客户端工厂（与聊天引擎独立）：
@@ -16,7 +17,7 @@ from deepseek_client import DeepSeekClient
 def get_llm_client(model=None):
     """返回当前配置对应的 LLM 客户端。
 
-    优先级：OrcaRouter > NVIDIA NIM > DeepSeek（issue #47）。
+    优先级：OrcaRouter > NVIDIA NIM > Cheaper Inference > DeepSeek（issue #47）。
 
     Args:
         model: 可选的模型名称覆盖，默认从对应 provider 的配置读取。
@@ -30,6 +31,9 @@ def get_llm_client(model=None):
             api_key=config.NVIDIA_API_KEY,
             base_url=getattr(config, 'NVIDIA_BASE_URL', 'https://integrate.api.nvidia.com/v1'),
         )
+    if getattr(config, 'CHEAPER_INFERENCE_API_KEY', ''):
+        from cheaperinference_client import CheaperInferenceClient
+        return CheaperInferenceClient(model=model)
     return DeepSeekClient(model=model)
 
 

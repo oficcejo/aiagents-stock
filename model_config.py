@@ -32,6 +32,8 @@ _preset_models = {
     "deepseek-ai/deepseek-r1": "DeepSeek-R1 (NVIDIA)",
     "mistralai/mistral-large-2-instruct": "Mistral Large 2 (NVIDIA)",
     "nvidia/llama-3.1-nemotron-70b-instruct": "Nemotron 70B (NVIDIA)",
+    # Cheaper Inference（OpenAI 兼容，需配置 CHEAPER_INFERENCE_API_KEY）
+    "gpt-5.4-mini": "GPT-5.4 mini (Cheaper Inference)",
 }
 
 # 获取 .env 中配置的默认模型名称

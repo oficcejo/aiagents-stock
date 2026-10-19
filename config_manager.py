@@ -62,6 +62,24 @@ class ConfigManager:
                 "required": False,
                 "type": "text"
             },
+            "CHEAPER_INFERENCE_API_KEY": {
+                "value": "",
+                "description": "Cheaper Inference API密钥（可选，OpenAI 兼容）",
+                "required": False,
+                "type": "password"
+            },
+            "CHEAPER_INFERENCE_BASE_URL": {
+                "value": "https://api.cheaperinference.com/v1",
+                "description": "Cheaper Inference API地址",
+                "required": False,
+                "type": "text"
+            },
+            "CHEAPER_INFERENCE_MODEL": {
+                "value": "gpt-5.4-mini",
+                "description": "Cheaper Inference模型名称",
+                "required": False,
+                "type": "text"
+            },
             "TDX_ENABLED": {
                 "value": "false",
                 "description": "启用TDX本地行情数据源",
@@ -321,6 +339,7 @@ class ConfigManager:
         has_alt_engine = bool(
             config.get("ORCAROUTER_API_KEY")
             or config.get("NVIDIA_API_KEY")
+            or config.get("CHEAPER_INFERENCE_API_KEY")
         )
 
         # 检查必填项

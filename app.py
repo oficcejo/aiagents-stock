@@ -2428,6 +2428,55 @@ def display_config_manager():
         - `nvidia/llama-3.1-nemotron-70b-instruct`
         """)
 
+        st.markdown("---")
+        st.markdown("### Cheaper Inference API配置（可选）")
+        st.markdown("[Cheaper Inference](https://cheaperinference.com) 是 OpenAI 兼容的 LLM 网关。设置 `CHEAPER_INFERENCE_API_KEY` 后（未设置 OrcaRouter / NVIDIA 时）使用 Cheaper Inference 引擎。")
+        st.markdown("Cheaper Inference: https://api.cheaperinference.com/v1")
+
+        ci_api_key_info = config_info["CHEAPER_INFERENCE_API_KEY"]
+        current_ci_api_key = st.session_state.temp_config.get("CHEAPER_INFERENCE_API_KEY", "")
+        new_ci_api_key = st.text_input(
+            f"🔑 {ci_api_key_info['description']}",
+            value=current_ci_api_key,
+            type="password",
+            help="从 https://cheaperinference.com/signup 获取API密钥",
+            key="input_cheaperinference_api_key"
+        )
+        st.session_state.temp_config["CHEAPER_INFERENCE_API_KEY"] = new_ci_api_key
+
+        if new_ci_api_key:
+            st.success("✅ Cheaper Inference 已配置")
+
+        ci_base_url_info = config_info["CHEAPER_INFERENCE_BASE_URL"]
+        current_ci_base_url = st.session_state.temp_config.get(
+            "CHEAPER_INFERENCE_BASE_URL", "https://api.cheaperinference.com/v1"
+        )
+        new_ci_base_url = st.text_input(
+            f"🌐 {ci_base_url_info['description']}",
+            value=current_ci_base_url,
+            help="一般无需修改",
+            key="input_cheaperinference_base_url"
+        )
+        st.session_state.temp_config["CHEAPER_INFERENCE_BASE_URL"] = new_ci_base_url
+
+        ci_model_info = config_info["CHEAPER_INFERENCE_MODEL"]
+        current_ci_model = st.session_state.temp_config.get("CHEAPER_INFERENCE_MODEL", "gpt-5.4-mini")
+        new_ci_model = st.text_input(
+            f"🤖 {ci_model_info['description']}",
+            value=current_ci_model,
+            help="Cheaper Inference 模型名称，修改后重启生效",
+            key="input_cheaperinference_model"
+        )
+        st.session_state.temp_config["CHEAPER_INFERENCE_MODEL"] = new_ci_model
+
+        st.markdown("""
+        **Cheaper Inference 常用模型：**
+        - `gpt-5.4-mini`（默认）
+        - `deepseek-v4-flash`
+        - `claude-sonnet-5`
+        - `gemini-3.1-pro`
+        """)
+
     with tab2:
         st.markdown("### Tushare数据接口（可选）")
         st.markdown("Tushare提供更丰富的A股财务数据，配置后可以获取更详细的财务分析。")
