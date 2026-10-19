@@ -27,6 +27,14 @@ ORCAROUTER_BASE_URL=https://api.orcarouter.ai/v1
 ORCAROUTER_MODEL=orcarouter/auto
 
 
+# ========== Cheaper Inference API配置（可选）==========
+# 设置了 CHEAPER_INFERENCE_API_KEY 后（未设置 OrcaRouter 时），系统将使用 Cheaper Inference 作为 AI 引擎
+# Cheaper Inference：https://cheaperinference.com | API：https://api.cheaperinference.com/v1
+CHEAPER_INFERENCE_API_KEY=
+CHEAPER_INFERENCE_BASE_URL=https://api.cheaperinference.com/v1
+CHEAPER_INFERENCE_MODEL=gpt-5.4-mini
+
+
 # ========== Tushare数据接口（可选）==========
 # Tushare Token（可选，用于获取更多金融数据）
 # 获取地址：https://tushare.pro/register

@@ -154,6 +154,12 @@ DEFAULT_MODEL_NAME=deepseek-chat
 ORCAROUTER_API_KEY=
 ORCAROUTER_BASE_URL=https://api.orcarouter.ai/v1
 ORCAROUTER_MODEL=orcarouter/auto
+
+# ===== 可选：Cheaper Inference（OpenAI 兼容网关）=====
+# 设置后（未设 OrcaRouter / NVIDIA 时）优先于 DeepSeek | https://cheaperinference.com
+CHEAPER_INFERENCE_API_KEY=
+CHEAPER_INFERENCE_BASE_URL=https://api.cheaperinference.com/v1
+CHEAPER_INFERENCE_MODEL=gpt-5.4-mini
 ```
 
 ### 2. TypeSafe Jev 结构化决策（可选，不配置则功能关闭）

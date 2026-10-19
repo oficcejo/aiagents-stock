@@ -13,6 +13,7 @@ def reload_from_env():
     global DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
     global ORCAROUTER_API_KEY, ORCAROUTER_BASE_URL, ORCAROUTER_MODEL
     global NVIDIA_API_KEY, NVIDIA_BASE_URL
+    global CHEAPER_INFERENCE_API_KEY, CHEAPER_INFERENCE_BASE_URL, CHEAPER_INFERENCE_MODEL
     global DEFAULT_MODEL_NAME
     global TYPESAFE_API_KEY, TYPESAFE_BASE_URL, TYPESAFE_MODEL
     global TYPESAFE_TIMEOUT_SEC, JEV_MIN_CONFIDENCE, JEV_ALERT_MIN_CONFIDENCE
@@ -29,6 +30,10 @@ def reload_from_env():
 
     NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY", "")
     NVIDIA_BASE_URL = os.getenv("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1")
+
+    CHEAPER_INFERENCE_API_KEY = os.getenv("CHEAPER_INFERENCE_API_KEY", "")
+    CHEAPER_INFERENCE_BASE_URL = os.getenv("CHEAPER_INFERENCE_BASE_URL", "https://api.cheaperinference.com/v1")
+    CHEAPER_INFERENCE_MODEL = os.getenv("CHEAPER_INFERENCE_MODEL", "gpt-5.4-mini")
 
     DEFAULT_MODEL_NAME = os.getenv(
         "DEFAULT_MODEL_NAME",
@@ -69,6 +74,11 @@ ORCAROUTER_MODEL = os.getenv("ORCAROUTER_MODEL", "orcarouter/auto")
 # NVIDIA NIM API配置（可选，OpenAI 兼容；设置了 NVIDIA_API_KEY 后可作为 AI 引擎，issue #47）
 NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY", "")
 NVIDIA_BASE_URL = os.getenv("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1")
+
+# Cheaper Inference API配置（可选，OpenAI 兼容；设置了 CHEAPER_INFERENCE_API_KEY 后可作为 AI 引擎）
+CHEAPER_INFERENCE_API_KEY = os.getenv("CHEAPER_INFERENCE_API_KEY", "")
+CHEAPER_INFERENCE_BASE_URL = os.getenv("CHEAPER_INFERENCE_BASE_URL", "https://api.cheaperinference.com/v1")
+CHEAPER_INFERENCE_MODEL = os.getenv("CHEAPER_INFERENCE_MODEL", "gpt-5.4-mini")
 
 # 默认AI模型名称（支持任何OpenAI兼容的模型）
 # 设置了 ORCAROUTER_API_KEY 时，默认模型自动落到 OrcaRouter 的配置模型

@@ -13,6 +13,12 @@ ORCAROUTER_API_KEY=
 ORCAROUTER_BASE_URL=https://api.orcarouter.ai/v1
 ORCAROUTER_MODEL=orcarouter/auto
 
+# Cheaper Inference API配置（可选，OpenAI 兼容网关；设置了 CHEAPER_INFERENCE_API_KEY 后可作为 AI 引擎）
+# Cheaper Inference：https://cheaperinference.com | API：https://api.cheaperinference.com/v1
+CHEAPER_INFERENCE_API_KEY=
+CHEAPER_INFERENCE_BASE_URL=https://api.cheaperinference.com/v1
+CHEAPER_INFERENCE_MODEL=gpt-5.4-mini
+
 # TypeSafe Jev 结构化决策引擎配置（可选，设置了 TYPESAFE_API_KEY 后启用；
 # 用于最终决策/新闻情绪/批量打分的结构化收口，失败自动降级 DeepSeek，不配置则功能关闭）
 # 获取地址：https://console.typesafe.ai/keys | 文档：https://docs.typesafe.ai/introduction
